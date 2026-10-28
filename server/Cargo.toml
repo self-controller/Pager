@@ -1,0 +1,65 @@
+[package]
+name = "pager-server"
+version = "0.1.0"
+edition = "2021"
+description = "Local backend for Pager: point it at a file, read it in its own structure, and keep what you do with it."
+publish = false
+
+[lib]
+name = "pager_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "pager-server"
+path = "src/bin/pager-server.rs"
+
+[[bin]]
+name = "pager"
+path = "src/bin/pager.rs"
+
+[dependencies]
+axum = { version = "0.8", features = ["multipart"] }
+tokio = { version = "1", features = ["full"] }
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+bytes = "1"
+futures = "0.3"
+async-stream = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+rusqlite = { version = "0.41", features = ["bundled"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
+comrak = { version = "0.59", default-features = false }
+notify = "8"
+html-escape = "0.3"
+encoding_rs = "0.8"
+unicode-normalization = "0.1"
+regex = "1"
+sha2 = "0.11"
+getrandom = "0.3"
+time = { version = "0.3", features = ["formatting", "parsing", "macros"] }
+url = "2"
+percent-encoding = "2"
+memchr = "2"
+base64 = "0.22"
+subtle = "2"
+hex = "0.4"
+# Phones over iroh: the endpoint, tickets for the QR link, and relay configuration.
+iroh = "1"
+iroh-base = "1"
+iroh-tickets = "1"
+
+[dev-dependencies]
+tempfile = "3"
+proptest = "1"
+
+[profile.release]
+opt-level = 3
+debug = false
+
+# opt-level 1 keeps the parsers and anchoring usable in tests; trimmed debug info and no
+# incremental cache keep the build directory under a gigabyte instead of several.
+[profile.dev]
+opt-level = 1
+debug = "line-tables-only"
+incremental = false

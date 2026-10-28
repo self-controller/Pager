@@ -1,0 +1,38 @@
+{
+  "parserVersion": 3,
+  "books": {
+    "pg1342.epub": {
+      "sections": 65,
+      "first": "Project Gutenberg header",
+      "last": "Project Gutenberg licence",
+      "chapterTitles": [
+        "Chapter I",
+        "Chapter XXXIV",
+        "Chapter LXI"
+      ],
+      "textHash": "46ad1460d23fba9cf9efc7e7db3dd4fae1f2409234427cfeabdef7d8ec6e5540"
+    },
+    "pg64317.epub": {
+      "sections": 13,
+      "first": "Project Gutenberg header",
+      "last": "Project Gutenberg licence",
+      "chapterTitles": [
+        "I",
+        "V",
+        "IX"
+      ],
+      "textHash": "334d7b996272588ae90c184234d7e8cc923ba4940aec23122279918408e74495"
+    },
+    "pg84.epub": {
+      "sections": 33,
+      "first": "Project Gutenberg header",
+      "last": "Project Gutenberg licence",
+      "chapterTitles": [
+        "Letter 1",
+        "Chapter 1",
+        "Chapter 24"
+      ],
+      "textHash": "16f31ddfc612c6cde55162871525d01bc7dcf713b350dceb1ee15e3ea8af5d82"
+    }
+  }
+}

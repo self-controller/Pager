@@ -1,0 +1,9 @@
+#!/bin/sh
+# Pager's command line: `pager <file>`. Runs the Rust binary in server/, building it first when
+# it is missing or older than the sources (needs a stable Rust toolchain: https://rustup.rs).
+here=$(cd "$(dirname "$0")/.." && pwd)
+bin="$here/server/target/release/pager"
+if [ ! -x "$bin" ] || [ -n "$(find "$here/server/src" "$here/server/Cargo.toml" -newer "$bin" -print -quit)" ]; then
+  cargo build --release --quiet --manifest-path "$here/server/Cargo.toml" || exit 1
+fi
+exec "$bin" "$@"

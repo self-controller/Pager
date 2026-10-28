@@ -1,0 +1,363 @@
+/*
+ * Reading surface typography, applied to `.markup` (the document body) inside the paged reader.
+ */
+
+.markup {
+  font-family: var(--font-body);
+  font-size: var(--font-size-body);
+  font-weight: 400;
+  color: var(--fg-primary);
+  hanging-punctuation: allow-end;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.markup > :first-child {
+  margin-top: 0;
+}
+
+.markup p {
+  line-height: 1.6em;
+  margin: 0 0 20px;
+}
+
+.markup h1,
+.markup h2,
+.markup h3,
+.markup h4,
+.markup h5,
+.markup h6 {
+  font-family: var(--font-title);
+  font-weight: 700;
+  color: var(--fg-primary);
+  margin: 1em 0 0.625em;
+  line-height: 1.16em;
+  overflow-wrap: break-word;
+  word-break: keep-all;
+  unicode-bidi: plaintext;
+}
+.markup h1 {
+  font-size: 2em;
+}
+.markup h2 {
+  font-size: 1.625em;
+}
+.markup h3 {
+  font-size: 1.375em;
+}
+.markup h4 {
+  font-size: 1.125em;
+}
+.markup h5,
+.markup h6 {
+  font-size: 1em;
+}
+
+.markup a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.markup a:hover {
+  text-decoration: underline;
+}
+
+.markup strong,
+.markup b {
+  font-weight: 700;
+}
+
+.markup blockquote {
+  border-left: 4px solid var(--accent);
+  margin: 20px 0;
+  padding: 0;
+}
+.markup blockquote > * {
+  margin-left: 20px;
+}
+
+.markup hr {
+  margin: 32px 0;
+  padding: 0;
+  height: 1px;
+  background: var(--detail);
+  border: 0;
+}
+
+.markup ul,
+.markup ol {
+  margin-top: 0;
+  margin-bottom: 20px;
+  padding: 0;
+}
+.markup ul {
+  list-style: disc;
+}
+.markup ol {
+  list-style: decimal;
+}
+.markup li {
+  margin: 8px 0 0 32px;
+  line-height: 1.6em;
+  unicode-bidi: plaintext;
+}
+.markup li p {
+  margin-bottom: 0;
+  padding-left: 4px;
+}
+
+.markup pre {
+  background: var(--bg-secondary);
+  padding: 20px;
+  margin: 0 0 20px;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+.markup code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75em;
+  background: var(--bg-secondary);
+  padding: 2px 4px;
+  border-radius: var(--radius-xs);
+}
+.markup pre code {
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 500;
+  background: transparent;
+  padding: 0;
+}
+
+.markup img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+.markup figure {
+  margin: 32px 0;
+}
+.markup figcaption {
+  color: var(--fg-secondary);
+  font-family: var(--font-ui);
+  font-size: calc(14px + var(--font-size-offset));
+  line-height: 20px;
+  text-align: center;
+  margin-top: 8px;
+}
+
+.markup table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 20px;
+  font-size: 0.85em;
+}
+.markup th,
+.markup td {
+  border-bottom: 1px solid var(--detail);
+  padding: 8px;
+  text-align: left;
+}
+
+.markup .pullquote {
+  border-top: 1px solid var(--detail);
+  border-bottom: 1px solid var(--detail);
+  margin: 32px auto;
+}
+.markup .pullquote p {
+  margin: 32px 0;
+  text-align: center;
+  font-weight: 500;
+  font-style: italic;
+}
+
+.markup .footnote {
+  display: flex;
+  border-top: 1px solid var(--detail);
+  padding-top: 1.5em;
+  font-size: 90%;
+  align-items: baseline;
+}
+.markup .footnote ~ .footnote {
+  border-top: none;
+  padding-top: 0;
+}
+
+/* ---- Pages: the section flows into one-page-wide columns inside .reader-scroller ---- */
+
+.reader-scroller {
+  height: 100%;
+  overflow: hidden;
+  column-fill: auto;
+  /* column-width and column-gap are set inline from the measured page */
+}
+.reader-scroller > .markup > :last-child {
+  margin-bottom: 0;
+}
+.reader-scroller .markup img {
+  max-height: calc(var(--page-h, 100vh) - 2em);
+  width: auto;
+}
+.reader-scroller .markup figure,
+.reader-scroller .markup pre,
+.reader-scroller .markup table,
+.reader-scroller .markup tr,
+.reader-scroller .markup .pullquote,
+.reader-scroller .markup .footnote,
+.reader-scroller .markup .note {
+  break-inside: avoid;
+}
+.reader-scroller .markup h1,
+.reader-scroller .markup h2,
+.reader-scroller .markup h3,
+.reader-scroller .markup h4,
+.reader-scroller .markup h5,
+.reader-scroller .markup h6 {
+  break-after: avoid;
+}
+.reader-scroller .markup p,
+.reader-scroller .markup li {
+  orphans: 2;
+  widows: 2;
+}
+
+/* The title page: the first page of every document, outside the section body. */
+.title-page {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  height: 100%;
+  break-after: column;
+  padding-bottom: 8%;
+}
+.title-page-title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-weight: 600;
+  font-size: clamp(30px, 4.5vw, 44px);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--fg-primary);
+  overflow-wrap: break-word;
+}
+.title-page-subtitle {
+  margin: 14px 0 0;
+  font-family: var(--font-title);
+  font-style: italic;
+  font-size: clamp(18px, 2.2vw, 22px);
+  line-height: 1.3;
+  color: var(--fg-secondary);
+}
+.title-page-author {
+  margin: 28px 0 0;
+  font-family: var(--font-title);
+  font-size: 19px;
+  line-height: 26px;
+  color: var(--fg-primary);
+}
+.title-page-meta {
+  margin: 6px 0 0;
+  font-family: var(--font-meta);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--fg-secondary);
+}
+
+/* ---- Backend block markup (see API.md) ---- */
+
+/* A leading heading that repeats the header title. Hidden, not removed, so textContent offsets hold. */
+.markup > .is-duplicate-title {
+  display: none;
+}
+
+.markup [tabindex="-1"]:focus {
+  box-shadow: none;
+}
+
+.markup a.internal {
+  color: var(--accent);
+}
+
+/* Footnote references and the notes list at the end of a section. */
+.markup sup.noteref {
+  font-size: 0.65em;
+  line-height: 0;
+  vertical-align: super;
+  margin-left: 2px;
+}
+.markup sup.noteref a {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  color: var(--accent);
+  padding: 0 2px;
+}
+.markup section.notes {
+  margin-top: 40px;
+  padding-top: 1.5em;
+  border-top: 1px solid var(--detail);
+  font-size: 0.85em;
+}
+.markup .note {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.markup .note p {
+  margin-bottom: 12px;
+}
+.markup .note-label {
+  min-width: 24px;
+  font-family: var(--font-ui);
+  font-size: 0.8em;
+  font-weight: 600;
+  color: var(--fg-secondary);
+}
+
+/* Centred blocks (figures, title pages, verse headings) arrive as .align-center. */
+.markup .align-center {
+  text-align: center;
+}
+
+/* ---- Highlights: CSS Custom Highlight API (no wrapping elements; offsets stay valid) ---- */
+::highlight(reader-yellow) {
+  background-color: var(--hl-yellow);
+}
+::highlight(reader-green) {
+  background-color: var(--hl-green);
+}
+::highlight(reader-blue) {
+  background-color: var(--hl-blue);
+}
+::highlight(reader-pink) {
+  background-color: var(--hl-pink);
+}
+::highlight(reader-purple) {
+  background-color: var(--hl-purple);
+}
+::highlight(reader-underline-yellow) {
+  text-decoration: underline 2px var(--hl-yellow-line);
+}
+::highlight(reader-underline-green) {
+  text-decoration: underline 2px var(--hl-green-line);
+}
+::highlight(reader-underline-blue) {
+  text-decoration: underline 2px var(--hl-blue-line);
+}
+::highlight(reader-underline-pink) {
+  text-decoration: underline 2px var(--hl-pink-line);
+}
+::highlight(reader-underline-purple) {
+  text-decoration: underline 2px var(--hl-purple-line);
+}
+/* The words changed a little since this was marked (anchor.status "fuzzy"). */
+::highlight(reader-fuzzy) {
+  text-decoration: underline dotted 1.5px var(--fg-secondary);
+}
+/* The highlight open in the popover. */
+::highlight(reader-active) {
+  background-color: var(--hl-active);
+}

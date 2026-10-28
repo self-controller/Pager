@@ -1,0 +1,158 @@
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./prose.css";
+
+/* Dark mode follows the data-theme attribute (set before paint in index.html). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Radii and type scale: static so the CSS variables always exist for plain CSS too. */
+@theme static {
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+}
+
+/* Tailwind utilities point at the runtime tokens, so light/dark switch without rebuilds. */
+@theme inline {
+  --color-fg: var(--fg-primary);
+  --color-fg-2: var(--fg-secondary);
+  --color-fg-3: var(--fg-tertiary);
+  --color-surface: var(--bg-primary);
+  --color-surface-hover: var(--bg-primary-hover);
+  --color-surface-2: var(--bg-secondary);
+  --color-surface-3: var(--bg-tertiary);
+  --color-elevated: var(--bg-elevated);
+  --color-detail: var(--detail);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-bg: var(--accent-bg);
+  --color-on-accent: var(--on-accent);
+  --color-scrim: var(--modal-scrim);
+  --color-error: var(--error);
+  --color-select: var(--select);
+
+  --font-sans: var(--font-ui);
+  --font-display: var(--font-title);
+  --font-byline: var(--font-meta);
+  --font-serif: var(--font-spectral);
+  --font-reading: var(--font-body);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg-primary);
+    color: var(--fg-primary);
+    font-family: var(--font-ui);
+    font-size: 16px;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--accent-bg);
+  }
+
+  /* No outline; a layered box-shadow ring on keyboard focus only. */
+  :focus {
+    outline: none;
+  }
+  :focus-visible {
+    box-shadow: var(--focus-ring);
+  }
+
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: default;
+  }
+}
+
+@layer utilities {
+  .transition-hover {
+    transition: var(--animate-hover);
+  }
+  .pressable:active {
+    transform: var(--pressed);
+  }
+  .scrollbar-hidden {
+    scrollbar-width: none;
+  }
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+  .skeleton {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-xs);
+    animation: skeleton-pulse 2s ease-in-out infinite;
+  }
+  .elevation {
+    box-shadow:
+      0 0 0 1px var(--detail),
+      0 8px 24px rgb(0 0 0 / 0.08),
+      0 2px 6px rgb(0 0 0 / 0.04);
+  }
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+/* Stable tinted placeholders (generated covers). --hue is set inline; kept low in saturation to sit on paper. */
+.tint {
+  background: hsl(var(--hue, 30) 24% 86%);
+  color: hsl(var(--hue, 30) 28% 24%);
+}
+[data-theme="dark"] .tint {
+  background: hsl(var(--hue, 30) 14% 26%);
+  color: hsl(var(--hue, 30) 26% 86%);
+}
+
+/* A faint paper grain over the light theme. Fixed, non-interactive, and off in dark mode. */
+[data-theme="light"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+
+/* Stretched link: the whole row is clickable while nested buttons stay real buttons. */
+.stretched-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  transition: var(--animate-hover);
+}
+.stretched-link:focus-visible {
+  box-shadow: none;
+}
+.stretched-link:focus-visible::after {
+  box-shadow: var(--focus-ring);
+}

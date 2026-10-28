@@ -1,0 +1,169 @@
+/*
+ * Design tokens for Pager: paper and ink in the light theme, dark sepia in the dark theme, with a
+ * saddle-brown accent. Layout sizes, type and motion follow. See DESIGN.md for the reasoning behind
+ * each value. Change the accent here and the whole app follows.
+ */
+
+:root,
+[data-theme="light"] {
+  /* Paper scale (backgrounds) and ink scale (text) */
+  --paper-50: #faf6ee;
+  --paper-100: #f4ede0;
+  --paper-200: #ebe1cf;
+  --paper-300: #ddd0b8;
+  --paper-400: #c4b394;
+  --ink-900: #2a211a;
+  --ink-600: #6b5a4a;
+  --ink-400: #a8977f;
+
+  /* Accent: saddle brown */
+  --accent: #7a4f2a;
+  --accent-hover: #5e3b1e;
+  --accent-bg: rgb(122 79 42 / 0.16);
+  --accent-bg-hover: rgb(122 79 42 / 0.26);
+  --on-accent: #fbf5e9;
+
+  /* Semantic */
+  --fg-primary: var(--ink-900);
+  --fg-secondary: var(--ink-600);
+  --fg-tertiary: var(--ink-400);
+  --bg-primary: var(--paper-50);
+  --bg-primary-hover: var(--paper-100);
+  --bg-secondary: var(--paper-200);
+  --bg-tertiary: var(--paper-300);
+  --bg-quaternary: var(--paper-400);
+  --bg-elevated: #fffdf8;
+  --detail: rgb(60 40 20 / 0.12);
+  --modal-scrim: rgb(42 33 26 / 0.5);
+  --tooltip-bg: var(--ink-900);
+  --tooltip-fg: var(--paper-50);
+  --select: #4f6b8a;
+  --error: #a83a2a;
+
+  /* Buttons (primary / secondary / tertiary / quaternary) */
+  --button-primary-bg: var(--accent);
+  --button-primary-bg-hover: var(--accent-hover);
+  --button-primary-fg: var(--on-accent);
+  --button-secondary-bg: var(--bg-secondary);
+  --button-secondary-bg-hover: var(--bg-tertiary);
+  --button-secondary-fg: var(--fg-primary);
+  --button-tertiary-bg-hover: var(--bg-secondary);
+  --button-tertiary-fg: var(--fg-primary);
+  --button-quaternary-fg: var(--fg-secondary);
+  --button-quaternary-fg-hover: var(--fg-primary);
+
+  /* Highlight colours (painted with the CSS Custom Highlight API, see prose.css) */
+  --hl-yellow: rgb(232 190 40 / 0.4);
+  --hl-green: rgb(90 160 90 / 0.3);
+  --hl-blue: rgb(70 120 190 / 0.24);
+  --hl-pink: rgb(200 90 130 / 0.24);
+  --hl-purple: rgb(130 90 190 / 0.24);
+  --hl-yellow-line: #c9a227;
+  --hl-green-line: #4f8f4f;
+  --hl-blue-line: #466fb0;
+  --hl-pink-line: #b5557f;
+  --hl-purple-line: #7d5bb3;
+  --hl-active: rgb(122 79 42 / 0.3);
+
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --fg-primary: #e9dfcf;
+  --fg-secondary: #a89880;
+  --fg-tertiary: #7a6a58;
+  --bg-primary: #1c1713;
+  --bg-primary-hover: #221c17;
+  --bg-secondary: #2a2219;
+  --bg-tertiary: #362c21;
+  --bg-quaternary: #5a4a3a;
+  --bg-elevated: #241e18;
+  --detail: rgb(233 223 207 / 0.12);
+  --modal-scrim: rgb(0 0 0 / 0.6);
+  --tooltip-bg: #e9dfcf;
+  --tooltip-fg: #1c1713;
+  --select: #7f9cbf;
+  --error: #e07b6a;
+
+  --accent: #c2905d;
+  --accent-hover: #d4a572;
+  --accent-bg: rgb(194 144 93 / 0.22);
+  --accent-bg-hover: rgb(194 144 93 / 0.32);
+  --on-accent: #1c1713;
+
+  --button-secondary-bg: var(--bg-secondary);
+  --button-secondary-bg-hover: var(--bg-tertiary);
+
+  --hl-yellow: rgb(232 190 40 / 0.3);
+  --hl-green: rgb(90 170 100 / 0.28);
+  --hl-blue: rgb(90 140 210 / 0.28);
+  --hl-pink: rgb(220 110 150 / 0.26);
+  --hl-purple: rgb(160 120 220 / 0.28);
+  --hl-active: rgb(194 144 93 / 0.35);
+
+  color-scheme: dark;
+}
+
+:root {
+  /* Type: Spectral for reading and titles, the system stack for chrome. */
+  --font-ui:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol";
+  --font-spectral: "Spectral", Georgia, serif;
+  --font-title: var(--font-spectral);
+  --font-meta: var(--font-ui);
+  --font-body: var(--font-spectral); /* switched to --font-ui by the reader's serif/sans setting */
+
+  /* Body size: 19px desktop, 17px at <=768px, plus the reader's own offset. */
+  --font-size-body-base: 19px;
+  --font-size-offset: 0px;
+  --font-size-body: max(16px, calc(var(--font-size-body-base) + var(--font-size-offset)));
+
+  /* Radii live in globals.css @theme so Tailwind's rounded-* use them. */
+
+  /* Motion */
+  --ease-smooth: cubic-bezier(0.19, 1, 0.22, 1);
+  --duration-fast: 0.25s;
+  --pressed: scale(0.995);
+  --animate-hover:
+    color var(--duration-fast) var(--ease-smooth), background-color var(--duration-fast) var(--ease-smooth),
+    box-shadow var(--duration-fast) var(--ease-smooth), border var(--duration-fast) var(--ease-smooth),
+    opacity var(--duration-fast) var(--ease-smooth), transform var(--duration-fast) var(--ease-smooth);
+
+  /* Focus ring */
+  --focus-ring: 0 0 0 2px var(--bg-primary), 0 0 0 3px var(--accent), 0 0 0 5px var(--accent-bg);
+
+  /* Layout */
+  --size-left-nav: 232px;
+  --size-left-rail: 80px;
+  --size-center: 600px;
+  --size-library: 1040px;
+  --size-reader: 728px;
+  --size-top-bar: 72px;
+  --size-page-footer: 44px;
+  --size-bottom-nav: 56px;
+  --size-bottom-nav-effective: 0px;
+  --size-tool-panel: 360px;
+}
+
+@media (max-width: 1023px) {
+  :root {
+    --size-left-nav: var(--size-left-rail);
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --size-left-nav: 0px;
+    --size-top-bar: 56px;
+    --size-bottom-nav-effective: var(--size-bottom-nav);
+    --font-size-body-base: 17px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0s;
+    --pressed: none;
+  }
+}
