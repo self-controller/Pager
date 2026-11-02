@@ -55,17 +55,24 @@ export interface AppSettings {
   idleShutdownMinutes: number;
   /**
    * Reading from a paired phone: over iroh (the computer's endpoint, dialled by ID), and until the
-   * cut-over through a second loopback listener (PAGER_REMOTE_PORT, 3007) behind Tailscale. Off by default.
+   * cut-over through a second loopback listener (PAGER_REMOTE_PORT, 3007) behind Tailscale, which runs
+   * only while `origin` is set. Off by default.
    */
   remote: {
     enabled: boolean;
     /**
-     * The exact HTTPS origin the phone uses over Tailscale, e.g. https://fedora.tail1234.ts.net. The
-     * QR link and the CSRF check use it; the server never guesses it from Host. Required to enable.
+     * The exact HTTPS origin the phone uses over Tailscale, e.g. https://fedora.tail1234.ts.net, or null.
+     * Optional: only the Tailscale path uses it (its QR link and CSRF check); the server never guesses
+     * it from Host.
      */
     origin: string | null;
     /** Your own iroh relay (https://...), or null for n0's public relays. A change restarts the endpoint. */
     relay: string | null;
+    /**
+     * The bearer token your relay asks for (iroh-relay's `access.shared_token`), or null. Needs `relay`;
+     * clearing `relay` clears it. The pairing link carries it (`rt`) so phones can use the relay too.
+     */
+    relayToken: string | null;
   };
 }
 

@@ -4,23 +4,35 @@ import { useQueryClient } from "@tanstack/react-query";
 import { FileQuestion, Link2 } from "lucide-react";
 import { api } from "@/api";
 import { queryKeys, useDocument, useSaveProgress, useSection } from "@/api/hooks";
-import { ApiError, ErrorCodes, type ProgressUpdate } from "@/api/types";
+import { ApiError, ErrorCodes, type ProgressUpdate, type Section } from "@/api/types";
 import { AnnotationPopover, FloatingPanel, NoteEditor } from "@/components/reader/AnnotationPopover";
+import { BackPill } from "@/components/reader/BackPill";
+import { FootnotePopover, useFootnotes } from "@/components/reader/FootnotePopover";
 import { PagedView } from "@/components/reader/PagedView";
 import { PageFooter } from "@/components/reader/PageFooter";
+import { usePageDwell, useSectionWords } from "@/components/reader/readingSpeed";
 import { ReaderBody, ReaderBodySkeleton, type InternalTarget } from "@/components/reader/ReaderBody";
 import { ReaderTopBar } from "@/components/reader/ReaderTopBar";
+import { ScrollView, type PaneRole } from "@/components/reader/ScrollView";
 import { SelectionMenu } from "@/components/reader/SelectionMenu";
 import { TitlePage } from "@/components/reader/TitlePage";
 import { sectionHref, TocDrawer } from "@/components/reader/TocDrawer";
 import { ToolPanel } from "@/components/reader/ToolPanel";
+import { useJumpHistory } from "@/components/reader/useJumpHistory";
+import type { ReaderLayout } from "@/components/reader/layout";
+import { KEY_LINE_PX, pageStep } from "@/components/reader/pagination";
+import { useChapterScroll } from "@/components/reader/useChapterScroll";
 import { usePagination } from "@/components/reader/usePagination";
+import { useNativeMenu } from "@/components/reader/useNativeMenu";
 import { useReaderAnnotations } from "@/components/reader/useReaderAnnotations";
+import { useReaderChrome, useScrollChrome } from "@/components/reader/useReaderChrome";
 import { findTarget, showTarget, useReadingProgress } from "@/components/reader/useReadingProgress";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ServiceError } from "@/components/ui/ServiceError";
+import { cx } from "@/lib/cx";
+import { isNativeApp } from "@/lib/native";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { updateSettings, useSettings } from "@/state/settings";
 import { useSelection } from "@/tools/useSelection";
@@ -34,7 +46,14 @@ function isTyping(target: EventTarget | null): boolean {
 }
 
 type Reattach = { id: string; docId: string; quote: string };
-type NavState = { jump?: boolean; page?: number | "last"; reattach?: Reattach } | null;
+const noop = () => {};
+type NavState = {
+  jump?: boolean;
+  page?: number | "last";
+  /** The back pill's place in another chapter: opened there, on the page holding these words. */
+  point?: { blockId: string; offset: number };
+  reattach?: Reattach;
+} | null;
 
 export function ReaderPage() {
   const { docId, sectionId: routeSectionId } = useParams();
@@ -47,6 +66,12 @@ export function ReaderPage() {
   const [tocOpen, setTocOpen] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
+  // The scroll layout: its live pane, the neighbours' bodies beside it, and its turn.
+  const chapterScrollerRef = useRef<HTMLDivElement>(null);
+  const prevBodyRef = useRef<HTMLDivElement>(null);
+  const nextBodyRef = useRef<HTMLDivElement>(null);
+  const turnRef = useRef<((direction: 1 | -1) => void) | null>(null);
+  const scrollMode = settings.layout === "scroll";
 
   const docQuery = useDocument(docId);
   const doc = docQuery.data;
@@ -55,32 +80,66 @@ export function ReaderPage() {
   const section = sectionQuery.data;
   const isBook = Boolean(doc && doc.toc.length > 1);
   const hasTitlePage = section?.index === 0;
+  // The scroll layout keeps both neighbours rendered, for a turn to slide in: null when there is none.
+  const prevQuery = useSection(docId, scrollMode ? section?.prevId : undefined);
+  const nextQuery = useSection(docId, scrollMode ? section?.nextId : undefined);
+  const prevSection = section?.prevId ? prevQuery.data : null;
+  const nextSection = section?.nextId ? nextQuery.data : null;
 
   // The side-by-side panel remembers being open; on narrow screens it is a sheet opened on demand.
   const [sheetOpen, setSheetOpen] = useState(false);
   const toolsOpen = wide ? settings.toolPanelOpen : sheetOpen;
-  const setToolsOpen = useCallback((open: boolean) => (wide ? updateSettings({ toolPanelOpen: open }) : setSheetOpen(open)), [wide]);
+  const setToolsOpen = useCallback(
+    (open: boolean) => (wide ? updateSettings({ toolPanelOpen: open }) : setSheetOpen(open)),
+    [wide],
+  );
 
-  const pager = usePagination(scrollerRef, section ? `${section.id}:${section.revisionId ?? ""}:${section.html.length}:${hasTitlePage}` : "", [
-    settings.fontOffset,
-    settings.typeface,
-  ]);
+  // Arriving from "Couldn't find these" → Reattach: the next selection moves that highlight.
+  const [reattach, setReattach] = useState<Reattach | null>(() => navState?.reattach ?? null);
+  useEffect(() => {
+    const next = navState?.reattach;
+    if (next) setReattach(next);
+  }, [navState?.reattach]);
+
+  // Both layouts are always called; the one not shown gets no content and stays idle.
+  const contentKey = section ? `${section.id}:${section.revisionId ?? ""}:${section.html.length}:${hasTitlePage}` : "";
+  const typeDeps = [settings.fontOffset, settings.typeface];
+  const pager = usePagination(scrollerRef, scrollMode ? "" : contentKey, typeDeps, settings.pageTurn);
+  const [chrome, setChrome] = useReaderChrome(docId, scrollMode ? "scroll" : "paged");
+  // In the scroll layout the chrome follows the scroll; not while the reattach banner asks for a selection.
+  const scrollChrome = useScrollChrome(setChrome, scrollMode && !reattach);
+  const chapter = useChapterScroll(chapterScrollerRef, scrollMode ? contentKey : "", typeDeps, scrollChrome.onScroll);
+  const layout: ReaderLayout = scrollMode ? chapter : pager;
   const pagerRef = useRef(pager);
   pagerRef.current = pager;
+  const chapterRef = useRef(chapter);
+  chapterRef.current = chapter;
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
 
   const saveProgress = useSaveProgress(docId);
   const save = useCallback((u: ProgressUpdate) => saveProgress.mutate(u), [saveProgress.mutate]);
-  const { percent } = useReadingProgress({
+  const { percent, placed } = useReadingProgress({
     section,
     sectionCount: doc?.toc.length ?? 1,
     initial: doc?.progress,
     bodyRef,
-    pager,
+    layout,
     save,
     targetId: hash.length > 1 ? decodeURIComponent(hash.slice(1)) : undefined,
     arrivedByJump: Boolean(navState?.jump),
     initialPage: navState?.page,
+    initialPoint: navState?.point,
   });
+  const jumps = useJumpHistory({ docId, section, layout, bodyRef, placed, navigate });
+  const footnotes = useFootnotes({ docId, doc, section, bodyRef });
+
+  // The footer's time estimates: the section's words, and a reading speed learned from page turns
+  // (screenfuls scrolled, in the scroll layout; a new section, text, layout or page count starts the
+  // timing afresh).
+  const layoutKey = section && layout.version ? `${layout.kind}:${section.id}:${section.html.length}:${layout.pageCount}` : "";
+  const sectionWords = useSectionWords(bodyRef, layoutKey);
+  usePageDwell(layoutKey, layout.page, sectionWords / layout.pageCount);
 
   // The URL names the open section. After an edit to the file, an old section id resolves to the
   // section now holding its text; a bare /read/<doc> is pinned where it opened, so a place saved on
@@ -91,55 +150,143 @@ export function ReaderPage() {
     }
   }, [docId, section, routeSectionId, hash, navigate, navState]);
 
-  // Links inside the text: same-section targets turn to their page; other sections open at the block.
-  const onInternalLink = useCallback(
+  // Jumps inside the document: same-section targets turn to their page; other sections open at the
+  // block. Each remembers where it left from, for the back pill.
+  const { record } = jumps;
+  const jumpTo = useCallback(
     ({ id, sectionId: targetSection }: InternalTarget) => {
       if (!docId) return;
       if (targetSection && targetSection !== section?.id) {
+        record(targetSection);
         navigate(`${sectionHref(docId, targetSection)}#${encodeURIComponent(id)}`, { state: { jump: true } });
         return;
       }
       const target = bodyRef.current ? findTarget(bodyRef.current, id) : null;
-      if (target) showTarget(target, pagerRef.current);
+      if (!target) return;
+      if (!layoutRef.current.inView(target)) record();
+      showTarget(target, layoutRef.current);
     },
-    [docId, section?.id, navigate],
+    [docId, section?.id, navigate, record],
   );
 
-  /** A page forward or back; past the section's last page, the next chapter's first (and the reverse). */
+  // Links inside the text: a note reference opens its note in place; anything else jumps.
+  const { open: openNote, close: closeNote } = footnotes;
+  const onInternalLink = useCallback(
+    (target: InternalTarget, link: HTMLAnchorElement) => {
+      if (!openNote(target, link)) jumpTo(target);
+    },
+    [openNote, jumpTo],
+  );
+
+  /**
+   * A page forward or back; past the section's last page, the next chapter's first (and the
+   * reverse). In the scroll layout, a chapter: the same slide as a drag.
+   */
   const turn = useCallback(
     (direction: 1 | -1) => {
       if (!docId || !section) return;
+      if (scrollMode) {
+        turnRef.current?.(direction);
+        return;
+      }
       const p = pagerRef.current;
       if (direction === 1) {
         if (!p.next() && section.nextId) navigate(sectionHref(docId, section.nextId), { state: { page: 0 } });
       } else if (!p.prev() && section.prevId) navigate(sectionHref(docId, section.prevId), { state: { page: "last" } });
     },
-    [docId, section, navigate],
+    [docId, section, navigate, scrollMode],
+  );
+
+  /**
+   * A chapter turn in the scroll layout has slid the neighbour in: open it, at its top going
+   * forward and at its end going back, with the chrome shown while it settles (as YouVersion does).
+   */
+  const { hold: holdChrome } = scrollChrome;
+  const landTurn = useCallback(
+    (direction: 1 | -1) => {
+      const target = direction === 1 ? section?.nextId : section?.prevId;
+      if (!docId || !target) return;
+      setChrome(true);
+      holdChrome();
+      navigate(sectionHref(docId, target), { state: { page: direction === 1 ? 0 : "last" } });
+    },
+    [docId, section?.nextId, section?.prevId, setChrome, holdChrome, navigate],
   );
 
   const selection = useSelection(bodyRef, section?.id);
-  const notes = useReaderAnnotations(docId, section, bodyRef);
+  const notes = useReaderAnnotations(docId, section, bodyRef, {
+    peeks: scrollMode
+      ? [
+          { ref: prevBodyRef, sectionId: prevSection?.id, html: prevSection?.html },
+          { ref: nextBodyRef, sectionId: nextSection?.id, html: nextSection?.html },
+        ]
+      : [],
+    surfaceKey: layout.kind,
+  });
 
-  // Arriving from "Couldn't find these" → Reattach: the next selection moves that highlight.
-  const [reattach, setReattach] = useState<Reattach | null>(() => navState?.reattach ?? null);
-  useEffect(() => {
-    const next = navState?.reattach;
-    if (next) setReattach(next);
-  }, [navState?.reattach]);
+  // In the iPhone app its own selection menu offers these, in place of SelectionMenu.
+  useNativeMenu(bodyRef, section?.id, {
+    highlight: notes.highlight,
+    note: notes.startNote,
+    reattach: reattach ? (sel) => notes.reattachTo(reattach, sel, () => setReattach(null)) : undefined,
+  });
 
-  // Warm both neighbours so turning across chapters is instant.
+  // Warm both neighbours so turning across chapters is instant; in the scroll layout, theirs too, as
+  // the panes beside the next chapter once it opens.
+  const farNext = scrollMode ? nextSection?.nextId : undefined;
+  const farPrev = scrollMode ? prevSection?.prevId : undefined;
   useEffect(() => {
     if (!docId) return;
-    for (const id of [section?.nextId, section?.prevId]) {
-      if (id) void qc.prefetchQuery({ queryKey: queryKeys.section(docId, id), queryFn: () => api.getSection(docId, id), staleTime: Infinity });
+    for (const id of [section?.nextId, section?.prevId, farNext, farPrev]) {
+      if (id)
+        void qc.prefetchQuery({
+          queryKey: queryKeys.section(docId, id),
+          queryFn: () => api.getSection(docId, id),
+          staleTime: Infinity,
+        });
     }
-  }, [qc, docId, section?.nextId, section?.prevId]);
+  }, [qc, docId, section?.nextId, section?.prevId, farNext, farPrev]);
+
+  // The scroll layout shows the chrome at the top of a chapter, opening the book included.
+  useEffect(() => {
+    if (scrollMode && placed && chapterRef.current.atTop()) setChrome(true);
+  }, [scrollMode, placed, section?.id, setChrome]);
 
   // Keys: arrows, Space and Page keys turn pages; Home and End go to the ends; Esc closes the tools.
+  // In the scroll layout ← and → turn chapters and the rest scroll the chapter.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return;
       if (document.querySelector("dialog[open]")) return;
+      if (scrollMode) {
+        const c = chapterRef.current;
+        switch (e.key) {
+          case "ArrowRight":
+          case "ArrowLeft":
+            if (!e.repeat) turn(e.key === "ArrowRight" ? 1 : -1);
+            break;
+          case "ArrowDown":
+          case "ArrowUp":
+            c.scrollBy(e.key === "ArrowDown" ? KEY_LINE_PX : -KEY_LINE_PX);
+            break;
+          case " ":
+          case "PageDown":
+          case "PageUp":
+            c.scrollBy((e.key === "PageUp" || (e.key === " " && e.shiftKey) ? -1 : 1) * pageStep(c.viewHeight));
+            break;
+          case "Home":
+          case "End":
+            c.scrollToEdge(e.key === "Home" ? "start" : "end");
+            break;
+          case "Escape":
+            if (toolsOpen) setToolsOpen(false);
+            return;
+          default:
+            return;
+        }
+        e.preventDefault();
+        return;
+      }
       switch (e.key) {
         case "ArrowRight":
         case "ArrowDown":
@@ -170,7 +317,7 @@ export function ReaderPage() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [turn, toolsOpen, setToolsOpen]);
+  }, [turn, toolsOpen, setToolsOpen, scrollMode]);
 
   useEffect(() => {
     document.title = doc ? `${section && isBook ? `${section.title} · ` : ""}${doc.title} · Pager` : "Pager";
@@ -189,10 +336,61 @@ export function ReaderPage() {
     (sectionQuery.error instanceof ApiError && sectionQuery.error.code === ErrorCodes.notFound);
   const failure = docQuery.error ?? sectionQuery.error;
   const toolPanel = <ToolPanel context={context} onClose={() => setToolsOpen(false)} />;
-  const openToc = isBook ? () => setTocOpen(true) : undefined;
+  const openToc = useMemo(() => (isBook ? () => setTocOpen(true) : undefined), [isBook]);
+
+  // One section's text in the scroll layout: the live pane's is the reader's, the neighbours' only
+  // look the same (the title rule and the title page's button included, so nothing moves on a turn).
+  const onTextClick = notes.onTextClick;
+  const renderSection = useCallback(
+    (s: Section, role: PaneRole) => {
+      const live = role === "live";
+      const titled = s.index === 0 && doc;
+      return (
+        <>
+          {titled && <TitlePage doc={doc} onOpenToc={live ? openToc : openToc && noop} />}
+          <ReaderBody
+            bodyRef={live ? bodyRef : role === "prev" ? prevBodyRef : nextBodyRef}
+            html={s.html}
+            title={titled ? doc.title : ""}
+            onInternalLink={live ? onInternalLink : noop}
+            onTextClick={live ? onTextClick : undefined}
+          />
+        </>
+      );
+    },
+    [doc, openToc, onInternalLink, onTextClick],
+  );
+
+  const pill = jumps.pill && <BackPill pill={jumps.pill} onClick={jumps.go} />;
+  const footer = (
+    <PageFooter
+      chapter={isBook ? section?.title : undefined}
+      page={layout.page}
+      pageCount={layout.pageCount}
+      hasPrev={Boolean(section?.prevId)}
+      hasNext={Boolean(section?.nextId)}
+      atEnd={Boolean(section && !section.nextId)}
+      onTurn={turn}
+      words={sectionWords}
+      percent={percent}
+      isBook={isBook}
+      wordCount={doc?.wordCount}
+      estimatedMinutes={doc?.estimatedMinutes}
+      scroll={scrollMode}
+      chapterIndex={section?.index}
+      chapterCount={doc?.toc.length}
+    />
+  );
+  const controlsHidden =
+    !chrome || Boolean(selection) || Boolean(notes.popover) || Boolean(notes.draft) || Boolean(footnotes.note);
 
   return (
-    <div className="reader flex flex-col overflow-hidden" style={{ height: "calc(100dvh - var(--size-bottom-nav-effective) - env(safe-area-inset-bottom))" }}>
+    <div
+      className={cx("reader flex flex-col overflow-hidden", scrollMode && "relative")}
+      // The scroll layout runs under the tab bar and the top bar, which float over it.
+      style={{ height: scrollMode ? "100dvh" : "calc(100dvh - var(--size-bottom-nav-effective) - env(safe-area-inset-bottom))" }}
+    >
+      {scrollMode && <div className="reader-status-scrim" aria-hidden />}
       <ReaderTopBar
         doc={doc}
         chapter={isBook ? section?.title : undefined}
@@ -200,10 +398,18 @@ export function ReaderPage() {
         onOpenToc={openToc}
         toolsOpen={toolsOpen}
         onToggleTools={() => setToolsOpen(!toolsOpen)}
+        hidden={!chrome}
+        overlay={scrollMode}
       />
 
       {reattach && (
-        <div role="status" className="shrink-0 border-b border-detail bg-elevated px-4 py-3">
+        <div
+          role="status"
+          className={cx(
+            "shrink-0 border-b border-detail bg-elevated px-4 py-3",
+            scrollMode && "absolute inset-x-0 top-[var(--size-top-bar)] z-20",
+          )}
+        >
           <div className="mx-auto flex max-w-[var(--size-reader)] items-start gap-3">
             <Link2 size={18} className="mt-0.5 shrink-0 text-accent" aria-hidden />
             <div className="min-w-0 flex-1">
@@ -219,6 +425,7 @@ export function ReaderPage() {
 
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
+          {scrollMode && (notFound || failure) && <div className="h-[var(--size-top-bar)] shrink-0" />}
           {notFound ? (
             <EmptyState
               icon={FileQuestion}
@@ -239,9 +446,25 @@ export function ReaderPage() {
                 void sectionQuery.refetch();
               }}
             />
+          ) : scrollMode ? (
+            <ScrollView
+              scrollerRef={chapterScrollerRef}
+              layout={chapter}
+              current={doc ? section : undefined}
+              prev={section ? prevSection : null}
+              next={section ? nextSection : null}
+              renderSection={renderSection}
+              onTurn={landTurn}
+              turnRef={turnRef}
+              chrome={chrome}
+              onChrome={setChrome}
+              controlsHidden={controlsHidden}
+              pill={pill}
+              footer={footer}
+            />
           ) : (
             <>
-              <PagedView scrollerRef={scrollerRef} pageWidth={pager.pageWidth} pageHeight={pager.pageHeight} onTurn={turn}>
+              <PagedView scrollerRef={scrollerRef} pager={pager} onTurn={turn} chrome={chrome} onChrome={setChrome}>
                 {doc && section ? (
                   <>
                     {hasTitlePage && <TitlePage doc={doc} onOpenToc={openToc} />}
@@ -259,21 +482,27 @@ export function ReaderPage() {
                   </div>
                 )}
               </PagedView>
-              <PageFooter
-                chapter={isBook ? section?.title : undefined}
-                page={pager.page}
-                pageCount={pager.pageCount}
-                hasPrev={Boolean(section?.prevId)}
-                hasNext={Boolean(section?.nextId)}
-                atEnd={Boolean(section && !section.nextId)}
-                onTurn={turn}
-              />
+              {pill && (
+                // Docked on the page's bottom edge, lined up with the text column's left edge.
+                <div className="relative h-0 shrink-0">
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0.5 z-30 flex justify-center px-4 md:px-8">
+                    <div className="flex w-full max-w-[var(--size-reader)]">{pill}</div>
+                  </div>
+                </div>
+              )}
+              {footer}
             </>
           )}
         </div>
 
         {toolsOpen && wide && (
-          <aside aria-label="Tools" className="h-full w-[var(--size-tool-panel)] shrink-0 border-l border-detail bg-surface">
+          <aside
+            aria-label="Tools"
+            className={cx(
+              "h-full w-[var(--size-tool-panel)] shrink-0 border-l border-detail bg-surface",
+              scrollMode && "pt-[var(--size-top-bar)]",
+            )}
+          >
             {toolPanel}
           </aside>
         )}
@@ -285,8 +514,9 @@ export function ReaderPage() {
         </Dialog>
       )}
 
-      {doc && <TocDrawer doc={doc} currentId={section?.id} open={tocOpen} onClose={() => setTocOpen(false)} />}
-      {!notes.draft && (
+      {doc && <TocDrawer doc={doc} currentId={section?.id} open={tocOpen} onClose={() => setTocOpen(false)} onJump={record} />}
+      {/* The iPhone app shows its own menu instead (useNativeMenu): never two at once. */}
+      {!notes.draft && !isNativeApp() && (
         <SelectionMenu
           selection={selection}
           context={context}
@@ -315,6 +545,21 @@ export function ReaderPage() {
           onDelete={notes.popover.onDelete}
           onAcceptAnchor={notes.popover.onAcceptAnchor}
           onTags={notes.popover.onTags}
+        />
+      )}
+      {footnotes.note && (
+        <FootnotePopover
+          note={footnotes.note}
+          onClose={closeNote}
+          onGoTo={() => {
+            const at = footnotes.note?.target;
+            closeNote();
+            if (at) jumpTo(at);
+          }}
+          onLink={(target) => {
+            closeNote();
+            jumpTo(target);
+          }}
         />
       )}
     </div>

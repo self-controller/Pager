@@ -50,7 +50,7 @@ pager --status | --stop | --no-open | --port 4000
 | `PAGER_DATA_DIR` | data folder (default `$XDG_DATA_HOME/pager`, i.e. `~/.local/share/pager`) |
 | `PAGER_READS_DIR` | the library folder (default `<repository>/reads`) |
 | `PAGER_PORT` | port (default 3006) |
-| `PAGER_REMOTE_PORT` | the remote listener for paired phones (default 3007, on 127.0.0.1 only; listening only while `app.remote.enabled` is on) |
+| `PAGER_REMOTE_PORT` | the remote listener for phones over Tailscale (default 3007, on 127.0.0.1 only; listening only while `app.remote.enabled` is on and `app.remote.origin` is set) |
 | `PAGER_WEB_DIR` | where the built UI is (default `../dist`, served when it has an `index.html`) |
 | `PAGER_BACKGROUND=1` | stop after six idle hours (set by the `pager` command) |
 
@@ -199,8 +199,9 @@ crate was ported from (deleted 2026-10-28); v6 (`devices.endpoint_id`) is this c
   while remote access is on. (Settings → Phone may run `tailscale status --json`, a local command,
   to suggest the phone's address.)
 - **Phones** (off by default; setup in [`../docs/iphone.md`](../docs/iphone.md)). Turning on
-  `app.remote` starts a second listener on 127.0.0.1:3007 for `tailscale serve` and an iroh endpoint,
-  and turning it off stops them, without a restart. Both run their own router (`src/http/remote.rs`)
+  `app.remote` starts an iroh endpoint, plus a second listener on 127.0.0.1:3007 for `tailscale
+  serve` while `app.remote.origin` (the Tailscale address, optional) is set; turning it off stops
+  them, without a restart. Both run their own router (`src/http/remote.rs`)
   in front of the same API:
   - every `/api` request needs a paired device: a 256-bit token, as an `HttpOnly; Secure;
     SameSite=Strict` cookie or a bearer header, stored as a sha256, refused once revoked or after 90

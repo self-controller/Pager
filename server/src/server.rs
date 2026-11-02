@@ -1,6 +1,6 @@
 //! Start the reading service: the local listener on 127.0.0.1 (and ::1), the folder scan, the
-//! watcher, the mirror flusher, idle shutdown, and remote access (the TCP listener and the iroh
-//! endpoint) that follows the setting.
+//! watcher, the mirror flusher, idle shutdown, and remote access that follows the setting (the iroh
+//! endpoint, and the TCP listener while a Tailscale address is set).
 
 use crate::app::{App, AppOptions};
 use crate::config::VERSION;
@@ -8,7 +8,7 @@ use crate::core::Notice;
 use crate::http::{local_app, remote::remote_app};
 use crate::library::watcher::{Watcher, WatcherOptions};
 use crate::remote::identity;
-use crate::remote::node::{self, IrohInfo, IrohOptions};
+use crate::remote::node::{self, IrohInfo, IrohOptions, Relay};
 use crate::Result;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::atomic::Ordering;
@@ -25,7 +25,7 @@ pub struct StartOptions {
 
 pub struct Running {
     pub app: Arc<App>,
-    local: Vec<(oneshot::Sender<()>, tokio::task::JoinHandle<()>)>,
+    local: Vec<Serving>,
     remote: Arc<RemoteListener>,
     watcher: Option<Watcher>,
     tasks: Vec<tokio::task::JoinHandle<()>>,
@@ -74,7 +74,10 @@ impl Running {
     }
 }
 
-async fn serve_on(addr: SocketAddr, router: axum::Router) -> std::io::Result<(oneshot::Sender<()>, tokio::task::JoinHandle<()>)> {
+/// A listener's shutdown signal and its server task.
+type Serving = (oneshot::Sender<()>, tokio::task::JoinHandle<()>);
+
+async fn serve_on(addr: SocketAddr, router: axum::Router) -> std::io::Result<Serving> {
     let listener = TcpListener::bind(addr).await?;
     let (tx, rx) = oneshot::channel::<()>();
     let handle = tokio::spawn(async move {
@@ -87,46 +90,73 @@ async fn serve_on(addr: SocketAddr, router: axum::Router) -> std::io::Result<(on
     Ok((tx, handle))
 }
 
-/// Remote access: the TCP listener on 127.0.0.1 only (tailscale serve forwards to it, never another
-/// address) and the iroh endpoint, together. Stopping ends open streams first. Starts and stops run
-/// one at a time, so a quick off-on-off can't race; a failure of either part (the port is taken, iroh
-/// can't bind) is logged and leaves 3006 and the other part running.
+/// Stop a listener after its streams were told to end: they end themselves cleanly, and anything
+/// still open after a second is cut.
+async fn shut((tx, handle): Serving) {
+    let _ = tx.send(());
+    if tokio::time::timeout(Duration::from_secs(1), handle).await.is_err() {
+        // The task keeps draining connections in the background; the port is released as they close.
+    }
+}
+
+/// Remote access: the iroh endpoint whenever it is on, and the TCP listener on 127.0.0.1 only
+/// (tailscale serve forwards to it, never another address) while a Tailscale address is set.
+/// Stopping ends open streams first. Changes run one at a time, so a quick off-on-off can't race; a
+/// failure of either part (the port is taken, iroh can't bind) is logged and leaves 3006 and the
+/// other part running.
 pub struct RemoteListener {
     app: Arc<App>,
     port: u16,
-    state: Mutex<Option<(oneshot::Sender<()>, tokio::task::JoinHandle<()>)>>,
-    /// The relay setting iroh was started with: a change restarts it.
-    relay: Mutex<Option<Option<String>>>,
+    state: Mutex<Option<Serving>>,
+    /// The relay address and token iroh was started with: a change to either restarts it.
+    relay: Mutex<Option<(Option<String>, Option<String>)>>,
+    /// The tests' iroh options (loopback, or their own relay) in place of the setting's address.
+    iroh_options: Option<IrohOptions>,
 }
 
 impl RemoteListener {
     pub fn new(app: Arc<App>, port: u16) -> RemoteListener {
-        RemoteListener { app, port, state: Mutex::new(None), relay: Mutex::new(None) }
+        RemoteListener { app, port, state: Mutex::new(None), relay: Mutex::new(None), iroh_options: None }
     }
 
-    pub async fn start(&self) {
-        let mut st = self.state.lock().await;
+    /// Bind iroh with these options (the secret key still comes from the data folder, and a custom
+    /// relay's token from `remote.relayToken`).
+    pub fn with_iroh_options(mut self, o: IrohOptions) -> RemoteListener {
+        self.iroh_options = Some(o);
+        self
+    }
+
+    /// Make both parts match `app.remote`: off stops everything; on runs iroh, and the TCP listener
+    /// only while `origin` is set.
+    pub async fn sync(&self) {
         let settings = self.app.lock().app_settings().remote;
-        if st.is_none() {
+        if !settings.enabled {
+            return self.stop().await;
+        }
+        let mut st = self.state.lock().await;
+        if settings.origin.is_none() {
+            Self::stop_tcp(&self.app, &mut st).await;
+        } else if st.is_none() {
             let router = remote_app(&self.app);
             match serve_on(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), self.port), router).await {
                 Ok(s) => {
                     *st = Some(s);
-                    println!("Remote access is on at http://127.0.0.1:{} (point tailscale serve at it).", self.port);
+                    println!("Remote access over Tailscale is on at http://127.0.0.1:{} (point tailscale serve at it).", self.port);
                 }
-                Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => eprintln!("Remote access couldn't start: port {} is in use (PAGER_REMOTE_PORT picks another).", self.port),
-                Err(e) => eprintln!("Remote access: {e}"),
+                Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => eprintln!("Remote access over Tailscale couldn't start: port {} is in use (PAGER_REMOTE_PORT picks another).", self.port),
+                Err(e) => eprintln!("Remote access over Tailscale: {e}"),
             }
         }
         let mut relay = self.relay.lock().await;
-        if self.app.iroh.is_on() && relay.as_ref() != Some(&settings.relay) {
+        let wanted = (settings.relay.clone(), settings.relay_token.clone());
+        if self.app.iroh.is_on() && relay.as_ref() != Some(&wanted) {
             self.app.notify(Notice::RemoteClosing);
             self.app.iroh.stop().await;
         }
         if !self.app.iroh.is_on() {
-            match self.start_iroh(settings.relay.as_deref()).await {
+            match self.start_iroh(settings.relay.as_deref(), settings.relay_token.as_deref()).await {
                 Ok(info) => {
-                    *relay = Some(settings.relay.clone());
+                    *relay = Some(wanted);
                     println!("Phones can reach this computer over iroh. Its ID is {} ({}).", info.short_id, info.endpoint_id);
                 }
                 Err(e) => eprintln!("Remote access over iroh couldn't start: {}", e.message),
@@ -134,9 +164,18 @@ impl RemoteListener {
         }
     }
 
-    async fn start_iroh(&self, relay: Option<&str>) -> Result<IrohInfo> {
+    async fn start_iroh(&self, relay: Option<&str>, token: Option<&str>) -> Result<IrohInfo> {
         let key = identity::load_or_create(&self.app.data_dir)?;
-        let opts = IrohOptions::from_settings(relay, key)?;
+        let opts = match &self.iroh_options {
+            Some(o) => {
+                let mut o = IrohOptions { secret_key: Some(key), ..o.clone() };
+                if let Relay::Custom(c) = &mut o.relay {
+                    c.auth_token = token.map(str::to_string);
+                }
+                o
+            }
+            None => IrohOptions::from_settings(relay, token, key)?,
+        };
         let info = self.app.iroh.start(self.app.clone(), remote_app(&self.app), opts).await?;
         // Say which relay carries this computer once one is reached.
         if let Some(e) = self.app.iroh.endpoint() {
@@ -151,27 +190,33 @@ impl RemoteListener {
         Ok(info)
     }
 
+    /// Stop the TCP listener alone (the Tailscale address was cleared). Device streams on both paths
+    /// end, as on any stop; a phone over iroh reopens its stream from the last event.
+    async fn stop_tcp(app: &App, st: &mut Option<Serving>) {
+        let Some(tcp) = st.take() else { return };
+        app.notify(Notice::RemoteClosing);
+        shut(tcp).await;
+        println!("Remote access over Tailscale is off.");
+    }
+
     pub async fn stop(&self) {
         let mut st = self.state.lock().await;
         let tcp = st.take();
         if tcp.is_none() && !self.app.iroh.is_on() {
             return;
         }
-        // Streams end themselves cleanly; anything still open after a second is cut.
         self.app.notify(Notice::RemoteClosing);
-        if let Some((tx, handle)) = tcp {
-            let _ = tx.send(());
-            if tokio::time::timeout(Duration::from_secs(1), handle).await.is_err() {
-                // The task keeps draining connections in the background; the port is released as they close.
-            }
+        if let Some(tcp) = tcp {
+            shut(tcp).await;
         }
         self.app.iroh.stop().await;
         *self.relay.lock().await = None;
         println!("Remote access is off.");
     }
 
-    pub async fn is_on(&self) -> bool {
-        self.state.lock().await.is_some() || self.app.iroh.is_on()
+    /// Whether the TCP listener (the Tailscale path) is running.
+    pub async fn tcp_is_on(&self) -> bool {
+        self.state.lock().await.is_some()
     }
 }
 
@@ -221,21 +266,13 @@ pub async fn start(o: StartOptions) -> Result<Running> {
 
     // Remote access is off until the setting turns it on, and follows the setting without a restart.
     let remote = Arc::new(RemoteListener::new(app.clone(), app.remote_port));
-    if app.lock().app_settings().remote.enabled {
-        remote.start().await;
-    }
+    remote.sync().await;
     let r = remote.clone();
     let mut notices = app.notices.subscribe();
     tasks.push(tokio::spawn(async move {
         loop {
             match notices.recv().await {
-                Ok(Notice::AppSettingsChanged(s)) => {
-                    if s.remote.enabled {
-                        r.start().await;
-                    } else {
-                        r.stop().await;
-                    }
-                }
+                Ok(Notice::AppSettingsChanged(_)) => r.sync().await,
                 Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                 _ => {}
             }

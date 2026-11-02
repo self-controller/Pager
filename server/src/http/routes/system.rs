@@ -25,7 +25,7 @@ async fn health(State(app): State<Arc<App>>) -> Response {
     let suggested = tokio::task::spawn_blocking(move || suggest()).await.ok().flatten();
     let iroh = app.iroh.info();
     let remote = if suggested.is_some() || iroh.is_some() {
-        Some(Some(HealthRemote { device: None, suggested_origin: suggested, endpoint_id: iroh.as_ref().map(|i| i.endpoint_id.clone()), relay: iroh.and_then(|i| i.relay) }))
+        Some(Some(HealthRemote { device: None, suggested_origin: suggested, endpoint_id: iroh.as_ref().map(|i| i.endpoint_id.clone()), relay: iroh.and_then(|i| i.relay), relay_token: None }))
     } else {
         None
     };

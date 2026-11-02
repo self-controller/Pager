@@ -6,3 +6,7 @@ dist/
 .DS_Store
 coverage/
 reads/
+
+# Local toolchain
+swiftly-x86_64.tar.gz
+.swift-version

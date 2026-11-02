@@ -14,10 +14,14 @@ interface Props {
   onOpenToc?: () => void;
   toolsOpen: boolean;
   onToggleTools: () => void;
+  /** Hidden with the rest of the chrome: slid away (globals.css), its space kept, and inert. */
+  hidden?: boolean;
+  /** Floats over the text (the scroll layout), which runs under it, instead of taking its own space. */
+  overlay?: boolean;
 }
 
 /** The bar above the page: back, what is open, contents, type settings, tools, and how far along. */
-export function ReaderTopBar({ doc, chapter, percent, onOpenToc, toolsOpen, onToggleTools }: Props) {
+export function ReaderTopBar({ doc, chapter, percent, onOpenToc, toolsOpen, onToggleTools, hidden, overlay }: Props) {
   const navigate = useNavigate();
 
   const goBack = () => {
@@ -28,7 +32,13 @@ export function ReaderTopBar({ doc, chapter, percent, onOpenToc, toolsOpen, onTo
   };
 
   return (
-    <header className="relative z-10 shrink-0 border-b border-detail bg-surface">
+    <header
+      className={cx(
+        "reader-top-bar border-b border-detail bg-surface",
+        overlay ? "absolute inset-x-0 top-0 z-20" : "relative z-10 shrink-0",
+      )}
+      inert={hidden}
+    >
       <div className="flex h-[var(--size-top-bar)] items-center gap-2 px-2 md:px-4">
         <IconButton icon={ArrowLeft} label="Back" onClick={goBack} />
         <div className="min-w-0 flex-1">
@@ -43,7 +53,10 @@ export function ReaderTopBar({ doc, chapter, percent, onOpenToc, toolsOpen, onTo
         </div>
         <div className="flex items-center gap-1">
           {onOpenToc && <IconButton icon={ListTree} label="Contents" onClick={onOpenToc} />}
-          <Popover className="w-[300px] p-4" trigger={(props) => <IconButton icon={ALargeSmall} label="Reading settings" {...props} />}>
+          <Popover
+            className="w-[300px] p-4"
+            trigger={(props) => <IconButton icon={ALargeSmall} label="Reading settings" {...props} />}
+          >
             <ReadingSettings />
           </Popover>
           <IconButton

@@ -1,8 +1,8 @@
 # Pager
 
 A personal reading room. Your books live as files in a folder, `reads/`, and Pager shows that folder
-as your library: open a book, add one, start a new file, make folders. Books are read page by page in
-a calm, paper-coloured column. This folder holds the **web app** (this README) and, in `server/`
+as your library: open a book, add one, start a new file, make folders. Each chapter scrolls, and you
+turn to the next as you would a page (or read page by page) in a calm, black-and-white column. This folder holds the **web app** (this README) and, in `server/`
 (Rust) and `shared/` (wire types), the local backend (see [API.md](API.md) and
 [server/README.md](server/README.md)).
 
@@ -43,11 +43,16 @@ Other scripts: `npm test`, `npm run typecheck`, `npm run build`, `npm run format
 ## Reading
 
 - Every book opens on a **title page**: title, subtitle, author, date, chapter count.
-- The text is read **page by page**: click near either edge, press `→` `←` `Space` `PageDown`
+- **Scroll** (the default layout): each chapter scrolls top to bottom. Drag sideways and the next
+  chapter slides in with your finger; let go past a third of the way, or flick, and it opens. The
+  ‹ › buttons in the bottom corners, `→` `←` and a sideways trackpad swipe do the same. The next
+  chapter opens at its top, the previous at its end. The bars hide as you scroll down and come back as
+  you scroll up; `↑` `↓` `Space` `PageDown` `PageUp` `Home` `End` scroll. The footer says "Chapter 3 of 12".
+- **Pages** (Reading settings → Layout): click near either edge, press `→` `←` `Space` `PageDown`
   `PageUp` `Home` `End`, swipe on a phone, or nudge the wheel. Past a chapter's last page comes the
   next chapter's first; the footer says "p. 4 of 17".
-- Your place is saved as the paragraph and character at the top of the page, so it survives a
-  different text size, a resized window and edits to the file.
+- Your place is saved as the paragraph and character at the top of the page (or the screen), so it
+  survives a different text size, a resized window, the other layout and edits to the file.
 - Select words for a **highlight** or a **note**; click painted text to change, tag or remove it.
   Highlights are painted with the CSS Custom Highlight API, so the text the server sent is never changed.
 - **Contents** (books), text size, serif or sans, light, dark or system theme, and a tool panel for
@@ -58,15 +63,15 @@ Other scripts: `npm test`, `npm run typecheck`, `npm run build`, `npm run format
 
 | Area | Files |
 |---|---|
-| Design tokens (paper and ink, light and dark) | `src/styles/tokens.css`, `globals.css` (Tailwind v4 mapping), `prose.css` (reading typography, pages, title page). See [DESIGN.md](DESIGN.md) |
+| Design tokens (black, white and one blue; light and dark) | `src/styles/tokens.css`, `globals.css` (Tailwind v4 mapping), `prose.css` (reading typography, pages, title page). See [DESIGN.md](DESIGN.md) |
 | App shell: left nav, icon rail, mobile bottom bar | `src/components/shell/` |
 | UI primitives: buttons, context menu, dialog, popover, select, tiles, toast | `src/components/ui/` |
 | Library: toolbar and search bar, breadcrumbs, folder view (compact and detailed items), search results, dialogs, add-book dialog, file drop | `src/pages/LibraryPage.tsx`, `src/components/library/` |
-| Reader: paged view, pagination, title page, page footer, top bar, body, progress in page coordinates | `src/pages/ReaderPage.tsx`, `src/components/reader/` |
+| Reader: scroll view with chapter turns, paged view, pagination, title page, page footer, top bar, body, progress kept in either layout | `src/pages/ReaderPage.tsx`, `src/components/reader/` |
 | Highlights and notes: selection bar, painting, popover, Undo toast | `src/components/reader/useReaderAnnotations.ts`, `useHighlightPainting.ts`, `AnnotationPopover.tsx`, `SelectionMenu.tsx` |
 | Live reload from the backend's stream | `useLiveUpdates` / `applyServerEvent` in `src/api/hooks.ts`, `followStream` in `src/api/http.ts` |
 | API contract, HTTP client, mock adapter, React Query hooks | `src/api/`, [CONTRACT.md](CONTRACT.md) |
-| Phones: Settings → Phone (remote access, pairing dialog with QR code, paired phones), the `/pair` page, the Home Screen manifest and icons | `src/components/settings/`, `src/pages/PairPage.tsx`, `public/`, [docs/iphone.md](docs/iphone.md) |
+| Phones: Settings → Phone (remote access, your own relay, pairing dialog with QR code, paired phones), the `/pair` page, the Home Screen manifest and icons; the iPhone app | `src/components/settings/`, `src/pages/PairPage.tsx`, `public/`, `ios/`, `relay/`, [docs/iphone.md](docs/iphone.md) |
 | Smart-tools seam | `src/tools/` |
 
 ## Data modes
@@ -104,9 +109,11 @@ registerTool({
 
 ## On your iPhone
 
-Pager can be read from your iPhone anywhere, over Tailscale, as a Home Screen app: off by default,
-paired phones only, approved on this computer. Setup: [docs/iphone.md](docs/iphone.md). How it is
-secured: API.md, "Phones: the remote listener".
+Pager can be read from your iPhone anywhere: off by default, paired phones only, approved on this
+computer. The phone reaches it over iroh, with the Pager app in `ios/` (written, not yet run on a
+phone; [ios/README.md](ios/README.md)), or over Tailscale as a Home Screen app. Setup:
+[docs/iphone.md](docs/iphone.md); your own relay: [docs/relay.md](docs/relay.md). How it is secured:
+API.md, "Phones: the remote listener" and "Phones over iroh".
 
 ## Stubbed or not built yet
 

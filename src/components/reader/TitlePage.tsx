@@ -26,7 +26,8 @@ export function TitlePage({ doc, onOpenToc }: { doc: DocumentDetail; onOpenToc?:
       </p>
       {onOpenToc && chapters > 1 && (
         <div className="mt-6">
-          <Button variant="secondary-outline" size="sm" icon={ListTree} onClick={onOpenToc}>
+          {/* The page's touch arbiter prevents the default of a tap that only dismisses (an open popover, a selection). */}
+          <Button variant="secondary-outline" size="sm" icon={ListTree} onClick={(e) => !e.defaultPrevented && onOpenToc()}>
             Contents
           </Button>
         </div>

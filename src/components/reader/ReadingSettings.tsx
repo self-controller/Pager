@@ -1,18 +1,27 @@
 import { Minus, Plus } from "lucide-react";
 import { IconButton } from "@/components/ui/Button";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
+import { haptic, prepareHaptic } from "@/lib/native";
 import {
   FONT_OFFSET_MAX,
   FONT_OFFSET_MIN,
   updateSettings,
   useSettings,
+  type LayoutSetting,
+  type PageTurn,
   type ThemeSetting,
   type Typeface,
 } from "@/state/settings";
 
 const BASE_SIZE = 19;
 
-/** Text size, typeface and theme. Used in the reader's popover and on the Settings page. */
+/** One text-size step, with a selection tick in the iPhone app. */
+function stepSize(fontOffset: number) {
+  updateSettings({ fontOffset });
+  haptic("selection");
+}
+
+/** Text size, typeface, theme, layout and page turn. Used in the reader's popover and on the Settings page. */
 export function ReadingSettings({ showPreview }: { showPreview?: boolean }) {
   const s = useSettings();
   return (
@@ -26,7 +35,8 @@ export function ReadingSettings({ showPreview }: { showPreview?: boolean }) {
             size="sm"
             variant="secondary"
             disabled={s.fontOffset <= FONT_OFFSET_MIN}
-            onClick={() => updateSettings({ fontOffset: s.fontOffset - 1 })}
+            onPointerDown={() => prepareHaptic("selection")}
+            onClick={() => stepSize(s.fontOffset - 1)}
           />
           <span className="w-12 text-center font-byline text-[13px] tabular-nums text-fg-2" aria-live="polite">
             {BASE_SIZE + s.fontOffset}px
@@ -37,7 +47,8 @@ export function ReadingSettings({ showPreview }: { showPreview?: boolean }) {
             size="sm"
             variant="secondary"
             disabled={s.fontOffset >= FONT_OFFSET_MAX}
-            onClick={() => updateSettings({ fontOffset: s.fontOffset + 1 })}
+            onPointerDown={() => prepareHaptic("selection")}
+            onClick={() => stepSize(s.fontOffset + 1)}
           />
         </div>
       </div>
@@ -68,6 +79,39 @@ export function ReadingSettings({ showPreview }: { showPreview?: boolean }) {
           ]}
         />
       </div>
+      <div className="flex flex-col gap-2">
+        <span className="text-[14px] leading-5 font-medium">Layout</span>
+        <SegmentedTabs<LayoutSetting>
+          label="Layout"
+          stretch
+          value={s.layout}
+          onChange={(layout) => updateSettings({ layout })}
+          options={[
+            { value: "scroll", label: "Scroll" },
+            { value: "paged", label: "Pages" },
+          ]}
+        />
+        <span className="text-[13px] leading-[18px] text-fg-2">
+          {s.layout === "scroll" ? "Each chapter scrolls. Swipe sideways for the next one." : "Turn the pages of each chapter."}
+        </span>
+      </div>
+      {s.layout === "paged" && (
+        <div className="flex flex-col gap-2">
+          <span className="text-[14px] leading-5 font-medium">Page turn</span>
+          <SegmentedTabs<PageTurn>
+            label="Page turn"
+            stretch
+            value={s.pageTurn}
+            onChange={(pageTurn) => updateSettings({ pageTurn })}
+            options={[
+              { value: "slide", label: "Slide" },
+              { value: "fade", label: "Fade" },
+              { value: "none", label: "None" },
+            ]}
+          />
+          <span className="text-[13px] leading-[18px] text-fg-2">Instant while Reduce Motion is on.</span>
+        </div>
+      )}
       {showPreview && (
         <p className="markup mt-2 rounded-md bg-surface-hover p-4 shadow-[inset_0_0_0_1px_var(--detail)]">
           Reading maketh a full man; conference a ready man; and writing an exact man.

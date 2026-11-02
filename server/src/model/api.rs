@@ -162,6 +162,9 @@ pub struct HealthRemote {
     /// The relay carrying this computer right now, once one is reached.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub relay: Option<String>,
+    /// Your own relay's token, for a paired phone over iroh only, so it picks up a new one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relay_token: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -202,7 +205,9 @@ pub struct DeviceView {
 #[serde(rename_all = "camelCase")]
 pub struct PairingWindow {
     pub code: String,
-    pub url: String,
+    /// `<origin>/pair#code=XXXX-XXXX` for the Home Screen app, while a Tailscale address is set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
     /// `pager://pair?v=1&t=<ticket>&code=XXXX-XXXX` for the phone app, while iroh is on.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub app_url: Option<String>,

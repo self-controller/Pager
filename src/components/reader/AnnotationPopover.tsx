@@ -3,6 +3,7 @@ import { Check, Trash2, X } from "lucide-react";
 import type { Annotation, HighlightColor } from "@/api/types";
 import { Button } from "@/components/ui/Button";
 import { cx } from "@/lib/cx";
+import { onReaderMove } from "./events";
 import { HIGHLIGHT_COLORS } from "./useHighlightPainting";
 
 const SWATCH: Record<HighlightColor, string> = {
@@ -78,11 +79,12 @@ export function FloatingPanel({
       }
     };
     const onMove = () => onClose();
+    let offMove: (() => void) | undefined;
     // Registered after the opening click has finished propagating.
     const t = window.setTimeout(() => {
       document.addEventListener("pointerdown", onDown);
       window.addEventListener("scroll", onMove, { passive: true });
-      window.addEventListener("reader:pagechange", onMove);
+      offMove = onReaderMove(onMove);
       window.addEventListener("resize", onMove);
     });
     document.addEventListener("keydown", onKey, true);
@@ -90,7 +92,7 @@ export function FloatingPanel({
       window.clearTimeout(t);
       document.removeEventListener("pointerdown", onDown);
       window.removeEventListener("scroll", onMove);
-      window.removeEventListener("reader:pagechange", onMove);
+      offMove?.();
       window.removeEventListener("resize", onMove);
       document.removeEventListener("keydown", onKey, true);
     };
@@ -100,6 +102,7 @@ export function FloatingPanel({
     <div
       ref={ref}
       role="dialog"
+      data-reader-overlay
       aria-label={label}
       className="fixed z-40 w-[320px] rounded-md bg-elevated p-3 elevation"
       style={style}

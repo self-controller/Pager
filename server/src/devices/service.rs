@@ -191,9 +191,10 @@ impl Core {
 
     // ---- Pairing, orchestrated here because approval creates a device ----
 
-    /// `ticket` is this computer's iroh ticket, when iroh is on: the window then also carries the phone app's link.
-    pub fn pairing_open(&mut self, origin: &str, ticket: Option<String>) -> Result<crate::model::PairingWindow> {
-        self.pairing.open(origin, ticket)
+    /// `origin` is the Tailscale address, when one is set, and `ticket` this computer's iroh ticket, when
+    /// iroh is on: each gives the window one of its links. `relay_token` goes in the iroh link.
+    pub fn pairing_open(&mut self, origin: Option<&str>, ticket: Option<String>, relay_token: Option<&str>) -> Result<crate::model::PairingWindow> {
+        self.pairing.open(origin, ticket, relay_token)
     }
 
     pub fn pairing_approve(&mut self, request_id: Option<&Value>) -> Result<DeviceView> {

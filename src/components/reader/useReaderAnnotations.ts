@@ -9,11 +9,12 @@ import {
 } from "@/api/hooks";
 import { ApiError, type Annotation, type HighlightColor, type Section } from "@/api/types";
 import { useToast } from "@/components/ui/Toast";
+import { haptic } from "@/lib/native";
 import { updateSettings, useSettings } from "@/state/settings";
 import { textOffsetWithin } from "@/tools/useSelection";
 import type { TextSelection } from "@/tools/types";
 import { caretAt } from "./dom";
-import { annotationsAt, useHighlightPainting } from "./useHighlightPainting";
+import { annotationsAt, useHighlightPainting, type PaintSurface } from "./useHighlightPainting";
 
 export interface ActiveAnnotation {
   annotation: Annotation;
@@ -34,12 +35,14 @@ function message(err: unknown): string {
 /**
  * Highlights and notes in the reader: paints them, creates them from a selection, and opens the
  * popover when painted text is clicked. All coordinates are the server's (API.md): sectionRange
- * offsets into the section's textContent, sent with the section's revisionId.
+ * offsets into the section's textContent, sent with the section's revisionId. `peeks` are the
+ * neighbouring sections rendered beside it (scroll layout), painted but not interactive.
  */
 export function useReaderAnnotations(
   docId: string | undefined,
   section: Section | undefined,
   bodyRef: RefObject<HTMLElement | null>,
+  { peeks = [], surfaceKey = "" }: { peeks?: readonly [PaintSurface?, PaintSurface?]; surfaceKey?: string } = {},
 ) {
   const { toast } = useToast();
   const { highlightColor } = useSettings();
@@ -51,7 +54,13 @@ export function useReaderAnnotations(
   const [activeId, setActiveId] = useState<{ id: string; x: number; y: number } | null>(null);
   const [draft, setDraft] = useState<NoteDraft | null>(null);
 
-  useHighlightPainting(bodyRef, section?.id, section?.html, annotations, activeId?.id ?? null);
+  useHighlightPainting(
+    { ref: bodyRef, sectionId: section?.id, html: section?.html },
+    peeks,
+    annotations,
+    activeId?.id ?? null,
+    surfaceKey,
+  );
 
   const active: ActiveAnnotation | null = useMemo(() => {
     const annotation = activeId && annotations?.find((a) => a.id === activeId.id);
@@ -75,6 +84,8 @@ export function useReaderAnnotations(
         },
         { onError: (err) => toast({ message: message(err) }) },
       );
+      // On the tap, as the highlight paints at once: a soft "placed", or success for a saved note.
+      haptic(body ? "success" : "soft");
       window.getSelection()?.removeAllRanges();
     },
     [docId, section, create, highlightColor, toast],
@@ -105,12 +116,14 @@ export function useReaderAnnotations(
       updateSettings({ highlightColor: color });
       update.mutate({ id: active.annotation.id, docId: active.annotation.docId, patch: { color, style: "highlight" } });
     },
-    onNote: (body: string | null) =>
+    onNote: (body: string | null) => {
       update.mutate({
         id: active.annotation.id,
         docId: active.annotation.docId,
         patch: { body, kind: body ? "note" : "highlight" },
-      }),
+      });
+      if (body) haptic("success");
+    },
     onAcceptAnchor: () =>
       update.mutate({ id: active.annotation.id, docId: active.annotation.docId, patch: { acceptAnchor: true } }),
     onTags: (tags: string[]) => update.mutate({ id: active.annotation.id, docId: active.annotation.docId, patch: { tags } }),

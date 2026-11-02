@@ -1,0 +1,4 @@
+version: 1
+# Change this to an ID of your own if Apple says it's taken (free accounts need a unique one).
+bundleID: dev.pager.Pager
+infoPath: Info.plist

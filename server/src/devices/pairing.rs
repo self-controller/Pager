@@ -57,7 +57,7 @@ enum Closed {
 struct Window {
     code: String,
     code_hash: String,
-    url: String,
+    url: Option<String>,
     app_url: Option<String>,
     expires_at: i64,
     attempts: u32,
@@ -95,9 +95,11 @@ impl Pairing {
 
     // ---- The desktop (local listener) ----
 
-    /// Open a window and show its code. `origin` is app.remote.origin; `ticket` is this computer's iroh
-    /// ticket when iroh is on, which makes the phone app's `pager://pair` link.
-    pub fn open(&mut self, origin: &str, ticket: Option<String>) -> Result<PairingWindow> {
+    /// Open a window and show its code. `origin` is app.remote.origin when one is set, which makes the
+    /// Home Screen app's link; `ticket` is this computer's iroh ticket when iroh is on, which makes the
+    /// phone app's `pager://pair` link. `relay_token` is your own relay's token, which that link
+    /// carries as `rt` so the phone can use the relay too.
+    pub fn open(&mut self, origin: Option<&str>, ticket: Option<String>, relay_token: Option<&str>) -> Result<PairingWindow> {
         if self.is_open() {
             return Err(AppError::new(409, "conflict", "A pairing code is already showing. Use it, or cancel it first."));
         }
@@ -105,8 +107,9 @@ impl Pairing {
         let code = format!("{}-{}", &raw[..4], &raw[4..]);
         let expires_at = self.now() + PAIRING_MS;
         // The fragment never reaches a server, so the code stays out of any proxy's logs.
-        let url = format!("{origin}/pair#code={code}");
-        let app_url = ticket.map(|t| format!("pager://pair?v=1&t={t}&code={code}"));
+        let url = origin.map(|o| format!("{o}/pair#code={code}"));
+        let rt = relay_token.map(|t| format!("&rt={}", url::form_urlencoded::byte_serialize(t.as_bytes()).collect::<String>())).unwrap_or_default();
+        let app_url = ticket.map(|t| format!("pager://pair?v=1&t={t}&code={code}{rt}"));
         self.window = Some(Window { code: code.clone(), code_hash: sha256_hex(raw.as_bytes()), url: url.clone(), app_url: app_url.clone(), expires_at, attempts: 0, closed: None, request: None });
         Ok(PairingWindow { code, url, app_url, expires_at: iso_ms(expires_at) })
     }
@@ -117,7 +120,7 @@ impl Pairing {
             return PairingState { open: false, code: None, url: None, app_url: None, expires_at: None, attempts: w.attempts, pending: None };
         }
         let pending = w.request.as_ref().filter(|r| r.status == Status::Pending).map(|r| PendingPair { request_id: r.request_id.clone(), name: r.name.clone(), ip: r.ip.clone(), at: r.at.clone(), endpoint_id: r.endpoint_id.clone() });
-        PairingState { open: true, code: Some(w.code), url: Some(w.url), app_url: w.app_url, expires_at: Some(iso_ms(w.expires_at)), attempts: w.attempts, pending }
+        PairingState { open: true, code: Some(w.code), url: w.url, app_url: w.app_url, expires_at: Some(iso_ms(w.expires_at)), attempts: w.attempts, pending }
     }
 
     /// The waiting request's name, ip and endpoint, if `request_id` names it.

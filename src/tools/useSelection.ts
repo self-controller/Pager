@@ -1,4 +1,5 @@
 import { useEffect, useState, type RefObject } from "react";
+import { onReaderMove } from "@/components/reader/events";
 import type { TextSelection } from "./types";
 
 /** Character offset of (node, offset) within root's textContent. */
@@ -44,12 +45,13 @@ export function useSelection(rootRef: RefObject<HTMLElement | null>, sectionId: 
       });
     };
     document.addEventListener("selectionchange", update);
-    window.addEventListener("reader:pagechange", update);
+    // The menu follows the words when the page turns or the chapter scrolls.
+    const offMove = onReaderMove(update);
     window.addEventListener("resize", update);
     return () => {
       cancelAnimationFrame(frame);
       document.removeEventListener("selectionchange", update);
-      window.removeEventListener("reader:pagechange", update);
+      offMove();
       window.removeEventListener("resize", update);
     };
   }, [rootRef, sectionId]);

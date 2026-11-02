@@ -1,9 +1,10 @@
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createBrowserRouter, Navigate, RouterProvider, useLocation } from "react-router";
 import { api } from "@/api";
-import { queryKeys } from "@/api/hooks";
+import { queryKeys, useHealth } from "@/api/hooks";
 import { ApiError, ErrorCodes } from "@/api/types";
 import { AppShell } from "@/components/shell/AppShell";
+import { outdatedSide, UpdateNeeded } from "@/components/shell/UpdateNeeded";
 import { AssistantPage } from "@/pages/AssistantPage";
 import { HighlightsPage } from "@/pages/HighlightsPage";
 import { LibraryPage } from "@/pages/LibraryPage";
@@ -60,11 +61,17 @@ const router = createBrowserRouter([
   },
 ]);
 
+/** The routes, unless the server speaks another API version than this UI (the iPhone app's copy fell behind). */
+function Routes() {
+  const side = outdatedSide(useHealth().data);
+  return side ? <UpdateNeeded side={side} /> : <RouterProvider router={router} />;
+}
+
 export function App() {
   useApplySettings();
   return (
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <Routes />
     </QueryClientProvider>
   );
 }

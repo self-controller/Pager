@@ -120,7 +120,7 @@
   }
 }
 
-/* Stable tinted placeholders (generated covers). --hue is set inline; kept low in saturation to sit on paper. */
+/* Stable tinted placeholders (generated covers). --hue is set inline; kept low in saturation to sit quietly on the page. */
 .tint {
   background: hsl(var(--hue, 30) 24% 86%);
   color: hsl(var(--hue, 30) 28% 24%);
@@ -128,18 +128,6 @@
 [data-theme="dark"] .tint {
   background: hsl(var(--hue, 30) 14% 26%);
   color: hsl(var(--hue, 30) 26% 86%);
-}
-
-/* A faint paper grain over the light theme. Fixed, non-interactive, and off in dark mode. */
-[data-theme="light"] body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  pointer-events: none;
-  opacity: 0.035;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
-  mix-blend-mode: multiply;
 }
 
 /* Stretched link: the whole row is clickable while nested buttons stay real buttons. */
@@ -155,4 +143,49 @@
 }
 .stretched-link:focus-visible::after {
   box-shadow: var(--focus-ring);
+}
+
+/* Reader chrome: on touch screens a tap in the middle of the page hides the reader's top bar and the
+   phone tab bar (useReaderChrome sets data-reader-chrome on <html>). Transform and opacity only, so
+   their space stays and the page never reflows; hidden, they can't be focused or clicked. */
+.reader-top-bar,
+[data-tab-bar] {
+  transition:
+    transform 250ms cubic-bezier(0.19, 1, 0.22, 1),
+    opacity 250ms cubic-bezier(0.19, 1, 0.22, 1),
+    visibility 0s;
+}
+:root[data-reader-chrome="hidden"] .reader-top-bar {
+  transform: translateY(-100%);
+}
+:root[data-reader-chrome="hidden"] [data-tab-bar] {
+  transform: translateY(100%);
+}
+:root[data-reader-chrome="hidden"] :is(.reader-top-bar, [data-tab-bar]) {
+  opacity: 0;
+  visibility: hidden;
+  transition-delay: 0s, 0s, 250ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reader-top-bar,
+  [data-tab-bar] {
+    transition: none;
+  }
+}
+
+/* The scroll layout lets the chapter run under the bars: the tab bar's space isn't kept, so text
+   shows where it was once it hides (the reader pads for it instead, prose.css "Scroll"). */
+:root[data-reader-layout="scroll"] #content {
+  padding-bottom: 0;
+}
+/* Behind the iPhone status bar, a strip of page, so scrolled text never shows through it. */
+.reader-status-scrim {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  z-index: 30;
+  height: env(safe-area-inset-top);
+  background: var(--bg-primary);
+  pointer-events: none;
 }

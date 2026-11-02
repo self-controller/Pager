@@ -133,25 +133,12 @@ export function leafBlocks(root: Element): Element[] {
 export interface ReadingPoint {
   blockId: string;
   offset: number;
-  /** Pixels between the top bar and that text position, to put it back exactly. */
+  /** Pixels between the top of the reading box and that text position (0 on a page), to put it back exactly. */
   delta: number;
 }
 
-/** The text position at the top of the reading viewport, as a block point. Null without blocks. */
-export function topReadingPoint(root: Element, barHeight: number): ReadingPoint | null {
-  const block = leafBlocks(root).find((b) => b.getBoundingClientRect().bottom > barHeight + 1);
-  const blockId = block?.getAttribute("data-b");
-  if (!block || !blockId) return null;
-  const rect = block.getBoundingClientRect();
-  if (rect.top >= barHeight) return { blockId, offset: 0, delta: rect.top - barHeight };
-  const caret = caretAt(block.ownerDocument, rect.left + 2, barHeight + 4);
-  if (!caret || !block.contains(caret.node)) return { blockId, offset: 0, delta: rect.top - barHeight };
-  const offset = blockOffsetOf(block, caret.node, caret.offset);
-  const top = rangeAtBlockOffset(block, offset)?.getBoundingClientRect().top ?? rect.top;
-  return { blockId, offset, delta: top - barHeight };
-}
-
-const intersects = (r: DOMRect, box: DOMRect) => r.right > box.left + 1 && r.left < box.right - 1 && r.bottom > box.top + 1 && r.top < box.bottom - 1;
+const intersects = (r: DOMRect, box: DOMRect) =>
+  r.right > box.left + 1 && r.left < box.right - 1 && r.bottom > box.top + 1 && r.top < box.bottom - 1;
 
 /**
  * The reading place on a page: the first block with any part inside `box` (the visible page), and
@@ -171,6 +158,52 @@ export function readingPointInBox(root: Element, box: DOMRect): ReadingPoint | n
   return { blockId, offset: 0, delta: 0 };
 }
 
+/**
+ * The first of `count` blocks in vertical order whose bottom is below `lineY`, or -1. Binary search,
+ * measuring only the blocks it visits; `rectAt(i)` gives block i's viewport rectangle. A hidden
+ * block (an all-zero rectangle, like a hidden duplicate title) can mislead the search, so the
+ * answer is then walked back over any earlier blocks still below the line.
+ */
+export function firstBlockAtLine(count: number, rectAt: (i: number) => { top: number; bottom: number }, lineY: number): number {
+  const hidden = (r: { top: number; bottom: number }) => r.top === 0 && r.bottom === 0;
+  let lo = 0;
+  let hi = count;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (rectAt(mid).bottom > lineY) hi = mid;
+    else lo = mid + 1;
+  }
+  if (lo >= count) return -1;
+  let found = lo;
+  for (let k = lo - 1; k >= 0; k--) {
+    const r = rectAt(k);
+    if (hidden(r)) continue;
+    if (r.bottom > lineY) found = k;
+    else break;
+  }
+  return found;
+}
+
+/**
+ * The reading place in a vertical scroll: the block crossing the reading line `lineY` (or the first
+ * one below it), and the text offset on that line when the block began above it. `delta` is how far
+ * below the box's top that text sits.
+ */
+export function readingPointAtLine(root: Element, box: DOMRect, lineY: number): ReadingPoint | null {
+  const blocks = leafBlocks(root);
+  const i = firstBlockAtLine(blocks.length, (k) => blocks[k]!.getBoundingClientRect(), lineY);
+  const block = i >= 0 ? blocks[i]! : null;
+  const blockId = block?.getAttribute("data-b");
+  if (!block || !blockId) return null;
+  const rect = block.getBoundingClientRect();
+  if (rect.top >= lineY - 1) return { blockId, offset: 0, delta: rect.top - box.top };
+  const caret = caretAt(block.ownerDocument, rect.left + 2, lineY);
+  if (!caret || !block.contains(caret.node)) return { blockId, offset: 0, delta: rect.top - box.top };
+  const offset = blockOffsetOf(block, caret.node, caret.offset);
+  const top = rangeAtBlockOffset(block, offset)?.getBoundingClientRect().top ?? rect.top;
+  return { blockId, offset, delta: top - box.top };
+}
+
 /** The rectangle of a block point's first character (or its block), or null when the block is gone. */
 export function rectForPoint(root: Element, point: { blockId: string; offset: number }): DOMRect | null {
   const block = root.querySelector(`[data-b="${CSS.escape(point.blockId)}"]`);
@@ -180,21 +213,4 @@ export function rectForPoint(root: Element, point: { blockId: string; offset: nu
     if (r && (r.width || r.height)) return r;
   }
   return block.getBoundingClientRect();
-}
-
-/** Scrolls so a block point sits `delta` px below the top bar. False when the block is gone. */
-export function restoreReadingPoint(
-  root: Element,
-  point: { blockId: string; offset: number },
-  barHeight: number,
-  delta = 0,
-): boolean {
-  const block = root.querySelector(`[data-b="${CSS.escape(point.blockId)}"]`);
-  if (!block) return false;
-  const top =
-    point.offset > 0
-      ? (rangeAtBlockOffset(block, point.offset)?.getBoundingClientRect().top ?? block.getBoundingClientRect().top)
-      : block.getBoundingClientRect().top;
-  window.scrollBy({ top: top - barHeight - delta, behavior: "instant" });
-  return true;
 }

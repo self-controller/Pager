@@ -106,7 +106,8 @@ export function ContextMenu({ label, at, items, onClose }: Props) {
             }}
             className={cx(
               "flex h-9 w-full items-center gap-3 rounded-sm px-2.5 text-left text-[14px] leading-5 font-medium transition-hover",
-              item.danger ? "text-error hover:bg-accent-bg/60" : "text-fg hover:bg-surface-2",
+              item.danger ? "text-error" : "text-fg",
+              "hover:bg-surface-2",
               item.disabled && "opacity-50",
             )}
           >

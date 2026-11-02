@@ -392,20 +392,24 @@ async fn the_remote_stream_leaves_out_sources_and_closes_on_revoke() {
 // ---- Remote access settings and pairing over HTTP ----
 
 #[tokio::test(flavor = "multi_thread")]
-async fn remote_access_is_off_by_default_and_needs_an_origin() {
+async fn remote_access_is_off_by_default_and_the_origin_is_optional() {
     let t = remote_setup(None, false).await;
-    assert_eq!(t.get("/api/settings").await.body["app"]["remote"], json!({ "enabled": false, "origin": null, "relay": null }));
-    let refused = t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "enabled": true } }))).await;
-    assert_eq!(refused.status, 400);
-    assert_eq!(refused.body["error"]["message"], "Set the address your phone will use (remote.origin) before turning on remote access.");
+    assert_eq!(t.get("/api/settings").await.body["app"]["remote"], json!({ "enabled": false, "origin": null, "relay": null, "relayToken": null }));
+    // iroh needs no address: remote access turns on without one.
+    let on = t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "enabled": true } }))).await;
+    assert_eq!(on.status, 200, "{}", on.text);
+    assert_eq!(on.body["app"]["remote"], json!({ "enabled": true, "origin": null, "relay": null, "relayToken": null }));
+    assert_eq!(t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "enabled": false } }))).await.status, 200);
     for origin in ["http://fedora.tail1234.ts.net", "https://fedora.tail1234.ts.net/pair", "https://fedora.tail1234.ts.net/?x=1", "not a url", ""] {
         assert_eq!((origin, t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "origin": origin } }))).await.status), (origin, 400));
     }
     let on = t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "enabled": true, "origin": format!("{}/", ORIGIN.to_uppercase()) } }))).await;
-    assert_eq!(on.body["app"]["remote"], json!({ "enabled": true, "origin": ORIGIN, "relay": null }));
+    assert_eq!(on.body["app"]["remote"], json!({ "enabled": true, "origin": ORIGIN, "relay": null, "relayToken": null }));
     assert_eq!(t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "origin": "http://localhost:3007" } }))).await.status, 200);
-    assert_eq!(t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "origin": null } }))).await.status, 400);
-    assert_eq!(t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "enabled": false, "origin": null } }))).await.body["app"]["remote"], json!({ "enabled": false, "origin": null, "relay": null }));
+    // Clearing the address leaves remote access on (over iroh alone).
+    let cleared = t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "origin": null } }))).await;
+    assert_eq!(cleared.body["app"]["remote"], json!({ "enabled": true, "origin": null, "relay": null, "relayToken": null }));
+    assert_eq!(t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "enabled": false, "origin": null } }))).await.body["app"]["remote"], json!({ "enabled": false, "origin": null, "relay": null, "relayToken": null }));
     // The tailnet origin is suggested in local health when Tailscale knows one.
     let s = make_app_with(Clock::fake("2026-10-26T12:00:00Z"), None, Some("https://fedora.tail1234.ts.net".into()));
     assert_eq!(s.get("/api/health").await.body["remote"], json!({ "suggestedOrigin": "https://fedora.tail1234.ts.net" }));

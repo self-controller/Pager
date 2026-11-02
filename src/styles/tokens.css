@@ -1,44 +1,37 @@
 /*
- * Design tokens for Pager: paper and ink in the light theme, dark sepia in the dark theme, with a
- * saddle-brown accent. Layout sizes, type and motion follow. See DESIGN.md for the reasoning behind
- * each value. Change the accent here and the whole app follows.
+ * Design tokens for Pager: black on white in the light theme, soft light grey on near-black in the
+ * dark theme, neutral greys in between, and one ink blue for everything you can act on. Layout
+ * sizes, type and motion follow. See DESIGN.md for the reasoning behind each value. Change the accent
+ * here and the whole app follows.
  */
 
 :root,
 [data-theme="light"] {
-  /* Paper scale (backgrounds) and ink scale (text) */
-  --paper-50: #faf6ee;
-  --paper-100: #f4ede0;
-  --paper-200: #ebe1cf;
-  --paper-300: #ddd0b8;
-  --paper-400: #c4b394;
-  --ink-900: #2a211a;
-  --ink-600: #6b5a4a;
-  --ink-400: #a8977f;
+  /* Accent: deep ink blue (buttons, links, focus ring, progress, selection) */
+  --accent: #1d4ed8;
+  --accent-hover: #1e40af;
+  --accent-bg: rgb(29 78 216 / 0.16);
+  --accent-bg-hover: rgb(29 78 216 / 0.26);
+  --on-accent: #ffffff;
 
-  /* Accent: saddle brown */
-  --accent: #7a4f2a;
-  --accent-hover: #5e3b1e;
-  --accent-bg: rgb(122 79 42 / 0.16);
-  --accent-bg-hover: rgb(122 79 42 / 0.26);
-  --on-accent: #fbf5e9;
-
-  /* Semantic */
-  --fg-primary: var(--ink-900);
-  --fg-secondary: var(--ink-600);
-  --fg-tertiary: var(--ink-400);
-  --bg-primary: var(--paper-50);
-  --bg-primary-hover: var(--paper-100);
-  --bg-secondary: var(--paper-200);
-  --bg-tertiary: var(--paper-300);
-  --bg-quaternary: var(--paper-400);
-  --bg-elevated: #fffdf8;
-  --detail: rgb(60 40 20 / 0.12);
-  --modal-scrim: rgb(42 33 26 / 0.5);
-  --tooltip-bg: var(--ink-900);
-  --tooltip-fg: var(--paper-50);
-  --select: #4f6b8a;
-  --error: #a83a2a;
+  /* Semantic: neutral greys only */
+  --fg-primary: #111111;
+  --fg-secondary: #616161;
+  --fg-tertiary: #858585;
+  --bg-primary: #ffffff;
+  --bg-primary-hover: #f5f5f5;
+  --bg-secondary: #ebebeb;
+  --bg-tertiary: #dbdbdb;
+  --bg-quaternary: #bdbdbd;
+  --bg-elevated: #ffffff; /* same as the page: the .elevation ring and shadow set it apart */
+  --detail: rgb(0 0 0 / 0.12);
+  --modal-scrim: rgb(0 0 0 / 0.4);
+  --tooltip-bg: #111111;
+  --tooltip-fg: #ffffff;
+  --tooltip-accent: #60a5fa; /* the accent on --tooltip-bg (toast actions) */
+  --tooltip-hover: rgb(255 255 255 / 0.12);
+  --select: var(--accent);
+  --error: #b91c1c;
 
   /* Buttons (primary / secondary / tertiary / quaternary) */
   --button-primary-bg: var(--accent);
@@ -63,43 +56,42 @@
   --hl-blue-line: #466fb0;
   --hl-pink-line: #b5557f;
   --hl-purple-line: #7d5bb3;
-  --hl-active: rgb(122 79 42 / 0.3);
+  --hl-active: rgb(29 78 216 / 0.26);
 
   color-scheme: light;
 }
 
+/* Soft dark: near-black, not pure black, with light grey text. */
 [data-theme="dark"] {
-  --fg-primary: #e9dfcf;
-  --fg-secondary: #a89880;
-  --fg-tertiary: #7a6a58;
-  --bg-primary: #1c1713;
-  --bg-primary-hover: #221c17;
-  --bg-secondary: #2a2219;
-  --bg-tertiary: #362c21;
-  --bg-quaternary: #5a4a3a;
-  --bg-elevated: #241e18;
-  --detail: rgb(233 223 207 / 0.12);
+  --fg-primary: #e5e5e5;
+  --fg-secondary: #a3a3a3;
+  --fg-tertiary: #737373;
+  --bg-primary: #121212;
+  --bg-primary-hover: #1a1a1a;
+  --bg-secondary: #242424;
+  --bg-tertiary: #303030;
+  --bg-quaternary: #4a4a4a;
+  --bg-elevated: #1e1e1e;
+  --detail: rgb(255 255 255 / 0.12);
   --modal-scrim: rgb(0 0 0 / 0.6);
-  --tooltip-bg: #e9dfcf;
-  --tooltip-fg: #1c1713;
-  --select: #7f9cbf;
-  --error: #e07b6a;
+  --tooltip-bg: #e5e5e5;
+  --tooltip-fg: #121212;
+  --tooltip-accent: #1d4ed8;
+  --tooltip-hover: rgb(0 0 0 / 0.08);
+  --error: #f87171;
 
-  --accent: #c2905d;
-  --accent-hover: #d4a572;
-  --accent-bg: rgb(194 144 93 / 0.22);
-  --accent-bg-hover: rgb(194 144 93 / 0.32);
-  --on-accent: #1c1713;
+  --accent: #60a5fa;
+  --accent-hover: #93c5fd;
+  --accent-bg: rgb(96 165 250 / 0.24);
+  --accent-bg-hover: rgb(96 165 250 / 0.34);
+  --on-accent: #121212; /* the light blue needs dark text */
 
-  --button-secondary-bg: var(--bg-secondary);
-  --button-secondary-bg-hover: var(--bg-tertiary);
-
-  --hl-yellow: rgb(232 190 40 / 0.3);
+  --hl-yellow: rgb(232 190 40 / 0.24);
   --hl-green: rgb(90 170 100 / 0.28);
   --hl-blue: rgb(90 140 210 / 0.28);
   --hl-pink: rgb(220 110 150 / 0.26);
   --hl-purple: rgb(160 120 220 / 0.28);
-  --hl-active: rgb(194 144 93 / 0.35);
+  --hl-active: rgb(96 165 250 / 0.3);
 
   color-scheme: dark;
 }

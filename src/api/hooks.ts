@@ -8,6 +8,7 @@ import type {
   CreateFileInput,
   DocumentQuery,
   DocumentSummary,
+  Health,
   HighlightQuery,
   IngestJob,
   JournalEvent,
@@ -378,9 +379,19 @@ export function useLiveUpdates(): void {
 
 // ---- The server, remote mode, and paired phones ----
 
-/** GET /api/health. On a phone, `remote.device` is set. The mock has no server and answers unsupported. */
-export function useHealth() {
-  return useQuery({ queryKey: queryKeys.health, queryFn: () => api.getHealth(), staleTime: Infinity, retry: false });
+/**
+ * GET /api/health. On a phone, `remote.device` is set. The mock has no server and answers unsupported.
+ * `poll` gives a refetch interval from the latest answer, for something still on its way (iroh
+ * starting); false stops polling.
+ */
+export function useHealth(poll?: (health: Health | undefined) => number | false) {
+  return useQuery({
+    queryKey: queryKeys.health,
+    queryFn: () => api.getHealth(),
+    staleTime: Infinity,
+    retry: false,
+    refetchInterval: poll ? (query) => poll(query.state.data) : false,
+  });
 }
 
 /**

@@ -9,6 +9,12 @@ no longer waits two weeks.
 **2026-10-28: the TypeScript server is deleted** and `server-rs/` is now `server/`. Phase 1's step
 list below was written for the TypeScript server, so the `.ts` files it names no longer exist; the
 Progress note gives where each step was built in Rust.
+**2026-10-28: Phase 1b is built** (Progress note under it); its run from another network is still open.
+**2026-10-28: Phase 4's code is built and tested**, and its deploy files are written; deploying the
+relay is the user's step. **Phase 2's web part is built; the app's source (`ios/`) is written but not
+compiled yet:** the iOS toolchain (Swift, xtool, an Xcode.xip) is the user's to install first.
+**Phase 3 waits** until the app works on the phone (the user's choice), so Tailscale stays the
+fallback. Progress notes under each phase.
 Inputs: `reports/iPhone remote access to desktop books.md` (stage 3), API.md "Phones: the remote
 listener (M6)", and the benchmark below.
 
@@ -178,8 +184,37 @@ to try from another network, with a phone: the same run over cellular.
 
 ## Phase 1b: iroh on its own, without Tailscale *(added 2026-10-28)*
 
-Today remote access won't turn on, and no pairing window opens, until `remote.origin` is set, and
-only the Tailscale path uses that address. With Tailscale skipped, take out that dependency now
+> **Progress, 2026-10-28.** Built as listed:
+> - `RemoteListener::sync()` (`server/src/server.rs`) replaces `start()`. iroh runs whenever remote
+>   access is on; the TCP listener runs only while an origin is set, and clearing the origin stops it
+>   alone. `with_iroh_options` lets tests bind iroh on loopback.
+> - The settings check is gone. `POST /devices/pairing` opens with `url` only with an origin, `appUrl`
+>   while iroh is on, and 400 when remote access is off or neither link exists. `PairingWindow.url`
+>   is optional in Rust and in `shared/src/api.ts`.
+> - Settings → Phone: **Pair a phone** needs remote access on and iroh started; the field is labelled
+>   "Tailscale address (optional)"; health is polled until the ID and relay show. The dialog's QR code
+>   carries `appUrl` and shows it as selectable text.
+> - `fake-phone --key` (`identity::load_or_create_at`). The fake phone also names the computer's close
+>   reason (`not paired`, `revoked`) instead of "connection lost".
+> - Tests: `iroh_works_without_an_origin` in `tests/remote_iroh.rs` (a real `RemoteListener` on a free
+>   port), the settings test in `tests/remote.rs`. Docs: API.md, CONTRACT.md, `server/README.md`,
+>   `docs/iphone.md`.
+>
+> Beyond the list:
+> - A new window waits up to 3 s for iroh to reach its relay (`IrohNode::ticket_with_relay`), so a
+>   link made just after turning remote access on carries the relay (needed with your own relay,
+>   which has no discovery).
+> - Clearing the origin sends `RemoteClosing`, so iroh phones' live streams end too; EventSource
+>   reopens them from the last event.
+>
+> Verified on this PC with a scratch server and no origin: the fake phone paired from the window's
+> `appUrl` through `use1-1.relay.n0.iroh.link` (`--relay-only --key`). It then read again with
+> `--ticket … --token … --key` and no window open; without `--key` it was closed as `not paired`.
+> 3007 listened only while an origin was set. `cargo test` (114), `npm run typecheck` and `npm test`
+> pass. **Still open:** the same run from another network (the Exit below).
+
+Before this phase, remote access wouldn't turn on, and no pairing window opened, until `remote.origin`
+was set, and only the Tailscale path uses that address. With Tailscale skipped, take out that dependency now
 instead of in Phase 3. A small change; the protocol doesn't change.
 
 1. **Settings.** Turning remote access on no longer needs `remote.origin` (the check in the app
@@ -211,6 +246,33 @@ another network as well (a phone's hotspot; this is the run left over from Phase
 `cargo test`, `npm run typecheck` and `npm test` pass.
 
 ## Phase 2: the iPhone app
+
+> **Progress, 2026-10-28.** The web part is built and tested; the app is written, not compiled.
+> - **Web** (step 7):
+>   - `src/lib/native.ts` tells the app by its scheme, `pager-app:`.
+>   - `src/api/fetch-event-source.ts` is an EventSource over fetch, which `createHttpApi` hands to
+>     `followStream` in the app. That makes the EventSource spike unnecessary.
+>   - `API_VERSION` (`shared/src/api.ts`) and `UpdateNeeded` (`src/components/shell/`): a server on
+>     another `apiVersion` gets "Update Pager", naming which side is older.
+>   - PairPage succeeds on the poll answer's `device`, since the app removes `token`.
+>     `PairPollResult.token` is optional.
+>   - Tests: `test/fetch-event-source.test.ts`.
+> - **The app** (`ios/`, steps 2–6): a SwiftUI app with IrohLib 1.2.0 (iOS 17.5+), written against
+>   that release's generated `IrohLib.swift`.
+>   - `IrohClient` (an actor): one endpoint, its key in the Keychain; it dials the saved ticket and
+>     shares one dial between requests. It closes on background, and keeps health's relay and
+>     relay token.
+>   - `PagerSchemeHandler`: the bundled UI (`build-web.sh`) on `pager-app://localhost/`, `/api` as
+>     `pager/1`, and token capture on `/api/pair/poll`. It answers 401 when the computer closes with
+>     16 or 17 (and forgets the token on 17), and 503 otherwise. A stopped task stops its stream.
+>   - `WebView`: only `pager-app:` loads; other links open in Safari.
+>   - `onOpenURL` for `pager://pair`, a first screen with a paste field, and `DiagnosticsView`
+>     (IDs, path, round trip, last error, a timed download of the largest book's sections).
+>   - `ios/README.md` holds the toolchain steps and the build and install.
+> - **Not done:** compiling (needs the user's `xtool setup`), the spike on the phone, and the
+>   measurements.
+> - **Deviation:** the throughput test fetches the largest book's sections rather than one 50 MB
+>   file: no remote route serves a raw file.
 
 1. **Spikes first. Stop and decide if any fails:**
    - xtool builds a SwiftUI app that links IrohLib's xcframework, installs it on the phone, and
@@ -249,6 +311,9 @@ another network as well (a phone's hotspot; this is the run left over from Phase
 
 ## Phase 3: cut over (remove Tailscale)
 
+*Waiting (2026-10-28): the user chose to keep Tailscale as the fallback until the app works on the
+phone.*
+
 Start once Phase 2's exit is met. *(The plan first waited until the app had been the daily path for
 about two weeks, with Tailscale beside it. Nothing runs on Tailscale now, so there is nothing to
 compare it with; 2026-10-28.)*
@@ -277,6 +342,35 @@ compare it with; 2026-10-28.)*
 
 ## Phase 4: your own relay (before anyone else uses Pager)
 
+> **Progress, 2026-10-28.** Built and tested; deploying it is the user's step (`docs/relay.md`).
+> - **Step 2 is answered:** iroh-relay 1.4.1 offers `access.shared_token`, an endpoint allowlist, or
+>   an HTTP check. Pager uses the shared token.
+> - **Settings:**
+>   - `remote.relayToken` (16–256 visible characters; needs `relay`; clearing `relay` clears it).
+>   - `Relay::Custom` carries a `RelayConfig` with the token. A change to either the relay or the
+>     token restarts iroh.
+> - **Phones get the token two ways:**
+>   - `appUrl` carries it as `&rt=` (percent-encoded);
+>   - health gives it to a paired phone over iroh.
+>
+>   `GET /settings` never sends `app` to a phone.
+> - **Phone binding:** `IrohOptions::phone` uses the ticket's relay alone with the token, as the app
+>   does. The fake phone has `--relay-token`.
+> - **Settings → Phone:** a "Your own relay" section.
+> - **Deploy files:** `relay/iroh-relay.toml` (LetsEncrypt, which needs `contact`; QUIC address
+>   discovery; the token; limits) and `relay/iroh-relay.service` (DynamicUser, the config handed over
+>   with LoadCredential).
+> - **Tests:** `your_own_relay_carries_only_phones_with_its_token`, with iroh's in-process relay (the
+>   `test-utils` dev-dependency), and the token checks in `the_relay_setting_is_checked_and_stored`.
+>   `cargo test`: 115.
+> - **Verified on this PC:** the real `iroh-relay` 1.4.1 ran `--dev`, with a `shared_token` config,
+>   and a scratch server used it with the token.
+>   - The fake phone paired and read through it with `--relay-only`; the device showed `lastIp:
+>     relay`.
+>   - With a wrong `--relay-token`, the relay logged "denied our authentication" and the fake phone
+>     timed out.
+>   - The shipped config parses.
+
 1. **The relay.** `iroh-relay` on a small VPS (about $2–5/month), with your own domain and TLS.
 2. **Restrict it to Pager.** The client side has `RelayConfig.authToken`. Check what the relay
    server offers for access control before relying on it.
@@ -294,7 +388,7 @@ compare it with; 2026-10-28.)*
 | The Buffer patch doesn't compile, or still misses the gate | Phase 0 | **Rust sidecar.** Native iroh speaks `pager/1` and forwards to the Node server over a Unix socket in the data dir (0600). The sidecar adds the endpoint ID as a header it controls and strips any copy sent by the client. |
 | xtool can't link IrohLib | Phase 2 | Capacitor with a macOS CI runner |
 | Phase 2 stalls, and with Tailscale skipped the phone has no way in | Phase 2 | Set up the Tailscale path in `docs/iphone.md` for the meantime; its code stays until Phase 3 |
-| EventSource fails on a custom scheme | Phase 2 | A fetch-stream EventSource passed to `followStream` |
+| EventSource fails on a custom scheme | Phase 2 | Taken already: the app uses a fetch-stream EventSource (`src/api/fetch-event-source.ts`) |
 | n0 relay rate limits | Phases 1–2 | Do Phase 4 sooner |
 | Local Network prompt confuses users | Phase 2 | Explain it in the app; declining still works through the relay |
 | Upstream changes the binding API | Ongoing | The vendored copy stays pinned until you choose to move |

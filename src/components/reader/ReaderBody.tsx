@@ -27,8 +27,11 @@ interface Props {
   /** The title shown in the header; a leading body heading repeating it is hidden. */
   title: string;
   bodyRef: RefObject<HTMLDivElement | null>;
-  /** In-document link (`#id`, `a.internal`, footnote refs). External links open in a new tab. */
-  onInternalLink: (target: InternalTarget) => void;
+  /**
+   * In-document link (`#id`, `a.internal`, footnote refs), with the link itself (a note reference
+   * opens a popover beside it). External links open in a new tab.
+   */
+  onInternalLink: (target: InternalTarget, link: HTMLAnchorElement) => void;
   /** A plain click on the text (not a link, not the end of a selection), at viewport coordinates. True when it opened something. */
   onTextClick?: (x: number, y: number) => boolean | void;
 }
@@ -50,6 +53,7 @@ export function ReaderBody({ html, title, bodyRef, onInternalLink, onTextClick }
 
   const onClick = (e: MouseEvent<HTMLDivElement>) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    // Links win over the page-turn edge zones: preventDefault tells PagedView the click is handled.
     const link = (e.target as Element).closest?.("a");
     if (!link) {
       const sel = window.getSelection();
@@ -59,7 +63,7 @@ export function ReaderBody({ html, title, bodyRef, onInternalLink, onTextClick }
     const href = link.getAttribute("href");
     if (!href?.startsWith("#") || href.length < 2) return;
     e.preventDefault();
-    onInternalLink({ id: link.dataset.block ?? decodeURIComponent(href.slice(1)), sectionId: link.dataset.section });
+    onInternalLink({ id: link.dataset.block ?? decodeURIComponent(href.slice(1)), sectionId: link.dataset.section }, link);
   };
 
   return <div ref={bodyRef} className="markup" dir="auto" onClick={onClick} dangerouslySetInnerHTML={{ __html: clean }} />;

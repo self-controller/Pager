@@ -11,6 +11,7 @@ use axum::response::Response;
 use axum::routing::{get, patch, post};
 use axum::Router;
 use std::sync::Arc;
+use std::time::Duration;
 
 pub fn router() -> Router<Arc<App>> {
     Router::new()
@@ -21,15 +22,26 @@ pub fn router() -> Router<Arc<App>> {
         .route("/devices/{id}", patch(rename).delete(revoke))
 }
 
+/// How long a new window waits for iroh to reach its relay, so the link carries it.
+const RELAY_WAIT: Duration = Duration::from_secs(3);
+
 async fn open_pairing(State(app): State<Arc<App>>) -> Result<Response> {
-    let ticket = app.iroh.ticket();
+    if !app.run(|c| Ok(c.app_settings().remote.enabled)).await? {
+        return Err(invalid("Turn on remote access before pairing a phone."));
+    }
+    let ticket = app.iroh.ticket_with_relay(RELAY_WAIT).await;
+    // The token iroh is running with, so the link matches the relay the ticket names.
+    let relay_token = ticket.as_ref().and_then(|_| app.iroh.relay_token());
     let w = app
         .run(move |c| {
             let remote = c.app_settings().remote;
-            let (true, Some(origin)) = (remote.enabled, remote.origin) else {
-                return Err(invalid("Turn on remote access, with the address your phone will use, before pairing a phone."));
-            };
-            c.pairing_open(&origin, ticket)
+            if !remote.enabled {
+                return Err(invalid("Turn on remote access before pairing a phone."));
+            }
+            if remote.origin.is_none() && ticket.is_none() {
+                return Err(invalid("Remote access is on, but iroh didn't start (see the server's log), and no Tailscale address is set."));
+            }
+            c.pairing_open(remote.origin.as_deref(), ticket, relay_token.as_deref())
         })
         .await?;
     Ok(created(w))

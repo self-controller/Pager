@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { ProgressUpdate, ReadingProgress, Section } from "@/api/types";
-import { readingPointInBox, rectForPoint, type ReadingPoint } from "./dom";
-import { offsetFromPage, pageFromOffset } from "./pagination";
-import type { Pager } from "./usePagination";
+import { rectForPoint, type ReadingPoint } from "./dom";
+import { layoutStamp, measurable, placeAtPoint, type ReaderLayout } from "./layout";
 
 const SAVE_DELAY_MS = 1000;
 
@@ -12,46 +11,73 @@ export function findTarget(root: HTMLElement, id: string): HTMLElement | null {
   return root.querySelector<HTMLElement>(`#${esc}`) ?? root.querySelector<HTMLElement>(`[data-b="${esc}"]`);
 }
 
-/** Turns to the page an element is on and moves focus there for screen readers. */
-export function showTarget(target: HTMLElement, pager: Pager): void {
-  pager.goTo(pager.pageOf(target));
+/** How long the landing wash lasts (prose.css `.is-landing`: held for 2 s, faded over 1 s). */
+export const LANDING_MS = 3000;
+
+/**
+ * Washes the block a jump landed on in the accent for a moment, so the eye finds it. Only a class
+ * on the existing element: the text and the DOM, and so every offset, stay as they are.
+ */
+export function flashLanding(el: Element | null): void {
+  if (!el) return;
+  el.classList.remove("is-landing");
+  void (el as HTMLElement).offsetWidth; // restart the animation when the same block is hit again
+  el.classList.add("is-landing");
+  let timer = 0;
+  const done = (e?: Event) => {
+    if (e && e.target !== el) return;
+    window.clearTimeout(timer);
+    el.removeEventListener("animationend", done);
+    el.classList.remove("is-landing");
+  };
+  el.addEventListener("animationend", done);
+  // Reduced motion has no animation to end: the still wash comes off after the same time.
+  timer = window.setTimeout(done, LANDING_MS + 100);
+}
+
+/** Brings an element into view (its page, or scrolled to it), marks it, and moves focus there for screen readers. */
+export function showTarget(target: HTMLElement, layout: ReaderLayout): void {
+  layout.reveal(target);
   if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
   target.focus({ preventScroll: true });
+  flashLanding(target);
 }
 
 /** The page holding a saved block point, or null when its block is gone. */
-export function pageForPoint(root: Element, point: { blockId: string; offset: number }, pager: Pager): number | null {
+export function pageForPoint(root: Element, point: { blockId: string; offset: number }, layout: ReaderLayout): number | null {
   const rect = rectForPoint(root, point);
   if (!rect) return null;
-  return pager.pageOf({ getBoundingClientRect: () => rect } as unknown as Element);
+  return layout.pageOf(measurable(rect));
 }
 
 /**
- * Keeps the reader's place in page coordinates, three ways:
- *  - when a section opens: jump to `targetId` (a link into the section), else to the page asked for
- *    (arriving from the next or previous chapter), else resume at the saved block point (survives
- *    font changes and edits to the file), else at the saved offset;
- *  - while reading: save the page as an offset plus the block point at the page's top-left
- *    (debounced; flushed on section change, tab hide and unmount);
- *  - when the pages are laid out again (the file changed on disk, the box resized, the type changed):
- *    turn to the page that now holds the same words.
+ * Keeps the reader's place, in either layout, three ways:
+ *  - when a section opens: jump to `targetId` (a link into the section), else to `initialPoint` (the
+ *    back pill's place, flashed), else to the page asked for (arriving from the next or previous
+ *    chapter: its start, or its end), else resume at the saved block point (survives font changes
+ *    and edits to the file), else at the saved offset;
+ *  - while reading: each time the view comes to rest, save its offset plus the block point at the
+ *    reading place (debounced; flushed on section change, tab hide and unmount);
+ *  - when the section is laid out again (the file changed on disk, the box resized, the type
+ *    changed, the other layout chosen): bring the same words back into view.
  */
 export function useReadingProgress({
   section,
   sectionCount,
   initial,
   bodyRef,
-  pager,
+  layout,
   save,
   targetId,
   arrivedByJump,
   initialPage,
+  initialPoint,
 }: {
   section: Section | undefined;
   sectionCount: number;
   initial: ReadingProgress | undefined;
   bodyRef: RefObject<HTMLElement | null>;
-  pager: Pager;
+  layout: ReaderLayout;
   save: (update: ProgressUpdate) => void;
   /** Block or element id to open at (the URL hash), instead of the saved position. */
   targetId?: string;
@@ -59,14 +85,25 @@ export function useReadingProgress({
   arrivedByJump?: boolean;
   /** Asked for by a page turn across chapters: the first or the last page. */
   initialPage?: number | "last";
-}): { offset: number; percent: number } {
-  const latest = useRef({ initial, targetId, arrivedByJump, initialPage, save, revisionId: section?.revisionId, pager });
-  latest.current = { initial, targetId, arrivedByJump, initialPage, save, revisionId: section?.revisionId, pager };
+  /** A block point to open at (the back pill going to another chapter); `initialPage` if it's gone. */
+  initialPoint?: { blockId: string; offset: number };
+}): { offset: number; percent: number; placed: boolean } {
+  const latest = useRef({
+    initial,
+    targetId,
+    arrivedByJump,
+    initialPage,
+    initialPoint,
+    save,
+    revisionId: section?.revisionId,
+    layout,
+  });
+  latest.current = { initial, targetId, arrivedByJump, initialPage, initialPoint, save, revisionId: section?.revisionId, layout };
   const ready = useRef(false);
   const pending = useRef<ProgressUpdate | null>(null);
   const timer = useRef<number | undefined>(undefined);
   const place = useRef<ReadingPoint | null>(null);
-  const shown = useRef<{ sectionId?: string; html?: string; version?: number }>({});
+  const shown = useRef<{ sectionId?: string; html?: string; stamp?: string; kind?: string }>({});
 
   const flush = useCallback(() => {
     window.clearTimeout(timer.current);
@@ -80,16 +117,18 @@ export function useReadingProgress({
   const sectionIndex = section?.index ?? 0;
   const html = section?.html;
   const count = Math.max(1, sectionCount);
-  const { page, pageCount, version } = pager;
+  const { rest, pageCount, version } = layout;
+  const stamp = layoutStamp(layout);
   const [offset, setOffset] = useState(0);
+  /** The section last put on its page; positions seen before that are the loading's, not the reader's. */
+  const [placedId, setPlacedId] = useState<string | null>(null);
 
-  /** Builds a progress update for the current page, remembering the words at its top-left. */
+  /** Builds a progress update for where the view is, remembering the words at the reading place. */
   const snapshot = useCallback(
     (o: number, reason: "read" | "jump" = "read"): ProgressUpdate | null => {
       if (!sectionId) return null;
       const el = bodyRef.current;
-      const box = latest.current.pager.box();
-      const point = el && box ? readingPointInBox(el, box) : null;
+      const point = el ? latest.current.layout.readingPoint(el) : null;
       place.current = point;
       const revisionId = latest.current.revisionId;
       return {
@@ -109,41 +148,44 @@ export function useReadingProgress({
     if (!sectionId || version === 0) return;
     const prev = shown.current;
     const body = bodyRef.current;
-    const p = latest.current.pager;
+    const p = latest.current.layout;
 
     if (prev.sectionId === sectionId) {
-      // Same section: the file changed, the box resized, or the type changed. Same words, new page.
-      if ((prev.html !== html || prev.version !== version) && body && place.current) {
-        const target = pageForPoint(body, place.current, p);
-        if (target !== null) p.goTo(target);
+      // Same section: the file changed, the box resized, the type or the layout changed. Same words.
+      if ((prev.html !== html || prev.stamp !== stamp) && body && place.current) {
+        const rect = rectForPoint(body, place.current);
+        if (rect) p.restore(measurable(rect), place.current.delta, { force: prev.html !== html || prev.kind !== p.kind });
       }
-      shown.current = { sectionId, html, version };
+      shown.current = { sectionId, html, stamp, kind: p.kind };
       return;
     }
 
     ready.current = false;
-    const { initial: saved, targetId: target, arrivedByJump: jump, initialPage: asked } = latest.current;
+    const { initial: saved, targetId: target, arrivedByJump: jump, initialPage: asked, initialPoint: point } = latest.current;
     const targetEl = body && target ? findTarget(body, target) : null;
     const resumes = saved?.sectionId === sectionId;
-    let start = 0;
     if (body && targetEl) {
       showTarget(targetEl, p);
-      start = p.pageOf(targetEl);
+    } else if (body && point && placeAtPoint(body, point, p)) {
+      flashLanding(body.querySelector(`[data-b="${CSS.escape(point.blockId)}"]`));
     } else if (asked !== undefined) {
-      start = asked === "last" ? pageCount - 1 : asked;
-    } else if (body && resumes && saved.point && saved.anchor !== "orphaned") {
-      start = pageForPoint(body, saved.point, p) ?? pageFromOffset(saved.offset, pageCount);
+      if (asked === "last") p.toEnd();
+      else p.goTo(asked);
+    } else if (body && resumes && saved.point && saved.anchor !== "orphaned" && placeAtPoint(body, saved.point, p)) {
+      // Back at the saved words.
     } else if (resumes) {
-      start = pageFromOffset(saved.offset, pageCount);
+      p.goToOffset(saved.offset);
+    } else {
+      p.goTo(0);
     }
-    p.goTo(start);
-    const o = offsetFromPage(start, pageCount);
+    const o = p.offset();
     setOffset(o);
+    setPlacedId(sectionId);
     ready.current = true;
     const first = snapshot(o, jump || targetEl ? "jump" : "read");
     if (first) latest.current.save(first);
-    shown.current = { sectionId, html, version };
-  }, [sectionId, html, version, pageCount, bodyRef, snapshot]);
+    shown.current = { sectionId, html, stamp, kind: p.kind };
+  }, [sectionId, html, version, stamp, bodyRef, snapshot]);
 
   // Leaving a section (or the page) saves what is pending.
   useEffect(() => {
@@ -154,15 +196,16 @@ export function useReadingProgress({
     };
   }, [sectionId, flush]);
 
-  // Track page turns.
+  // Track where the view comes to rest: page turns, or the scroll settling. A layout that hasn't
+  // been placed yet (just measured, or just switched to) has nothing to say about the place.
   useEffect(() => {
-    if (!sectionId || !ready.current) return;
-    const o = offsetFromPage(page, pageCount);
+    if (!sectionId || !ready.current || shown.current.stamp !== stamp) return;
+    const o = latest.current.layout.offset();
     setOffset(o);
     pending.current = snapshot(o);
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(flush, SAVE_DELAY_MS);
-  }, [sectionId, page, pageCount, snapshot, flush]);
+  }, [sectionId, rest, pageCount, stamp, snapshot, flush]);
 
   useEffect(() => {
     const onHide = () => {
@@ -176,5 +219,9 @@ export function useReadingProgress({
     };
   }, [flush]);
 
-  return { offset, percent: sectionId ? (sectionIndex + offset) / count : 0 };
+  return {
+    offset,
+    percent: sectionId ? (sectionIndex + offset) / count : 0,
+    placed: Boolean(sectionId) && placedId === sectionId,
+  };
 }

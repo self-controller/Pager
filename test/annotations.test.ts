@@ -4,7 +4,7 @@ import { annotationKeys, applyServerEvent, newAnnotationId, queryKeys } from "@/
 import { createHttpApi, followStream, highlightQueryString, streamUrl } from "@/api/http";
 import { createMockApi } from "@/api/mock";
 import type { JournalEvent } from "@/api/types";
-import { blockOffsetOf, indexText, leafBlocks, rangeAtBlockOffset, rangeForOffsets } from "@/components/reader/dom";
+import { blockOffsetOf, firstBlockAtLine, indexText, leafBlocks, rangeAtBlockOffset, rangeForOffsets } from "@/components/reader/dom";
 import { annotationsAt, highlightName } from "@/components/reader/useHighlightPainting";
 
 function body(html: string): HTMLDivElement {
@@ -47,6 +47,23 @@ describe("block points (API.md coordinate rule)", () => {
     const root = body('<blockquote data-b="q"><p data-b="p1">a</p><p data-b="p2">b</p></blockquote><p data-b="p3">c</p>');
     expect(leafBlocks(root).map((b) => b.getAttribute("data-b"))).toEqual(["p1", "p2", "p3"]);
     root.remove();
+  });
+});
+
+describe("the block at the reading line", () => {
+  const rects = (bottoms: number[]) => (i: number) => ({ top: bottoms[i]! === 0 ? 0 : bottoms[i]! - 50, bottom: bottoms[i]! });
+  it("finds the first block reaching below the line", () => {
+    const at = rects([100, 200, 300, 400]);
+    expect(firstBlockAtLine(4, at, 150)).toBe(1);
+    expect(firstBlockAtLine(4, at, 50)).toBe(0);
+    expect(firstBlockAtLine(4, at, 200)).toBe(2);
+    expect(firstBlockAtLine(4, at, 500)).toBe(-1);
+    expect(firstBlockAtLine(0, at, 0)).toBe(-1);
+  });
+
+  it("isn't misled by a hidden block", () => {
+    expect(firstBlockAtLine(3, rects([100, 0, 300]), 50)).toBe(0);
+    expect(firstBlockAtLine(4, rects([100, 200, 0, 400]), 150)).toBe(1);
   });
 });
 

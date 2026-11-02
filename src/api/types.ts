@@ -50,6 +50,7 @@ export type {
   PairPollResult,
   PairRequestResult,
 } from "../../shared/src/api";
+export { API_VERSION } from "../../shared/src/api";
 export type { AppSettings };
 
 /** A change to the server's own settings: any of its groups, in part. */

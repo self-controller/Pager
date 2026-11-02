@@ -43,6 +43,18 @@ fn parse_relay(raw: &Value) -> Result<Option<String>> {
     Ok(Some(iroh::RelayUrl::from(url).to_string()))
 }
 
+/// The token your relay asks for: 16 to 256 visible ASCII characters, or null.
+fn parse_relay_token(raw: &Value) -> Result<Option<String>> {
+    if raw.is_null() {
+        return Ok(None);
+    }
+    let s = raw.as_str().map(str::trim).unwrap_or("");
+    if !(16..=256).contains(&s.len()) || !s.bytes().all(|b| b.is_ascii_graphic()) {
+        return Err(invalid("remote.relayToken is 16 to 256 letters, digits or symbols with no spaces (openssl rand -hex 32 makes one), or null."));
+    }
+    Ok(Some(s.to_string()))
+}
+
 fn is_json(v: &Value, depth: u32) -> bool {
     if depth > 20 {
         return false;
@@ -107,6 +119,10 @@ impl Core {
                     _ => None,
                 },
                 relay: match get(&["remote", "relay"]) {
+                    Some(Value::String(s)) => Some(s),
+                    _ => None,
+                },
+                relay_token: match get(&["remote", "relayToken"]) {
                     Some(Value::String(s)) => Some(s),
                     _ => None,
                 },
@@ -225,9 +241,16 @@ impl Core {
             }
             if let Some(v) = r.get("relay") {
                 cur.remote.relay = parse_relay(v)?;
+                // Back on n0's relays, your relay's token means nothing.
+                if cur.remote.relay.is_none() {
+                    cur.remote.relay_token = None;
+                }
             }
-            if cur.remote.enabled && cur.remote.origin.is_none() {
-                return Err(invalid("Set the address your phone will use (remote.origin) before turning on remote access."));
+            if let Some(v) = r.get("relayToken") {
+                cur.remote.relay_token = parse_relay_token(v)?;
+            }
+            if cur.remote.relay_token.is_some() && cur.remote.relay.is_none() {
+                return Err(invalid("remote.relayToken is for your own relay: set remote.relay too."));
             }
             keys.push("remote");
         } else if p.get("remote").map(|m| !m.is_null()).unwrap_or(false) {

@@ -1,0 +1,41 @@
+# Pager's relay as a systemd service (docs/relay.md).
+#   sudo install -m 0644 iroh-relay.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now iroh-relay
+[Unit]
+Description=iroh-relay for Pager
+Documentation=https://github.com/n0-computer/iroh
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+# `cargo install iroh-relay@1.4.1 --features server --locked --root /usr/local` puts it here.
+ExecStart=/usr/local/bin/iroh-relay --config-path ${CREDENTIALS_DIRECTORY}/iroh-relay.toml
+# The config holds the token: it stays root-only on disk, and systemd hands this service a copy.
+LoadCredential=iroh-relay.toml:/etc/iroh-relay/iroh-relay.toml
+# LetsEncrypt certificates.
+StateDirectory=iroh-relay
+WorkingDirectory=/var/lib/iroh-relay
+Restart=on-failure
+RestartSec=5
+
+# A user of its own, made for this service, that may bind ports 80 and 443 and nothing more.
+DynamicUser=yes
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

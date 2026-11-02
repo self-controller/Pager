@@ -12,11 +12,14 @@ export function TocDrawer({
   currentId,
   open,
   onClose,
+  onJump,
 }: {
   doc: DocumentDetail;
   currentId?: string;
   open: boolean;
   onClose: () => void;
+  /** Called just before going to another chapter, so the reader can remember where it was. */
+  onJump?: (sectionId: string) => void;
 }) {
   return (
     <Dialog open={open} onClose={onClose} title="Contents" placement="left">
@@ -24,7 +27,7 @@ export function TocDrawer({
         <div className="font-display text-[15px] leading-5 font-semibold">{doc.title}</div>
         {doc.author && <div className="text-[13px] leading-[18px] text-fg-2">{doc.author}</div>}
       </div>
-      <ol className="flex flex-col p-2">
+      <ol className="flex flex-col p-2" data-reader-overlay>
         {doc.toc.map((entry) => {
           const current = entry.id === currentId;
           return (
@@ -32,7 +35,10 @@ export function TocDrawer({
               <Link
                 to={sectionHref(doc.id, entry.id)}
                 state={{ jump: true }}
-                onClick={onClose}
+                onClick={() => {
+                  if (!current) onJump?.(entry.id);
+                  onClose();
+                }}
                 aria-current={current ? "page" : undefined}
                 className={cx(
                   "flex items-baseline gap-3 rounded-sm px-3 py-2.5 text-[15px] leading-5 transition-hover hover:bg-surface-hover",

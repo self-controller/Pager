@@ -189,9 +189,15 @@ export type ErrorCode =
   | "conflict"
   | "internal";
 
+/**
+ * The API version this UI speaks. `GET /health` names the server's; the iPhone app carries its own
+ * copy of the UI, which can fall behind the computer, so a mismatch asks for an update.
+ */
+export const API_VERSION = 1;
+
 export interface Health {
   app: "pager";
-  apiVersion: 1;
+  apiVersion: number;
   version: string;
   /** Local listener only (so are port, dataDir, readsDir and startedAt). */
   pid?: number;
@@ -207,7 +213,14 @@ export interface Health {
    * status`) and, while iroh is on, this computer's ID and relay. A UI is in remote mode when
    * `remote.device` is set.
    */
-  remote?: { device?: { id: string; name: string }; suggestedOrigin?: string; endpointId?: string; relay?: string } | null;
+  remote?: {
+    device?: { id: string; name: string };
+    suggestedOrigin?: string;
+    endpointId?: string;
+    relay?: string;
+    /** Over iroh, to a paired phone only: your own relay's token, so the phone picks up a new one. */
+    relayToken?: string;
+  } | null;
 }
 
 // ---- Paired devices (the remote listener) ----
@@ -225,12 +238,15 @@ export interface DeviceView {
   status: DeviceStatus;
 }
 
-/** POST /api/devices/pairing (local listener): the code and QR link to show on the desktop. */
+/**
+ * POST /api/devices/pairing (local listener): the code and the links to show on the desktop. At least
+ * one link is present; the QR code carries `appUrl` when there is one.
+ */
 export interface PairingWindow {
   /** XXXX-XXXX. */
   code: string;
-  /** `${app.remote.origin}/pair#code=XXXX-XXXX`, for the QR code the Home Screen app scans. */
-  url: string;
+  /** `${app.remote.origin}/pair#code=XXXX-XXXX` for the Home Screen app, present while a Tailscale address is set. */
+  url?: string;
   /** `pager://pair?v=1&t=<ticket>&code=XXXX-XXXX` for the phone app, present while iroh is on. */
   appUrl?: string;
   expiresAt: string;
@@ -255,8 +271,12 @@ export interface PairRequestResult {
   pollSecret: string;
 }
 
-/** POST /api/pair/poll (remote listener): 202 while pending, then 200 once with the credential. */
-export type PairPollResult = { status: "pending" } | { token: string; device: { id: string; name: string } };
+/**
+ * POST /api/pair/poll (remote listener): 202 while pending, then 200 once with the credential. The
+ * iPhone app keeps `token` in its Keychain and takes it out before the page sees the answer, so the
+ * page knows it is paired by `device`.
+ */
+export type PairPollResult = { status: "pending" } | { token?: string; device: { id: string; name: string } };
 
 // ---- Sync manifest (for the offline mirror) ----
 

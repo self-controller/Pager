@@ -17,7 +17,7 @@ export function useToast(): ToastApi {
   return useContext(Ctx);
 }
 
-/** One toast at a time, bottom centre (above the phone tab bar), in ink on paper. */
+/** One toast at a time, bottom centre (above the phone tab bar), in the tooltip colours (the page's colours inverted). */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [current, setCurrent] = useState<(ToastOptions & { key: number }) | null>(null);
   const timer = useRef<number | undefined>(undefined);
@@ -51,7 +51,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   current.action?.onClick();
                   setCurrent(null);
                 }}
-                className="shrink-0 rounded-xs px-2 py-1 font-semibold text-[var(--accent)] transition-hover hover:bg-white/10"
+                className="shrink-0 rounded-xs px-2 py-1 font-semibold text-[var(--tooltip-accent)] transition-hover hover:bg-[var(--tooltip-hover)]"
               >
                 {current.action.label}
               </button>

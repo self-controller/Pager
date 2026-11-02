@@ -21,10 +21,14 @@ pub struct RecordSettings {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RemoteSettings {
     pub enabled: bool,
+    /// The Tailscale address the Home Screen app uses (optional): the TCP listener runs only while it is set.
     pub origin: Option<String>,
     /// Your own iroh relay (https://...), or null for n0's public relays.
     #[serde(default)]
     pub relay: Option<String>,
+    /// The bearer token your relay asks for (iroh-relay's `access.shared_token`), or null. Needs `relay`.
+    #[serde(default, rename = "relayToken")]
+    pub relay_token: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -42,7 +46,7 @@ impl Default for AppSettings {
             mirror: MirrorSettings { enabled: true, dir: None },
             record: RecordSettings { navigation: true, lookups: true, search: true, sessions: true, other: true },
             idle_shutdown_minutes: 360,
-            remote: RemoteSettings { enabled: false, origin: None, relay: None },
+            remote: RemoteSettings { enabled: false, origin: None, relay: None, relay_token: None },
         }
     }
 }

@@ -71,24 +71,107 @@ function Switch({
 }
 
 /**
- * Settings → Phone: remote access through tailscale serve, the address the phone uses, pairing a
- * phone with a code the desktop approves, and the phones paired so far. The computer only.
+ * Your own iroh relay (docs/relay.md): its address and the token it asks for. Empty means n0's public
+ * relays. A change restarts iroh; phones learn the new relay from the next pairing link, or from
+ * health while they can still reach this computer.
+ */
+function RelaySettings({ relay, token }: { relay: string | null; token: string | null }) {
+  const update = useUpdateAppSettings();
+  const relayId = useId();
+  const tokenId = useId();
+  const [url, setUrl] = useState(relay ?? "");
+  const [secret, setSecret] = useState(token ?? "");
+
+  useEffect(() => {
+    setUrl(relay ?? "");
+    setSecret(token ?? "");
+  }, [relay, token]);
+
+  const u = url.trim();
+  const t = secret.trim();
+  const changed = u !== (relay ?? "") || (u !== "" && t !== (token ?? ""));
+  const save = (e: FormEvent) => {
+    e.preventDefault();
+    update.mutate({ remote: u ? { relay: u, relayToken: t || null } : { relay: null } });
+  };
+
+  return (
+    <details open={relay !== null}>
+      <summary className="cursor-pointer text-[14px] leading-5 font-semibold">Your own relay</summary>
+      <form onSubmit={save} className="mt-2 flex flex-col gap-3">
+        <span className="text-[13px] leading-[18px] text-fg-2">
+          Leave empty to use n0's public relays. To run your own, see docs/relay.md. Changing these makes phones pair again
+          unless they're on the same Wi-Fi.
+        </span>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={relayId} className="text-[14px] leading-5 font-semibold">
+            Relay address
+          </label>
+          <input
+            id={relayId}
+            className={inputClass}
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://relay.example.com"
+            spellCheck={false}
+            autoComplete="off"
+            inputMode="url"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={tokenId} className="text-[14px] leading-5 font-semibold">
+            Token (optional)
+          </label>
+          <input
+            id={tokenId}
+            type="password"
+            className={inputClass}
+            value={secret}
+            onChange={(e) => setSecret(e.target.value)}
+            disabled={!u}
+            placeholder="The access.shared_token your relay asks for"
+            spellCheck={false}
+            autoComplete="off"
+          />
+        </div>
+        <div>
+          <Button type="submit" variant="secondary" disabled={update.isPending || !changed}>
+            Save
+          </Button>
+        </div>
+        <Alert error={update.error} />
+      </form>
+    </details>
+  );
+}
+
+/**
+ * Settings → Phone: remote access over iroh (and through tailscale serve, when its address is set),
+ * pairing a phone with a code the desktop approves, and the phones paired so far. The computer only.
  */
 export function PhoneSettings() {
   const settings = useAppSettings();
-  const health = useHealth();
+  const remote = settings.data?.remote;
+  // iroh starts just after remote access turns on, and restarts when the relay changes: ask again
+  // until this computer's ID and the relay it should be on show.
+  const health = useHealth((h) =>
+    remote?.enabled && (!(h?.remote?.endpointId && h.remote.relay) || (remote.relay !== null && h.remote.relay !== remote.relay)) ? 2000 : false,
+  );
   const update = useUpdateAppSettings();
   const originId = useId();
-  const remote = settings.data?.remote;
   const [origin, setOrigin] = useState("");
   const [pairing, setPairing] = useState(false);
   const suggested = health.data?.remote?.suggestedOrigin;
-  const computerId = health.data?.remote?.endpointId;
+  const computerId = remote?.enabled ? health.data?.remote?.endpointId : undefined;
   const relay = health.data?.remote?.relay;
 
   useEffect(() => {
     if (remote) setOrigin(remote.origin ?? "");
   }, [remote?.origin]);
+
+  useEffect(() => {
+    if (remote) void health.refetch();
+  }, [remote?.enabled, remote?.relay, remote?.relayToken]);
 
   if (settings.error) return <Alert error={settings.error} />;
   if (!remote) return <p className="text-[14px] leading-5 text-fg-2">Loading…</p>;
@@ -123,7 +206,7 @@ export function PhoneSettings() {
 
       <form onSubmit={saveOrigin} className="flex flex-col gap-1.5">
         <label htmlFor={originId} className="text-[14px] leading-5 font-semibold">
-          Your computer's address for the phone
+          Tailscale address (optional)
         </label>
         <div className="flex gap-2">
           <input
@@ -141,8 +224,8 @@ export function PhoneSettings() {
           </Button>
         </div>
         <span className="text-[13px] leading-[18px] text-fg-2">
-          The https address <code className="font-mono text-[12px]">tailscale serve</code> gives this computer. See
-          docs/iphone.md.
+          Only for the Home Screen app: the https address <code className="font-mono text-[12px]">tailscale serve</code>{" "}
+          gives this computer (docs/iphone.md). The Pager app doesn't need it.
         </span>
         {suggested && suggested !== remote.origin && (
           <div>
@@ -174,10 +257,20 @@ export function PhoneSettings() {
         </div>
       )}
 
+      <RelaySettings relay={remote.relay} token={remote.relayToken ?? null} />
+
       <div>
-        <Button variant="primary" icon={Smartphone} disabled={!remote.enabled || !remote.origin} onClick={() => setPairing(true)}>
+        <Button
+          variant="primary"
+          icon={Smartphone}
+          disabled={!remote.enabled || !(computerId || remote.origin)}
+          onClick={() => setPairing(true)}
+        >
           Pair a phone
         </Button>
+        {remote.enabled && !computerId && !remote.origin && (
+          <span className="ml-3 text-[13px] leading-[18px] text-fg-2">Starting remote access…</span>
+        )}
       </div>
 
       <DeviceList />
@@ -347,14 +440,21 @@ function PairDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
         </div>
       </div>
     );
-  } else if (w?.open && w.code && w.url) {
+  } else if (w?.open && w.code && (w.appUrl || w.url)) {
+    const link = (w.appUrl ?? w.url)!;
     body = (
       <div className="flex flex-col items-center gap-4 text-center">
-        <QrCode text={w.url} size={208} label={`QR code for ${w.url}`} />
-        <p className="text-[14px] leading-5 text-fg-2">
-          On your phone, open Pager from the Home Screen and type this code. Not installed yet? Scan the QR code to open Pager
-          in Safari, then Share → Add to Home Screen, and type the code in the installed app.
-        </p>
+        <QrCode text={link} size={240} label={`QR code for ${link}`} />
+        {w.appUrl ? (
+          <p className="text-[14px] leading-5 text-fg-2">
+            Scan the QR code with your iPhone's Camera to open the Pager app, or type this code in the app.
+          </p>
+        ) : (
+          <p className="text-[14px] leading-5 text-fg-2">
+            On your phone, open Pager from the Home Screen and type this code. Not installed yet? Scan the QR code to open
+            Pager in Safari, then Share → Add to Home Screen, and type the code in the installed app.
+          </p>
+        )}
         <p
           className="font-mono text-[28px] leading-9 font-semibold tracking-[0.12em] select-all"
           aria-label={`Code ${w.code.split("").join(" ")}`}
@@ -365,6 +465,14 @@ function PairDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
           Expires in {countdown}
           {w.attempts ? ` · ${w.attempts} wrong ${w.attempts === 1 ? "try" : "tries"} of 5` : ""}
         </p>
+        {w.appUrl && (
+          <div className="flex w-full flex-col gap-1 text-left">
+            <span className="text-[13px] leading-[18px] text-fg-2">The link, for the fake phone:</span>
+            <code className="rounded-sm bg-surface-2 px-2 py-1.5 font-mono text-[11px] leading-4 break-all select-all">
+              {w.appUrl}
+            </code>
+          </div>
+        )}
       </div>
     );
   } else if (w && !w.open) {

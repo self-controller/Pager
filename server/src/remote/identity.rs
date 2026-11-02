@@ -11,17 +11,21 @@ pub fn key_file(data_dir: &Path) -> PathBuf {
     data_dir.join("remote").join("endpoint.key")
 }
 
-/// The key on disk, or a new one written there.
+/// This computer's key, or a new one written to the data folder.
 pub fn load_or_create(data_dir: &Path) -> Result<iroh::SecretKey> {
-    let file = key_file(data_dir);
-    match std::fs::read(&file) {
+    load_or_create_at(&key_file(data_dir))
+}
+
+/// The key in `file`, or a new one written there (the fake phone keeps its own this way).
+pub fn load_or_create_at(file: &Path) -> Result<iroh::SecretKey> {
+    match std::fs::read(file) {
         Ok(bytes) => {
             let raw: [u8; 32] = bytes.as_slice().try_into().map_err(|_| AppError::internal(format!("{} should hold a 32-byte key; move it aside to give this computer a new ID", file.display())))?;
             Ok(iroh::SecretKey::from_bytes(&raw))
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             let key = iroh::SecretKey::generate();
-            write_private(&file, &key.to_bytes())?;
+            write_private(file, &key.to_bytes())?;
             Ok(key)
         }
         Err(e) => Err(e.into()),

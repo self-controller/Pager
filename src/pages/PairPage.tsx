@@ -17,8 +17,9 @@ type Step = { kind: "form" } | { kind: "waiting"; request: PairRequestResult } |
 
 /**
  * Pairing this phone: the code the computer shows (from the QR link's #code= or typed), a name, then
- * waiting while the computer allows it. The credential arrives as a cookie this installed app keeps;
- * Safari's cookies are not shared with it, so pairing happens inside the installed app.
+ * waiting while the computer allows it. In the iPhone app the app keeps the credential (its scheme
+ * handler takes the token out of the answer). Over Tailscale it arrives as a cookie the Home Screen
+ * app keeps; Safari's cookies are not shared with it, so pairing happens inside the installed app.
  */
 export function PairPage() {
   const codeId = useId();
@@ -61,7 +62,7 @@ export function PairPage() {
       try {
         const answer = await api.pollPairing(step.request);
         if (stopped) return;
-        if ("token" in answer) {
+        if ("device" in answer) {
           setStep({ kind: "paired" });
           // Ask the browser to keep this app's storage; the answer doesn't change anything here.
           await navigator.storage?.persist?.().catch(() => false);

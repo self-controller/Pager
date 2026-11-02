@@ -1,81 +1,149 @@
-import { useRef, type MouseEvent, type PointerEvent, type ReactNode, type RefObject, type WheelEvent } from "react";
-import { cx } from "@/lib/cx";
-import { PAGE_GAP } from "./usePagination";
+import { useEffect, useRef, type ReactNode, type RefObject, type TouchEvent, type WheelEvent } from "react";
+import { swipeTurn, tapAction, zoneAt } from "./gestures";
+import type { Pager } from "./usePagination";
+import { selectionOpen, usePressArbiter } from "./usePressArbiter";
 
 interface Props {
   scrollerRef: RefObject<HTMLDivElement | null>;
-  pageWidth: number;
-  pageHeight: number;
+  pager: Pager;
   onTurn: (direction: 1 | -1) => void;
+  /** Whether the reader's chrome shows; touch taps and swipes on the page change it. */
+  chrome: boolean;
+  onChrome: (visible: boolean) => void;
   children: ReactNode;
 }
 
-function selectionOpen(): boolean {
-  const sel = window.getSelection();
-  return Boolean(sel && !sel.isCollapsed);
+/** A one-finger touch, for swipes the scroller can't follow itself. */
+interface Touch {
+  x: number;
+  y: number;
+  t: number;
+  left: number;
+  inScroller: boolean;
+  skip: boolean;
 }
 
 /**
- * The page box: one page wide, one page tall, columns flowing to the right behind it. Turns pages
- * on a click near either edge, a horizontal swipe, or a wheel nudge. Text selection is left alone.
+ * The page box: one page wide, one page tall, columns flowing to the right behind it. The scroller
+ * scrolls sideways and snaps one page at a time, so a swipe is the platform's own. Every press goes
+ * through the arbiter (gestures.ts): one tap does one thing, a press that closes a selection or an
+ * overlay does only that, and long presses and scroll ends do nothing. Touch zones turn pages and
+ * toggle the chrome; a mouse turns from the outer edges or with the wheel. Text selection is never
+ * blocked, and the page holds still while text is selected.
  */
-export function PagedView({ scrollerRef, pageWidth, pageHeight, onTurn, children }: Props) {
-  const touch = useRef<{ x: number; y: number; t: number } | null>(null);
+export function PagedView({ scrollerRef, pager, onTurn, chrome, onChrome, children }: Props) {
+  const touch = useRef<Touch | null>(null);
   const lastWheel = useRef(0);
+  const { pageWidth, pageHeight, pageCount, gap } = pager;
 
-  const onClick = (e: MouseEvent<HTMLDivElement>) => {
-    if (e.defaultPrevented || e.button !== 0 || selectionOpen()) return;
+  // While text is selected the page holds still: a selection dragged to the edge never scrolls it.
+  useEffect(() => {
+    const onSelection = () => {
+      const el = scrollerRef.current;
+      const sel = window.getSelection();
+      el?.toggleAttribute("data-selecting", Boolean(sel && !sel.isCollapsed && sel.anchorNode && el.contains(sel.anchorNode)));
+    };
+    document.addEventListener("selectionchange", onSelection);
+    return () => document.removeEventListener("selectionchange", onSelection);
+  }, [scrollerRef]);
+
+  // Touch zones turn pages and toggle the chrome; a mouse turns from the outer edges.
+  const presses = usePressArbiter({
+    userScrolledAt: pager.userScrolledAt,
+    onTap: (kind, e) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const action = tapAction(zoneAt((e.clientX - rect.left) / rect.width, kind), kind, chrome);
+      if (action === "prev") onTurn(-1);
+      else if (action === "next") onTurn(1);
+      else if (action === "toggle-chrome") onChrome(!chrome);
+      else if (action === "hide-chrome") onChrome(false);
+    },
+  });
+
+  const onTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+    const el = scrollerRef.current;
+    const t = e.touches[0];
+    if (!el || !t || e.touches.length !== 1) {
+      touch.current = null;
+      return;
+    }
     const target = e.target as Element;
-    if (target.closest("a, button, input, textarea, [contenteditable='true']")) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    if (x < 0.18) onTurn(-1);
-    else if (x > 0.82) onTurn(1);
+    touch.current = {
+      x: t.clientX,
+      y: t.clientY,
+      t: performance.now(),
+      left: el.scrollLeft,
+      inScroller: el.contains(target),
+      skip: Boolean(target.closest?.("[data-reader-overlay]")) || selectionOpen(),
+    };
   };
 
-  const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === "mouse") return;
-    touch.current = { x: e.clientX, y: e.clientY, t: performance.now() };
-  };
-  const onPointerUp = (e: PointerEvent<HTMLDivElement>) => {
-    const start = touch.current;
+  // A swipe hides the chrome. The scroller follows swipes over the text by itself; this turns the
+  // ones it can't: from the side margins, and past the first or last page into the next section.
+  const onTouchEnd = (e: TouchEvent<HTMLDivElement>) => {
+    const s = touch.current;
     touch.current = null;
-    if (!start || selectionOpen()) return;
-    const dx = e.clientX - start.x;
-    const dy = e.clientY - start.y;
-    if (performance.now() - start.t > 600 || Math.abs(dx) < 40 || Math.abs(dy) > 60) return;
-    onTurn(dx < 0 ? 1 : -1);
+    const el = scrollerRef.current;
+    const t = e.changedTouches[0];
+    if (!s || !el || !t || s.skip || e.touches.length > 0 || selectionOpen()) return;
+    const dx = t.clientX - s.x;
+    const dy = t.clientY - s.y;
+    const swiped = pager.userScrolledAt() > s.t || (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy));
+    if (swiped) onChrome(false);
+    const direction = swipeTurn(dx, dy, performance.now() - s.t, el.clientWidth);
+    if (!direction) return;
+    if (s.inScroller) {
+      const max = el.scrollWidth - el.clientWidth;
+      const atStart = s.left <= 1 && el.scrollLeft <= 1;
+      const atEnd = s.left >= max - 1 && el.scrollLeft >= max - 1;
+      if (direction === 1 ? !atEnd : !atStart) return;
+    }
+    onTurn(direction);
   };
 
+  // A vertical wheel turns pages; a sideways one (trackpad) scrolls and snaps like a swipe.
   const onWheel = (e: WheelEvent<HTMLDivElement>) => {
-    const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-    if (Math.abs(delta) < 24) return;
+    if (e.ctrlKey || Math.abs(e.deltaY) <= Math.abs(e.deltaX) || Math.abs(e.deltaY) < 24) return;
     const now = performance.now();
     if (now - lastWheel.current < 350) return;
     lastWheel.current = now;
-    onTurn(delta > 0 ? 1 : -1);
+    onTurn(e.deltaY > 0 ? 1 : -1);
   };
 
+  const step = pageWidth + gap;
   return (
     <div
-      className="reader-stage relative flex min-h-0 flex-1 justify-center px-4 [touch-action:pan-y] select-text md:px-8"
-      onClick={onClick}
-      onPointerDown={onPointerDown}
-      onPointerUp={onPointerUp}
-      onPointerCancel={() => (touch.current = null)}
+      className="reader-stage relative flex min-h-0 flex-1 touch-pan-x touch-pan-y justify-center px-4 select-text md:px-8"
+      onPointerDown={presses.onPointerDown}
+      onPointerUp={presses.onPointerUp}
+      onPointerCancel={presses.onPointerCancel}
+      onClickCapture={presses.onClickCapture}
+      onClick={presses.onClick}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={() => (touch.current = null)}
       onWheel={onWheel}
     >
       <div
         ref={scrollerRef}
-        className={cx("reader-scroller w-full max-w-[var(--size-reader)] py-5 md:py-8")}
+        className="reader-scroller w-full max-w-[var(--size-reader)] py-5 md:py-8"
         style={{
-          columnWidth: pageWidth > 0 ? pageWidth : undefined,
-          columnGap: PAGE_GAP,
           ["--page-h" as string]: pageHeight > 0 ? `${pageHeight}px` : "100vh",
-          ["--page-gap" as string]: `${PAGE_GAP}px`,
+          ["--page-gap" as string]: `${gap}px`,
         }}
       >
-        {children}
+        <div
+          className="reader-columns"
+          data-columns
+          style={{ columnWidth: pageWidth > 0 ? pageWidth : undefined, columnGap: gap }}
+        >
+          {children}
+        </div>
+        {/* One snap point per page, outside the text so it never enters its textContent. */}
+        {pageWidth > 0 &&
+          Array.from({ length: pageCount }, (_, i) => (
+            <span key={i} aria-hidden className="page-snap" style={{ left: i * step }} />
+          ))}
       </div>
     </div>
   );

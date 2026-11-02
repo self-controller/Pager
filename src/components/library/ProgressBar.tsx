@@ -1,6 +1,6 @@
 import { cx } from "@/lib/cx";
 
-/** A thin track with a brown fill: how much of a book has been read. */
+/** A thin track with an accent (blue) fill: how much of a book has been read. */
 export function ProgressBar({
   percent,
   label,

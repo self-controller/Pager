@@ -46,8 +46,16 @@ pub fn addr_from_ticket(ticket: &str, relay_only: bool) -> Result<EndpointAddr> 
     Ok(EndpointAddr::from_parts(addr.id, addr.addrs.into_iter().filter(|a| matches!(a, TransportAddr::Relay(_)))))
 }
 
-/// The ticket and code inside `pager://pair?v=1&t=<ticket>&code=XXXX-XXXX`.
-pub fn parse_pair_link(link: &str) -> Result<(String, String)> {
+/// What a `pager://pair?v=1&t=<ticket>&code=XXXX-XXXX[&rt=<token>]` link carries.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PairLink {
+    pub ticket: String,
+    pub code: String,
+    /// The token for the computer's own relay, when it runs one.
+    pub relay_token: Option<String>,
+}
+
+pub fn parse_pair_link(link: &str) -> Result<PairLink> {
     let url = url::Url::parse(link).map_err(|_| AppError::new(400, "invalid_request", "That isn't a pager://pair link."))?;
     if url.scheme() != "pager" || url.host_str() != Some("pair") {
         return Err(AppError::new(400, "invalid_request", "That isn't a pager://pair link."));
@@ -57,7 +65,7 @@ pub fn parse_pair_link(link: &str) -> Result<(String, String)> {
         return Err(AppError::new(400, "invalid_request", "That pairing link is for another version of Pager."));
     }
     match (q.get("t"), q.get("code")) {
-        (Some(t), Some(c)) => Ok((t.clone(), c.clone())),
+        (Some(t), Some(c)) => Ok(PairLink { ticket: t.clone(), code: c.clone(), relay_token: q.get("rt").filter(|s| !s.is_empty()).cloned() }),
         _ => Err(AppError::new(400, "invalid_request", "The pairing link is missing its ticket or code.")),
     }
 }

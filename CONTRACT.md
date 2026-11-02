@@ -64,11 +64,13 @@ pairing phones.
 - **`history=true`** returns only documents with `lastOpenedAt`, most recently opened first. `sort` is ignored.
 - **`relPath`** on a summary is the file's path inside the reads folder; the library's search results use it
   to show the folder.
-- **Progress:** the reader is paged. `offset` is the page as a 0–1 fraction of the section
-  (`page / (pageCount − 1)`, 1 for a one-page section). `percent` is 0–1 over the document; the client sends
+- **Progress:** `offset` is the place in the section as a 0–1 fraction. In the paged layout it is the page
+  (`page / (pageCount − 1)`, 1 for a one-page section); in the scroll layout, `scrollTop / (scrollHeight −
+  clientHeight)` (1 when the section fits on one screen). Offsets from the two layouts aren't comparable;
+  `point` is. `percent` is 0–1 over the document; the client sends
   `(sectionIndex + offset) / sectionCount` and the server may replace it with something character-weighted.
-  The UI saves progress once when a section opens, then on page turns with a 1 s debounce, and again when the
-  tab is hidden or closed. Clamp values to 0–1 and do not reject them.
+  The UI saves progress once when a section opens, then each time the view comes to rest (a page turn, or a
+  scroll settling) with a 1 s debounce, and again when the tab is hidden or closed. Clamp values to 0–1 and do not reject them.
 - **Section ids** are stable within a document; `prevId` and `nextId` link reading order. The router uses
   `/read/:docId/:sectionId?`, and the CLI may open `/read/<docId>`.
 - **Deep links:** `/read/<docId>/<sectionId>#<blockId>` opens the section on the page holding that block (by `id`
@@ -103,8 +105,26 @@ pairing phones.
 - **No service worker** in this stage: the app needs the computer to be reachable.
 - **Over iroh** the same UI runs inside the phone app, whose scheme handler carries `/api` requests
   as `pager/1` frames (API.md, Phones over iroh) with a bearer token the app keeps; the UI's `/api`
-  base stays relative and it never holds the credential. On the computer, Settings → Phone shows this
-  computer's ID and relay from `health.remote`, and each paired phone says "over iroh" when it is.
+  base stays relative and it never holds the credential. The UI knows it is in the app by its scheme,
+  `pager-app:` (`src/lib/native.ts`). There:
+  - the live stream is read with fetch (`src/api/fetch-event-source.ts`), not `EventSource`: named
+    events, `lastEventId`, a retry with `Last-Event-ID` after a drop, and closed for good on a refusal,
+    as `EventSource` behaves;
+  - pairing succeeds on the poll answer's `device`, since the app takes `token` out of it;
+  - the reader has no floating selection bar: the system's text menu offers Highlight and Note (or
+    Reattach Here) through the app (ios/README.md, "The bridge to the page"), and the app gets the
+    page colour, whether the reader is open, and haptics; Settings → This iPhone → Haptics turns
+    those off;
+  - a server whose `apiVersion` differs from the UI's shows a full-screen "Update Pager" (naming
+    which side is older) in place of the app. On the computer, Settings → Phone shows this
+  computer's ID and relay from `health.remote` (polling health until both arrive, since iroh starts
+  just after remote access turns on), and each paired phone says "over iroh" when it is. Remote access
+  and **Pair a phone** need no address: the Tailscale address field is optional. The pairing dialog's
+  QR code carries `appUrl` (the `pager://pair` link) when there is one, else `url`, and shows `appUrl`
+  as selectable text too, for the fake phone. **Your own relay** (a disclosure, open while one is set)
+  takes the relay's address and its token (a password field, enabled once there is an address) and
+  saves them together; an empty address goes back to n0's relays. Health is polled until it reports
+  the relay that is set.
 
 ## How the UI uses the backend's additions (API.md)
 
@@ -117,7 +137,8 @@ pairing phones.
   - `GET /highlights?q&tag&docId` and `GET /tags` feed the Highlights page; orphans are listed under "Couldn't
     find these".
 - **Progress:** every `PUT …/progress` also sends `point` (the leaf `[data-b]` block at the top-left of the
-  page and the character offset there), plus `revisionId`. `reason: "jump"` marks arrival by contents, an
+  page, or on the reading line just below the top bar in the scroll layout, and the character offset there;
+  none at the very top of a section), plus `revisionId`. `reason: "jump"` marks arrival by contents, an
   in-text link or a deep link. Resume prefers `point` unless `anchor` is `orphaned`, then falls back to `offset`.
 - **Live stream:** one `EventSource('/api/stream')`, opened at startup only in backend mode. It is closed while the tab
   is hidden and reopened with `?after=<last seq>`. When it errors with `readyState === CLOSED` (the server refused it: a

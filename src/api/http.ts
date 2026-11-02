@@ -1,4 +1,6 @@
 import type { PagerApi } from "./client";
+import { fetchEventSource } from "./fetch-event-source";
+import { isNativeApp } from "../lib/native";
 import type { SettingsResponse } from "../../shared/src/settings";
 import {
   ApiError,
@@ -215,7 +217,8 @@ export function createHttpApi(base = "/api", fetchImpl: typeof fetch = fetch.bin
     restoreAnnotation: (id) => request<Annotation>(`/annotations/${enc(id)}/restore`, { method: "POST" }),
     listHighlights: (query) => request<LibraryAnnotation[]>(`/highlights${highlightQueryString(query)}`),
     listTags: () => request<TagCount[]>(`/tags`),
-    subscribe: (onEvent) => followStream(base, onEvent),
+    // In the iPhone app the stream is a fetch body, which its scheme handler streams (fetch-event-source.ts).
+    subscribe: (onEvent) => followStream(base, onEvent, isNativeApp() ? fetchEventSource(fetchImpl) : undefined),
     getHealth: () => request<Health>(`/health`),
     getAppSettings: async () => {
       const s = await request<SettingsResponse>(`/settings`);

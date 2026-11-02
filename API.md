@@ -228,7 +228,7 @@ any settings response and cannot `PATCH /settings/app`.
 | `PATCH /settings/global` | patch returns `SettingsResponse` |
 | `PATCH /settings/documents/:id` | patch returns `SettingsResponse` |
 | `DELETE /settings/documents/:id` | resets the document to global, 204 |
-| `PATCH /settings/app` | deep patch of `AppSettings` returns `SettingsResponse`. `remote: { enabled, origin }` turns the remote listener on and off at once, without a restart (see [Phones](#phones-the-remote-listener-m6)). |
+| `PATCH /settings/app` | deep patch of `AppSettings` returns `SettingsResponse`. `remote: { enabled, origin, relay, relayToken }` turns remote access on and off at once, without a restart; `origin` is optional (see [Phones](#phones-the-remote-listener-m6)). |
 | `GET /presets`, `POST /presets {name, values}`, `PATCH /presets/:id`, `DELETE /presets/:id` | named snapshots. Apply one by PATCHing its values into a scope. |
 
 `shared/src/settings.ts` suggests a starting vocabulary (`ReadingSettingsSuggestion`).
@@ -302,19 +302,27 @@ plan builds the mirror on it). It answers `SyncManifest`:
 
 ## Phones: the remote listener (M6)
 
-Remote access is **off by default**. With `PATCH /settings/app { remote: { enabled: true, origin } }`
-the server starts a second listener on **127.0.0.1** only (`PAGER_REMOTE_PORT`, default 3007), meant
-to sit behind `tailscale serve` (setup: [docs/iphone.md](docs/iphone.md)), and binds an iroh endpoint
-for the phone app ([Phones over iroh](#phones-over-iroh) below). Both stop again when the setting is
-turned off, closing their open streams. Port 3006 and its Host guard are unchanged.
+Remote access is **off by default**. With `PATCH /settings/app { remote: { enabled: true } }` the
+server binds an iroh endpoint for the phone app ([Phones over iroh](#phones-over-iroh) below). While
+`origin` is set as well, it also starts a second listener on **127.0.0.1** only
+(`PAGER_REMOTE_PORT`, default 3007), meant to sit behind `tailscale serve` (setup:
+[docs/iphone.md](docs/iphone.md)); setting or clearing `origin` starts or stops that listener alone.
+Both stop when the setting is turned off, closing their open streams. Port 3006 and its Host guard
+are unchanged.
 
-- **`origin`** is the exact address the phone uses, e.g. `https://fedora.tail1234.ts.net` (https, or
-  http on a loopback name for trying it out). The QR link and the CSRF check use it; the server never
-  guesses it from `Host` or `X-Forwarded-*`. Enabling without it answers 400. On the local listener,
+- **`origin`** (optional) is the exact address the Home Screen app uses over Tailscale, e.g.
+  `https://fedora.tail1234.ts.net` (https, or http on a loopback name for trying the phone layout in a
+  desktop browser, `http://localhost:3007`). The Tailscale path's QR link and CSRF check use it; the
+  server never guesses it from `Host` or `X-Forwarded-*`. iroh doesn't need it. On the local listener,
   `GET /health` adds `remote: { suggestedOrigin }` when `tailscale status --json` knows this computer's
   MagicDNS name.
 - **`relay`** is your own iroh relay (`https://…`), or null for n0's public relays. Changing it
-  restarts the endpoint.
+  restarts the endpoint. With it set, the endpoint uses that relay alone, with no n0 discovery. Setting
+  it up: `docs/relay.md`.
+- **`relayToken`** is the bearer token your relay asks for (iroh-relay's `access.shared_token`), or
+  null: 16 to 256 visible ASCII characters. It needs `relay` (400 without it), and setting `relay` to
+  null clears it. Changing it restarts the endpoint too. It leaves the computer only in the pairing
+  link (`rt`) and in health to a paired phone over iroh; `GET /settings` never sends `app` to a phone.
 - **Same app, same origin.** The remote listener serves the built web app and `/api` together. The app
   shell is served without a credential (it holds no user data); `/api` needs a paired device, except
   `GET /api/health`, `POST /api/pair` and `POST /api/pair/poll`.
@@ -368,8 +376,8 @@ Both refuse a request whose `Sec-Fetch-Site` is another site's or whose `Origin`
 
 | On the local listener only | |
 |---|---|
-| `POST /devices/pairing` | opens a window → 201 `{ code, url, expiresAt }`, where `url` is `${origin}/pair#code=XXXX-XXXX` (the fragment never reaches a server). 409 if one is open; 400 if remote access is off. |
-| `GET /devices/pairing` | `{ open, code?, url?, expiresAt?, attempts, pending: { requestId, name, ip, at } \| null }`. `ip` is `X-Forwarded-For` as the bridge sent it (informational). |
+| `POST /devices/pairing` | opens a window → 201 `{ code, url?, appUrl?, expiresAt }`. `url` is `${origin}/pair#code=XXXX-XXXX` while an origin is set (the fragment never reaches a server); `appUrl` is the phone app's link while iroh is on ([Phones over iroh](#phones-over-iroh)). Just after remote access turns on it waits up to 3 s for iroh to reach its relay, so the link carries it. 409 if one is open; 400 if remote access is off, or if it is on with neither link to give (iroh didn't start and no origin is set). |
+| `GET /devices/pairing` | `{ open, code?, url?, appUrl?, expiresAt?, attempts, pending: { requestId, name, ip, at, endpointId? } \| null }`. `ip` is `X-Forwarded-For` as the bridge sent it, or where the iroh connection came from (informational). |
 | `POST /devices/pairing/approve` | `{ requestId }` → 201 `DeviceView`; the window closes |
 | `POST /devices/pairing/deny` | `{ requestId }` → 204; the window stays open |
 | `DELETE /devices/pairing` | closes the window, 204 |
@@ -417,23 +425,38 @@ involved. `lastIp` and the pairing request's `ip` show where the connection came
 **Pairing over iroh.** `POST /api/pair` records the asking phone's endpoint ID with the request
 (`pending.endpointId` on the desktop), and approval writes it to the device. A phone pairing again
 replaces its earlier device: the old row is revoked, journalled as `device.revoked` with
-`replaced: true`. While iroh is on, `POST /devices/pairing` and `GET /devices/pairing` also carry
-`appUrl`, `pager://pair?v=1&t=<EndpointTicket>&code=XXXX-XXXX`: the link the phone app opens, whose
-ticket holds this computer's ID, its relay and its current direct addresses. `url` stays the Home
-Screen app's link.
+`replaced: true`. While iroh is on, `POST /devices/pairing` and `GET /devices/pairing` carry
+`appUrl`, `pager://pair?v=1&t=<EndpointTicket>&code=XXXX-XXXX[&rt=<relayToken>]`: the link the phone
+app opens, whose ticket holds this computer's ID, its relay and its current direct addresses. `rt`
+(percent-encoded) is there while iroh runs with `remote.relayToken`; a phone given one binds with
+only the ticket's relay, carrying the token, since your relay has no n0 discovery. It needs no `origin`;
+`url`, the Home Screen app's link, is there only when one is set. Settings → Phone puts `appUrl` in
+the QR code when there is one, and shows it as text to copy.
 
-**Health.** Over iroh, `GET /api/health` answers `remote: { device?, endpointId, relay? }`: this
-computer's ID and the relay carrying it once one is reached, so the phone can refresh the ticket it
-saved. The desktop's `GET /health` carries the same two fields while iroh is on.
+**Health.** Over iroh, `GET /api/health` answers `remote: { device?, endpointId, relay?, relayToken? }`:
+this computer's ID and the relay carrying it once one is reached, so the phone can refresh the ticket
+it saved. `relayToken` is there for a paired phone only (a valid bearer token), while iroh runs with
+one: a phone that can still reach the computer (on the same Wi-Fi, say) picks up a changed token. The
+desktop's `GET /health` carries `endpointId` and `relay` while iroh is on.
+
+**The app's side** (the iPhone app, `ios/`). It serves the bundled UI on `pager-app://localhost/` and
+carries the UI's `/api` requests as `pager/1` streams, adding the bearer token from its Keychain. It
+takes `token` out of the 200 answer to `POST /api/pair/poll` before the page sees it, so the page
+holds no credential and knows it is paired by `device`. When the computer closes the connection as
+`NOT_PAIRED` or `REVOKED`, the app answers the UI with 401 `unauthorized` (and forgets the token on
+`REVOKED`). It reads the live stream with fetch, not `EventSource` (`src/api/fetch-event-source.ts`),
+resuming with `Last-Event-ID`.
 
 A phone in Rust, for trying the whole path before the app exists: in `server/`,
-`cargo run --example fake-phone -- '<appUrl>'` pairs and reads; `--relay-only` goes through the relay.
+`cargo run --example fake-phone -- '<appUrl>' --key phone.key` pairs and reads; `--relay-only` goes
+through the relay, and `--ticket … --token … --key phone.key` reads again later as the same phone
+(`--relay-token` with your own relay; with a link, `rt` gives it).
 
 ## Other routes
 
 | Route | |
 |---|---|
-| `GET /health` | `Health { app: "pager", apiVersion: 1, version, pid, port, dataDir, readsDir, startedAt, remote? }` (the CLI uses it to recognise the server). On the remote listener: `{ app, apiVersion, version, remote }` only. |
+| `GET /health` | `Health { app: "pager", apiVersion: 1, version, pid, port, dataDir, readsDir, startedAt, remote? }` (the CLI uses it to recognise the server). On the remote listener: `{ app, apiVersion, version, remote }` only. The UI compares `apiVersion` with its own (`API_VERSION`, `shared/src/api.ts`) and shows "Update Pager" when they differ; only the iPhone app's bundled copy can fall behind. |
 | `GET /assets/<sha>.<ext>` | Images extracted from documents. Immutable, `nosniff`, sandboxed by CSP. |
 | `POST /shutdown` | Stops the server. Used by `pager --stop`. |
 
@@ -463,10 +486,10 @@ A phone in Rust, for trying the whole path before the app exists: in `server/`,
   `127.0.0.1` or `[::1]`, which protects against DNS rebinding.
 - **Mutating requests:** `Origin` and `Sec-Fetch-Site`, when present, must be same-origin. The CLI
   sends neither and is allowed.
-- **Remote access is off by default.** When it is on, a second listener, on 127.0.0.1 only (3007),
-  answers paired devices behind `tailscale serve`, never Funnel or anything public, and an iroh
-  endpoint answers the phone app, closing any connection that isn't a paired phone's (or a phone
-  asking to pair while a window is open). The same app authenticates every `/api` request by device
+- **Remote access is off by default.** When it is on, an iroh endpoint answers the phone app,
+  closing any connection that isn't a paired phone's (or a phone asking to pair while a window is
+  open), and, only while a Tailscale address is set, a second listener on 127.0.0.1 only (3007)
+  answers paired devices behind `tailscale serve`, never Funnel or anything public. The same app authenticates every `/api` request by device
   (cookie or bearer token, stored as a hash, revocable, 90-day idle expiry; over iroh a bearer token
   only, bound to the phone's endpoint), checks same-origin for cookie-authenticated changes, allows
   only the reading surface listed under [Phones](#phones-the-remote-listener-m6) (deny by default),
@@ -479,7 +502,8 @@ A phone in Rust, for trying the whole path before the app exists: in `server/`,
   data directory (`$PAGER_DATA_DIR`, else `~/.local/share/pager`) and in the mirror folder. Files
   outside the reads folder are never written to.
 - Remote images are not fetched unless allowed. While remote access is on, the iroh endpoint talks to
-  its relay and to n0's discovery services, or only to `remote.relay` when that is set. Otherwise the
+  its relay and to n0's discovery services, or, when `remote.relay` is set, to that one host only
+  (with `remote.relayToken` as its bearer token). Otherwise the
   server makes no other network calls. (To suggest the phone's address it runs `tailscale status
   --json`, a local command that asks the Tailscale daemon on this computer; it opens no connection
   itself.)

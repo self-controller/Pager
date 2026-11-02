@@ -7,6 +7,9 @@ import { ReadingSettings } from "@/components/reader/ReadingSettings";
 import { PhoneSettings } from "@/components/settings/PhoneSettings";
 import { CenterColumn, PageHeader } from "@/components/shell/Page";
 import { Button } from "@/components/ui/Button";
+import { Switch } from "@/components/ui/Switch";
+import { isNativeApp } from "@/lib/native";
+import { updateSettings, useSettings } from "@/state/settings";
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -24,6 +27,22 @@ function LinkRow({ to, icon: Icon, label }: { to: string; icon: typeof Highlight
       <span className="flex-1 text-[15px] leading-5 font-medium">{label}</span>
       <ChevronRight size={18} className="text-fg-3" aria-hidden />
     </Link>
+  );
+}
+
+/** Only in the iPhone app: a browser can't play haptics. */
+function HapticsSetting() {
+  const { haptics } = useSettings();
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-1">
+        <span className="text-[15px] leading-5 font-medium">Haptics</span>
+        <span className="text-[13px] leading-[18px] text-fg-2">
+          A small tap when you highlight, save a note, change the text size or tap through the reader's footer.
+        </span>
+      </div>
+      <Switch label="Haptics" checked={haptics} onChange={(on) => updateSettings({ haptics: on })} />
+    </div>
   );
 }
 
@@ -88,6 +107,12 @@ export function SettingsPage() {
       {api.mode === "http" && device === null && (
         <Group title="Phone">
           <PhoneSettings />
+        </Group>
+      )}
+
+      {isNativeApp() && (
+        <Group title="This iPhone">
+          <HapticsSetting />
         </Group>
       )}
     </CenterColumn>

@@ -70,7 +70,7 @@
 }
 
 .markup blockquote {
-  border-left: 4px solid var(--accent);
+  border-left: 4px solid var(--bg-quaternary);
   margin: 20px 0;
   padding: 0;
 }
@@ -186,15 +186,41 @@
   padding-top: 0;
 }
 
-/* ---- Pages: the section flows into one-page-wide columns inside .reader-scroller ---- */
+/* ---- Pages: the section flows into one-page-wide columns (.reader-columns); .reader-scroller
+   scrolls them sideways and snaps to one page at a time (PagedView.tsx) ---- */
 
 .reader-scroller {
+  position: relative;
   height: 100%;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.reader-scroller::-webkit-scrollbar {
+  display: none;
+}
+/* While text is selected the page holds still, so a selection dragged to the edge never turns it. */
+.reader-scroller[data-selecting] {
+  overflow-x: hidden;
+}
+.reader-columns {
+  height: 100%;
   column-fill: auto;
   /* column-width and column-gap are set inline from the measured page */
 }
-.reader-scroller > .markup > :last-child {
+/* One snap point at each page's left edge; scroll-snap-stop keeps a fling to one page. */
+.page-snap {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+.reader-columns > .markup > :last-child {
   margin-bottom: 0;
 }
 .reader-scroller .markup img {
@@ -222,6 +248,166 @@
 .reader-scroller .markup li {
   orphans: 2;
   widows: 2;
+}
+
+/* ---- Scroll: each chapter scrolls top to bottom in the live pane of a three-pane track; the
+   neighbours wait either side, the previous one pinned to its end, the next at its top, and a
+   sideways drag slides the track (ScrollView.tsx). The bars float over the text: the panes pad by
+   what they cover, and scroll-padding tells the browser (and useChapterScroll) where text shows. ---- */
+
+.chapter-view {
+  --reader-inset-top: var(--size-top-bar);
+  --reader-inset-bottom: calc(var(--size-page-footer) + var(--size-bottom-nav-effective) + env(safe-area-inset-bottom));
+}
+/* Clip, not hidden: nothing (find-in-page, scrollIntoView) can scroll the stage onto a neighbour. */
+.chapter-stage {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  touch-action: pan-y;
+  background: var(--bg-secondary);
+}
+.chapter-stage[data-turning] {
+  pointer-events: none;
+}
+.chapter-track {
+  position: absolute;
+  inset: 0;
+}
+.chapter-pane {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  contain: strict;
+  background: var(--bg-primary);
+  scrollbar-gutter: stable;
+  scroll-padding: var(--reader-inset-top) 0 var(--reader-inset-bottom);
+}
+.chapter-pane[data-role="live"] {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Plain pan-y: Safari drops the whole value if it lists pinch-zoom. A sideways move stays ours. */
+  touch-action: pan-y;
+}
+/* While a chapter drag holds, the text doesn't scroll under it. */
+.chapter-pane[data-role="live"][data-dragging] {
+  overflow-y: hidden;
+}
+.chapter-pane[data-role="next"] {
+  transform: translateX(calc(100% + 24px));
+}
+.chapter-pane[data-role="prev"] {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  transform: translateX(calc(-100% - 24px));
+}
+.chapter-column {
+  box-sizing: border-box;
+  min-height: 100%;
+  flex-shrink: 0;
+  padding: calc(var(--reader-inset-top) + 20px) 16px calc(var(--reader-inset-bottom) + 84px);
+}
+@media (min-width: 768px) {
+  .chapter-column {
+    padding-top: calc(var(--reader-inset-top) + 32px);
+    padding-inline: 32px;
+  }
+}
+.chapter-text {
+  max-width: var(--size-reader);
+  margin-inline: auto;
+}
+.chapter-text .markup > :last-child {
+  margin-bottom: 0;
+}
+.chapter-text .markup img {
+  max-height: calc(var(--page-h, 100vh) - 2em);
+  width: auto;
+}
+/* The title page fills the first screen; the chapter starts below it. */
+.chapter-text .title-page {
+  height: auto;
+  min-height: calc(var(--page-h, 100vh) - 40px);
+  break-after: auto;
+}
+
+/* The ‹ › circles float over the text, 24px in from the corners, above the footer; the back pill
+   sits between them. Hidden with the chrome, they slide down behind the footer. */
+.chapter-dock {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 10;
+  pointer-events: none;
+  transform: translateY(calc(-1 * var(--size-bottom-nav-effective)));
+  transition: transform 250ms cubic-bezier(0.19, 1, 0.22, 1);
+}
+:root[data-reader-chrome="hidden"] .chapter-dock {
+  transform: none;
+}
+.chapter-dock > * {
+  pointer-events: auto;
+}
+.chapter-dock > .chapter-controls {
+  pointer-events: none;
+}
+.chapter-controls {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 100%;
+  margin-inline: auto;
+  max-width: calc(var(--size-reader) + 160px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 24px 24px;
+}
+.chapter-controls > * > * {
+  pointer-events: auto;
+}
+.chapter-button {
+  pointer-events: auto;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  color: var(--fg-primary);
+  background: var(--bg-primary);
+  box-shadow:
+    0 2px 2px rgb(0 0 0 / 0.16),
+    0 0 0 1px var(--detail);
+  transition:
+    transform 300ms ease-in-out,
+    opacity 300ms ease-in-out,
+    visibility 0s;
+}
+.chapter-button:active {
+  background: var(--bg-secondary);
+}
+.chapter-button.is-hidden {
+  transform: translateY(200px);
+  visibility: hidden;
+  transition-delay: 0s, 0s, 300ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chapter-dock {
+    transition: none;
+  }
+  .chapter-button {
+    transition:
+      opacity 200ms ease-in-out,
+      visibility 0s;
+  }
+  .chapter-button.is-hidden {
+    transform: none;
+    opacity: 0;
+    transition-delay: 0s, 200ms;
+  }
 }
 
 /* The title page: the first page of every document, outside the section body. */
@@ -315,6 +501,76 @@
   font-size: 0.8em;
   font-weight: 600;
   color: var(--fg-secondary);
+}
+
+/* A footnote open in place (FootnotePopover.tsx): 14/21px in the reading face; it scrolls inside. */
+.footnote-popover {
+  width: min(calc(100vw - 2.5rem), 460px);
+  max-height: 60vh;
+  animation: footnote-in 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes footnote-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+.markup.footnote-popover-text {
+  font-size: 14px;
+  line-height: 21px;
+}
+.markup.footnote-popover-text p,
+.markup.footnote-popover-text li {
+  line-height: 21px;
+  margin: 0 0 8px;
+}
+.markup.footnote-popover-text > :last-child {
+  margin-bottom: 0;
+}
+
+/* The back pill (BackPill.tsx): an opaque accent tint, so the words under it don't show through. */
+.back-pill-face {
+  background: linear-gradient(var(--accent-bg), var(--accent-bg)), var(--bg-elevated);
+}
+.back-pill {
+  animation: back-pill-in 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes back-pill-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* Where a jump landed (flashLanding): a 20% accent wash with an 8px halo, held 2 s, faded over 1 s. */
+.markup .is-landing {
+  border-radius: 2px;
+  animation: landing-flash 3s ease-out forwards;
+}
+@keyframes landing-flash {
+  0%,
+  66% {
+    background-color: color-mix(in srgb, var(--accent) 20%, transparent);
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .footnote-popover,
+  .back-pill {
+    animation: none;
+  }
+  /* A still wash instead, taken off after 3 s by flashLanding. */
+  .markup .is-landing,
+  .markup [tabindex="-1"].is-landing:focus {
+    animation: none;
+    background-color: color-mix(in srgb, var(--accent) 20%, transparent);
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 20%, transparent);
+  }
 }
 
 /* Centred blocks (figures, title pages, verse headings) arrive as .align-center. */

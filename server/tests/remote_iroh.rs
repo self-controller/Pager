@@ -1,4 +1,5 @@
-//! Phones over iroh: two endpoints in this process, dialled by loopback address with relays off.
+//! Phones over iroh: two endpoints in this process, dialled by loopback address with relays off,
+//! and once through a relay of your own, also in this process.
 
 mod common;
 
@@ -6,9 +7,14 @@ use common::*;
 use iroh::endpoint::{Connection, ConnectionError};
 use pager_server::clock::Clock;
 use pager_server::remote::client::{self, CallError, Phone};
-use pager_server::remote::node::{loopback_addr, IrohOptions};
+use pager_server::remote::identity;
+use pager_server::remote::node::{loopback_addr, relay_of, IrohOptions, Relay};
 use pager_server::remote::protocol::{self, close, reset, RequestHead};
+use pager_server::server::RemoteListener;
+use iroh::tls::CaTlsConfig;
+use iroh_relay::server::{Access, AccessControl, ClientRequest};
 use serde_json::{json, Value};
+use std::sync::Arc;
 use std::time::Duration;
 
 const ORIGIN: &str = "https://fedora.tail1234.ts.net";
@@ -113,9 +119,10 @@ async fn an_unknown_endpoint_is_closed_unless_a_pairing_window_is_open() {
 
     // The window carries the phone app's link, with a ticket that names this computer.
     let app_url = w["appUrl"].as_str().unwrap();
-    let (ticket, code) = client::parse_pair_link(app_url).unwrap();
-    assert_eq!(code, w["code"]);
-    assert_eq!(client::addr_from_ticket(&ticket, false).unwrap().id.to_string(), computer.endpoint_id);
+    let link = client::parse_pair_link(app_url).unwrap();
+    assert_eq!(link.code, w["code"]);
+    assert_eq!(link.relay_token, None);
+    assert_eq!(client::addr_from_ticket(&link.ticket, false).unwrap().id.to_string(), computer.endpoint_id);
     assert!(app_url.len() < 400, "the QR link should stay small: {} chars", app_url.len());
     assert_eq!(r.t.get("/api/devices/pairing").await.body["appUrl"], app_url);
     // The desktop's health names this computer too.
@@ -309,6 +316,79 @@ async fn bad_heads_reset_the_stream_and_the_connection_goes_on() {
     r.stop().await;
 }
 
+/// A port nothing listens on right now.
+fn free_port() -> u16 {
+    std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port()
+}
+
+async fn accepts(port: u16) -> bool {
+    tokio::net::TcpStream::connect(("127.0.0.1", port)).await.is_ok()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn iroh_works_without_an_origin() {
+    let t = make_app_with(Clock::fake("2026-10-26T12:00:00Z"), None, None);
+    t.write("a.md", "# A\n\nText.");
+    assert_eq!(t.get("/api/tree").await.status, 200);
+    // No window while remote access is off, nor while it is on with neither path running.
+    let off = t.json("POST", "/api/devices/pairing", None).await;
+    assert_eq!((off.status, off.body["error"]["message"].as_str()), (400, Some("Turn on remote access before pairing a phone.")));
+    assert_eq!(t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "enabled": true } }))).await.status, 200);
+    let neither = t.json("POST", "/api/devices/pairing", None).await;
+    assert_eq!(neither.status, 400);
+    assert!(neither.body["error"]["message"].as_str().unwrap().starts_with("Remote access is on, but iroh didn't start"), "{}", neither.text);
+
+    // On without an address: iroh runs, the TCP listener doesn't.
+    let port = free_port();
+    let remote = RemoteListener::new(t.app.clone(), port).with_iroh_options(IrohOptions::loopback());
+    remote.sync().await;
+    assert!(t.app.iroh.is_on());
+    assert!(!remote.tcp_is_on().await);
+    assert!(!accepts(port).await);
+    assert_eq!(t.app.iroh.info().unwrap().endpoint_id, identity::load_or_create(&t.data_dir).unwrap().public().to_string());
+
+    // The window carries the app's link alone, and a phone pairs from it and reads.
+    let w = t.json("POST", "/api/devices/pairing", None).await;
+    assert_eq!(w.status, 201, "{}", w.text);
+    assert!(w.body["appUrl"].as_str().unwrap().starts_with("pager://pair?v=1&t="), "{}", w.text);
+    assert!(w.body.get("url").is_none(), "{}", w.text);
+    let state = t.get("/api/devices/pairing").await.body;
+    assert_eq!(state["appUrl"], w.body["appUrl"]);
+    assert!(state.get("url").is_none(), "{state}");
+    let r = Rig { t, phone: Phone::bind(IrohOptions::loopback()).await.unwrap() };
+    let conn = r.connect().await;
+    let (token, _) = r.pair(&conn, &w.body, "iPhone").await;
+    let auth = bearer(&token);
+    let docs = client::call(&conn, "GET", "/api/documents", &[("authorization", &auth)], b"").await.unwrap();
+    assert_eq!(docs.status, 200, "{}", docs.text());
+    assert_eq!(docs.json()[0]["title"], "A");
+
+    // A Tailscale address starts the TCP listener beside iroh, and the window gets both links.
+    assert_eq!(r.t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "origin": ORIGIN } }))).await.status, 200);
+    remote.sync().await;
+    assert!(remote.tcp_is_on().await);
+    assert!(accepts(port).await);
+    let both = r.t.json("POST", "/api/devices/pairing", None).await.body;
+    assert_eq!(both["url"], format!("{ORIGIN}/pair#code={}", both["code"].as_str().unwrap()));
+    assert!(both["appUrl"].is_string());
+    r.t.json("DELETE", "/api/devices/pairing", None).await;
+
+    // Clearing it stops that listener alone: the phone over iroh goes on reading.
+    assert_eq!(r.t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "origin": null } }))).await.status, 200);
+    remote.sync().await;
+    assert!(!remote.tcp_is_on().await);
+    assert!(!accepts(port).await);
+    assert!(r.t.app.iroh.is_on());
+    assert_eq!(client::call(&conn, "GET", "/api/documents", &[("authorization", &auth)], b"").await.unwrap().status, 200);
+
+    // Off stops iroh too.
+    assert_eq!(r.t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "enabled": false } }))).await.status, 200);
+    remote.sync().await;
+    assert!(!r.t.app.iroh.is_on());
+    assert_eq!(closed_with(&conn).await, Some(close::REMOTE_OFF));
+    r.phone.close().await;
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn the_relay_setting_is_checked_and_stored() {
     let t = make_app_with(Clock::fake("2026-10-26T12:00:00Z"), None, None);
@@ -319,4 +399,104 @@ async fn the_relay_setting_is_checked_and_stored() {
     assert_eq!(ok.status, 200, "{}", ok.text);
     assert_eq!(ok.body["app"]["remote"]["relay"], "https://relay.example.com/");
     assert_eq!(t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "relay": null } }))).await.body["app"]["remote"]["relay"], Value::Null);
+
+    // The token: only with a relay, 16 to 256 visible characters; clearing the relay clears it.
+    let token = "0123456789abcdef0123";
+    assert_eq!(t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "relayToken": token } }))).await.status, 400);
+    for bad in [json!("short"), json!("has a space in it, sixteen+"), json!("x".repeat(257)), json!(5)] {
+        let r = t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "relay": "https://relay.example.com", "relayToken": bad } }))).await;
+        assert_eq!(r.status, 400, "{bad}");
+    }
+    let ok = t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "relay": "https://relay.example.com", "relayToken": token } }))).await;
+    assert_eq!(ok.status, 200, "{}", ok.text);
+    assert_eq!(ok.body["app"]["remote"]["relayToken"], token);
+    let cleared = t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "relay": null } }))).await;
+    assert_eq!(cleared.body["app"]["remote"]["relayToken"], Value::Null);
+}
+
+/// A relay that lets in only clients carrying this bearer token, as iroh-relay's `access.shared_token` does.
+#[derive(Debug)]
+struct SharedToken(String);
+
+impl AccessControl for SharedToken {
+    async fn on_connect(&self, request: &ClientRequest) -> Access {
+        if request.auth_token().as_deref() == Some(self.0.as_str()) {
+            Access::Allow
+        } else {
+            Access::Deny { reason: Some("wrong relay token".into()) }
+        }
+    }
+}
+
+/// Bound on loopback, using only `relay` (its certificate is self-signed, so it isn't checked).
+fn through(relay: Relay) -> IrohOptions {
+    IrohOptions { relay, ca_tls: Some(CaTlsConfig::insecure_skip_verify()), ..IrohOptions::loopback() }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn your_own_relay_carries_only_phones_with_its_token() {
+    let token = "first-relay-token-0123";
+    let (map, url, _relay) = iroh::test_utils::run_relay_server_with_access(true, Arc::new(SharedToken(token.into()))).await.unwrap();
+    let relay = (*map.get(&url).unwrap()).clone();
+    let t = make_app_with(Clock::fake("2026-10-26T12:00:00Z"), None, None);
+    t.write("a.md", "# A\n\nText.");
+    assert_eq!(t.get("/api/tree").await.status, 200);
+    let on = t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "enabled": true, "relay": url.to_string(), "relayToken": token } }))).await;
+    assert_eq!(on.status, 200, "{}", on.text);
+    let remote = RemoteListener::new(t.app.clone(), free_port()).with_iroh_options(through(Relay::Custom(relay.clone())));
+    remote.sync().await;
+    assert_eq!(t.app.iroh.relay_token().as_deref(), Some(token));
+
+    // The link carries the token, and its ticket names the relay.
+    let w = t.json("POST", "/api/devices/pairing", None).await;
+    assert_eq!(w.status, 201, "{}", w.text);
+    let link = client::parse_pair_link(w.body["appUrl"].as_str().unwrap()).unwrap();
+    assert_eq!(link.relay_token.as_deref(), Some(token));
+    let addr = client::addr_from_ticket(&link.ticket, true).unwrap();
+    assert_eq!(relay_of(&addr), Some(url.to_string()));
+
+    // Without the token, or with another, a phone can't reach the computer through it.
+    for wrong in [None, Some("another-token-0123456789")] {
+        let c = relay.clone();
+        let phone = Phone::bind(through(Relay::Custom(match wrong {
+            Some(w) => c.with_auth_token(w),
+            None => c,
+        })))
+        .await
+        .unwrap();
+        let tried = tokio::time::timeout(Duration::from_secs(4), phone.connect(addr.clone())).await;
+        assert!(!matches!(tried, Ok(Ok(_))), "{wrong:?} got through");
+        phone.close().await;
+    }
+
+    // With it (the options the app and the fake phone take from the link), the phone pairs and reads.
+    let opts = IrohOptions::phone(None, &addr, link.relay_token.as_deref());
+    assert!(matches!(&opts.relay, Relay::Custom(c) if c.auth_token.as_deref() == Some(token)));
+    let r = Rig { t, phone: Phone::bind(IrohOptions { ca_tls: Some(CaTlsConfig::insecure_skip_verify()), bind_addr: Some("127.0.0.1:0".parse().unwrap()), ..opts }).await.unwrap() };
+    let conn = tokio::time::timeout(Duration::from_secs(10), r.phone.connect(addr.clone())).await.expect("through the relay").unwrap();
+    let before = client::call(&conn, "GET", "/api/health", &[], b"").await.unwrap();
+    assert!(before.json()["remote"].get("relayToken").is_none(), "{}", before.text());
+    let (phone_token, _) = r.pair(&conn, &w.body, "iPhone").await;
+    let auth = bearer(&phone_token);
+    let docs = client::call(&conn, "GET", "/api/documents", &[("authorization", &auth)], b"").await.unwrap();
+    assert_eq!(docs.json()[0]["title"], "A");
+    // A paired phone learns the token from health; it never sees the app settings.
+    let health = client::call(&conn, "GET", "/api/health", &[("authorization", &auth)], b"").await.unwrap();
+    assert_eq!(health.json()["remote"]["relayToken"], token);
+    let settings = client::call(&conn, "GET", "/api/settings", &[("authorization", &auth)], b"").await.unwrap();
+    assert_eq!(settings.status, 200, "{}", settings.text());
+    assert!(settings.json().get("app").is_none() && !settings.text().contains(token), "{}", settings.text());
+
+    // A new token restarts iroh (phones are told), and new links carry it, escaped.
+    let second = "second+token/0123456789";
+    assert_eq!(r.t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "relayToken": second } }))).await.status, 200);
+    remote.sync().await;
+    assert_eq!(closed_with(&conn).await, Some(close::REMOTE_OFF));
+    assert_eq!(r.t.app.iroh.relay_token().as_deref(), Some(second));
+    let w2 = r.t.json("POST", "/api/devices/pairing", None).await.body;
+    let app_url = w2["appUrl"].as_str().unwrap();
+    assert!(app_url.ends_with("&rt=second%2Btoken%2F0123456789"), "{app_url}");
+    assert_eq!(client::parse_pair_link(app_url).unwrap().relay_token.as_deref(), Some(second));
+    remote.stop().await;
+    r.phone.close().await;
 }

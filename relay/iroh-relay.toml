@@ -1,0 +1,46 @@
+# iroh-relay 1.4.1 for Pager: your own relay, which carries phones that can't reach your computer
+# directly. Steps in docs/relay.md. The relay only forwards traffic that iroh has already encrypted
+# end to end; it can't read your library.
+#
+# This file holds the relay's token, so keep it root-only (mode 0600). The systemd unit hands it to
+# the relay with LoadCredential. Careful: iroh-relay run by hand with a --config-path that doesn't
+# exist starts with defaults and lets anyone relay. The unit can't: LoadCredential won't start it
+# without the file.
+
+# HTTP on port 80: LetsEncrypt's challenge and the captive-portal check.
+http_bind_addr = "[::]:80"
+
+# Lets phones and your computer learn their public address (UDP 7842).
+enable_quic_addr_discovery = true
+
+# Prometheus metrics, on this machine only.
+enable_metrics = true
+metrics_bind_addr = "127.0.0.1:9090"
+
+[tls]
+# Replace with the name whose A/AAAA record points at this machine.
+hostname = "relay.example.com"
+cert_mode = "LetsEncrypt"
+# Where the certificates are kept (the unit's StateDirectory).
+cert_dir = "/var/lib/iroh-relay"
+# Your email: LetsEncrypt requires one, and sends expiry notices there.
+contact = "you@example.com"
+https_bind_addr = "[::]:443"
+quic_bind_addr = "[::]:7842"
+
+# Only clients carrying this bearer token may use the relay: your computer and the phones you pair
+# (the pairing link passes it on). Make one with `openssl rand -hex 32`, paste it here, and paste the
+# same into Pager's Settings → Phone → Your own relay.
+[access]
+shared_token = ["PASTE-YOUR-TOKEN-HERE"]
+
+# A personal relay carries a few phones. These keep a leaked token from turning it into anyone's.
+[limits]
+# New connections per second, and how many may arrive at once.
+accept_conn_limit = 5.0
+accept_conn_burst = 20
+
+# What each client may send: 10 MB/s, in bursts of up to 20 MB.
+[limits.client.rx]
+bytes_per_second = 10_000_000
+max_burst_bytes = 20_000_000

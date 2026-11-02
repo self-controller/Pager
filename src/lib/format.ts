@@ -21,6 +21,21 @@ export function formatPercent(fraction: number | undefined): string {
   return `${Math.round(Math.min(1, Math.max(0, fraction)) * 100)}%`;
 }
 
+/**
+ * A reading time: "< 1 min", "6 min", "1 h 5 min", "3 h". `spoken` spells it out for screen
+ * readers: "less than a minute", "6 minutes", "1 hour 5 minutes".
+ */
+export function formatDuration(minutes: number, spoken = false): string {
+  if (!Number.isFinite(minutes) || minutes < 1) return spoken ? "less than a minute" : "< 1 min";
+  const total = Math.round(minutes);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  const plural = (n: number, unit: string) => `${n} ${unit}${n === 1 ? "" : "s"}`;
+  const hours = h ? (spoken ? plural(h, "hour") : `${h} h`) : "";
+  const mins = m || !h ? (spoken ? plural(m, "minute") : `${m} min`) : "";
+  return [hours, mins].filter(Boolean).join(" ");
+}
+
 export function initials(name: string | undefined): string {
   if (!name) return "?";
   const words = name

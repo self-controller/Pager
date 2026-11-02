@@ -216,12 +216,14 @@ async fn health(State(app): State<Arc<App>>, headers: HeaderMap, peer: Option<Ex
         Some((token, _)) => app.run(move |c| c.device_authenticate(&token, ip.as_deref(), peer_id.as_deref())).await.ok().flatten(),
         None => None,
     };
-    // Over iroh, health also names this computer's ID and the relay carrying it, so the phone can refresh its ticket.
+    // Over iroh, health also names this computer's ID and the relay carrying it, so the phone can
+    // refresh its ticket; a paired phone also gets your relay's token, in case it changed.
     let iroh = if peer.is_some() { app.iroh.info() } else { None };
+    let relay_token = if peer.is_some() && device.is_some() { app.iroh.relay_token() } else { None };
     let remote = if device.is_none() && iroh.is_none() {
         None
     } else {
-        Some(HealthRemote { device: device.map(|d| RemoteDevice { id: d.id, name: d.name }), suggested_origin: None, endpoint_id: iroh.as_ref().map(|i| i.endpoint_id.clone()), relay: iroh.and_then(|i| i.relay) })
+        Some(HealthRemote { device: device.map(|d| RemoteDevice { id: d.id, name: d.name }), suggested_origin: None, endpoint_id: iroh.as_ref().map(|i| i.endpoint_id.clone()), relay: iroh.and_then(|i| i.relay), relay_token })
     };
     ok(Health {
         app: "pager".into(),

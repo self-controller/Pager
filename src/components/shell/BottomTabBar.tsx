@@ -7,6 +7,7 @@ export function BottomTabBar() {
   return (
     <nav
       aria-label="Main navigation"
+      data-tab-bar // hidden with the reader's chrome (globals.css)
       className="fixed inset-x-0 bottom-0 z-20 flex h-[calc(var(--size-bottom-nav)+env(safe-area-inset-bottom))] items-start border-t border-detail bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <div className="flex h-[var(--size-bottom-nav)] w-full items-center">

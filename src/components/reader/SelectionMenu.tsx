@@ -11,7 +11,8 @@ const DOT: Record<HighlightColor, string> = {
   purple: "var(--hl-purple-line)",
 };
 
-const item = "flex h-8 items-center gap-1.5 rounded-xs px-2 text-[13px] font-semibold transition-hover hover:bg-white/15";
+const item =
+  "flex h-8 items-center gap-1.5 rounded-xs px-2 text-[13px] font-semibold transition-hover hover:bg-[var(--tooltip-hover)]";
 
 /**
  * Floating bar over selected text: Highlight and Note, then any actions registered by tools.
@@ -39,6 +40,7 @@ export function SelectionMenu({
     return (
       <div
         role="toolbar"
+        data-reader-overlay
         aria-label="Selection actions"
         className="fixed z-30 flex -translate-x-1/2 -translate-y-full rounded-sm bg-[var(--tooltip-bg)] p-1 text-[var(--tooltip-fg)] shadow-lg"
         style={{ top: Math.max(8, selection.rect.top - 8), left: selection.rect.left + selection.rect.width / 2 }}
@@ -56,6 +58,7 @@ export function SelectionMenu({
   return (
     <div
       role="toolbar"
+      data-reader-overlay
       aria-label="Selection actions"
       className="fixed z-30 flex -translate-x-1/2 -translate-y-full items-center gap-0.5 rounded-sm bg-[var(--tooltip-bg)] p-1 text-[var(--tooltip-fg)] shadow-lg"
       style={{ top: Math.max(8, top - 8), left: left + width / 2 }}
@@ -76,7 +79,9 @@ export function SelectionMenu({
           Note
         </button>
       )}
-      {actions.length > 0 && (onHighlight || onNote) && <span aria-hidden className="mx-0.5 h-5 w-px bg-white/20" />}
+      {actions.length > 0 && (onHighlight || onNote) && (
+        <span aria-hidden className="mx-0.5 h-5 w-px bg-[var(--tooltip-hover)]" />
+      )}
       {actions.map(({ tool, action }) => {
         const Icon = action.icon;
         return (
