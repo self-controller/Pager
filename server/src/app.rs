@@ -2,6 +2,10 @@
 //! the lock (the folder scan at startup, folder imports and deprecated folder sources, which read
 //! many files one at a time so requests get in between).
 
+use crate::briefing::run::Limits;
+use crate::briefing::secrets::ApiKey;
+use crate::briefing::transport::{NoTransport, Transport};
+use crate::briefing::BriefingService;
 use crate::clock::Clock;
 use crate::config::{DEFAULT_PORT, DEFAULT_REMOTE_PORT};
 use crate::core::{Core, CoreOptions, Notice, Notices};
@@ -29,11 +33,17 @@ pub struct AppOptions {
     pub web: Option<PathBuf>,
     pub welcome: bool,
     pub suggest_origin: Option<OriginLookup>,
+    /// Outbound HTTP for Context (the model, catalogues, cited pages). None refuses every request.
+    pub briefing_transport: Option<Arc<dyn Transport>>,
+    /// The Anthropic API key, when one is set on this computer.
+    pub anthropic_key: Option<ApiKey>,
+    /// Context's caps; None for the defaults in `briefing`.
+    pub briefing_limits: Option<Limits>,
 }
 
 impl AppOptions {
     pub fn new(data_dir: PathBuf) -> AppOptions {
-        AppOptions { data_dir, reads_dir: None, clock: Clock::System, port: DEFAULT_PORT, remote_port: DEFAULT_REMOTE_PORT, db_file: None, mirror_delay_ms: 2000, web: None, welcome: false, suggest_origin: None }
+        AppOptions { data_dir, reads_dir: None, clock: Clock::System, port: DEFAULT_PORT, remote_port: DEFAULT_REMOTE_PORT, db_file: None, mirror_delay_ms: 2000, web: None, welcome: false, suggest_origin: None, briefing_transport: None, anthropic_key: None, briefing_limits: None }
     }
 }
 
@@ -66,6 +76,8 @@ pub struct App {
     pub idle: Idle,
     /// The iroh endpoint and bridge, on while remote access is on.
     pub iroh: crate::remote::node::IrohNode,
+    /// Context briefings: the key, the transport and the runs in progress.
+    pub briefing: BriefingService,
 }
 
 impl App {
@@ -79,6 +91,8 @@ impl App {
         )?;
         let reads_dir = core.reads_dir.clone();
         let started_at = core.started_at.clone();
+        // Briefing runs don't survive a restart.
+        core.briefing_interrupt_runs()?;
         let now = o.clock.now_ms();
         Ok(Arc::new(App {
             core: Mutex::new(core),
@@ -97,6 +111,7 @@ impl App {
             ensure_cv: Condvar::new(),
             idle: Idle { last_ms: AtomicI64::new(now), streams: AtomicI64::new(0) },
             iroh: crate::remote::node::IrohNode::default(),
+            briefing: BriefingService::new(o.briefing_transport.unwrap_or_else(|| Arc::new(NoTransport)), o.anthropic_key, o.briefing_limits.unwrap_or_default()),
         }))
     }
 

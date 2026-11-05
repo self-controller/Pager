@@ -1,0 +1,546 @@
+//! Context briefings (Phase 1): the pipeline against a fake transport. No test touches the network
+//! or needs a key: the model's answers and the catalogues' are fixtures (tests/fixtures/context).
+
+mod common;
+
+use common::*;
+use futures::future::BoxFuture;
+use pager_server::briefing::extract::extract_lists;
+use pager_server::briefing::lookup::Lookups;
+use pager_server::briefing::run::{first_request, Limits};
+use pager_server::briefing::schema::*;
+use pager_server::briefing::secrets::{load_api_key, ApiKey, KeySource};
+use pager_server::briefing::transport::{OutError, OutRequest, OutResponse, Transport};
+use pager_server::briefing::verify::{verify, Evidence};
+use pager_server::briefing::API_URL;
+use pager_server::clock::Clock;
+use pager_server::ingest::versions::Format;
+use serde_json::{json, Value};
+use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+/// The key the tests use: it must only ever leave in `x-api-key` to the model's API.
+const SENTINEL: &str = "sk-ant-test-SENTINEL-0123456789";
+const BODY_SENTENCE: &str = "secret ledger of tumblers and pouters";
+
+fn fx(name: &str) -> Vec<u8> {
+    std::fs::read(fixtures().join("context").join(name)).unwrap()
+}
+
+fn fxj(name: &str) -> Value {
+    serde_json::from_slice(&fx(name)).unwrap()
+}
+
+enum Api {
+    Answer(u16, Value),
+    NetworkError,
+}
+
+/// Answers the model's API from a script and everything else from routes (longest prefix wins,
+/// else 404), and keeps every request it saw.
+#[derive(Default)]
+struct Fake {
+    api: Mutex<VecDeque<Api>>,
+    routes: Mutex<Vec<(String, u16, String, Vec<u8>)>>,
+    seen: Mutex<Vec<OutRequest>>,
+    api_delay: Mutex<Duration>,
+}
+
+impl Fake {
+    fn new() -> Arc<Fake> {
+        Arc::new(Fake::default())
+    }
+
+    fn api(&self, a: Api) {
+        self.api.lock().unwrap().push_back(a);
+    }
+
+    fn answer(&self, v: Value) {
+        self.api(Api::Answer(200, v));
+    }
+
+    fn route(&self, prefix: &str, status: u16, content_type: &str, body: Vec<u8>) {
+        self.routes.lock().unwrap().push((prefix.to_string(), status, content_type.to_string(), body));
+    }
+
+    fn seen(&self) -> Vec<OutRequest> {
+        self.seen.lock().unwrap().clone()
+    }
+
+    fn api_bodies(&self) -> Vec<Value> {
+        self.seen().into_iter().filter(|r| r.url == API_URL).map(|r| serde_json::from_slice(&r.body.unwrap()).unwrap()).collect()
+    }
+
+    fn urls(&self) -> Vec<String> {
+        self.seen().into_iter().map(|r| r.url).collect()
+    }
+
+    /// Open Library, Wikidata and the pages the verifier reads.
+    fn catalogue(&self) {
+        let j = "application/json";
+        for (prefix, file) in [
+            ("https://openlibrary.org/search.json", "ol-search.json"),
+            ("https://openlibrary.org/works/OL1179009W.json", "ol-work-OL1179009W.json"),
+            ("https://openlibrary.org/authors/OL115066A.json", "ol-author-OL115066A.json"),
+            ("https://openlibrary.org/isbn/9780141439518.json", "ol-isbn-9780141439518.json"),
+            ("https://openlibrary.org/authors/OL21594A.json", "ol-author-OL21594A.json"),
+            ("https://openlibrary.org/isbn/9780691023069.json", "ol-isbn-9780691023069.json"),
+            ("https://openlibrary.org/authors/OL2658173A.json", "ol-author-OL2658173A.json"),
+            ("https://www.wikidata.org/w/api.php?action=wbgetentities&ids=Q20124", "wikidata-Q20124.json"),
+            ("https://www.wikidata.org/w/api.php?action=wbsearchentities", "wikidata-search.json"),
+        ] {
+            self.route(prefix, 200, j, fx(file));
+        }
+        self.route("https://www.darwinproject.ac.uk/letters/darwins-works/origin", 200, "text/html; charset=utf-8", fx("page-darwinproject.html"));
+        self.route("https://plato.stanford.edu/entries/darwinism/", 200, "text/html", fx("page-sep.html"));
+        self.route("https://example.org/blog/darwin", 200, "text/html", fx("page-blog.html"));
+    }
+
+    /// The three answers of the happy path: research with a find_book call, a pause, the submission.
+    fn script(&self) {
+        self.answer(fxj("api-1-research.json"));
+        self.answer(fxj("api-2-pause.json"));
+        self.answer(fxj("api-3-submit.json"));
+    }
+}
+
+impl Transport for Fake {
+    fn send(&self, req: OutRequest) -> BoxFuture<'_, Result<OutResponse, OutError>> {
+        Box::pin(async move {
+            self.seen.lock().unwrap().push(req.clone());
+            let respond = |status: u16, content_type: &str, body: Vec<u8>| OutResponse { status, url: req.url.clone(), content_type: content_type.to_string(), body, truncated: false };
+            if req.url == API_URL {
+                let delay = *self.api_delay.lock().unwrap();
+                if !delay.is_zero() {
+                    tokio::time::sleep(delay).await;
+                }
+                let next = self.api.lock().unwrap().pop_front();
+                return match next {
+                    Some(Api::Answer(status, v)) => Ok(respond(status, "application/json", v.to_string().into_bytes())),
+                    Some(Api::NetworkError) => Err(OutError::Network("connection refused".into())),
+                    None => Ok(respond(500, "application/json", json!({ "type": "error", "error": { "type": "api_error", "message": "no more scripted answers" } }).to_string().into_bytes())),
+                };
+            }
+            let routes = self.routes.lock().unwrap();
+            let best = routes.iter().filter(|(p, ..)| req.url.starts_with(p.as_str())).max_by_key(|(p, ..)| p.len());
+            Ok(match best {
+                Some((_, status, ct, body)) => respond(*status, ct, body.clone()),
+                None => respond(404, "text/plain", b"not found".to_vec()),
+            })
+        })
+    }
+}
+
+fn limits() -> Limits {
+    Limits { retry_delays: vec![], ..Limits::default() }
+}
+
+fn app_with(fake: &Arc<Fake>, key: bool, limits: Limits) -> TestApp {
+    let transport: Arc<dyn Transport> = fake.clone();
+    make_app_custom(Clock::fake("2026-11-05T12:00:00Z"), move |o| {
+        o.briefing_transport = Some(transport);
+        o.anthropic_key = if key { ApiKey::new(SENTINEL) } else { None };
+        o.briefing_limits = Some(limits);
+    })
+}
+
+/// A Markdown book long enough to be cut into sections: an introduction (front matter) and a chapter
+/// (body text, which must never reach the model).
+fn book_text(extra: &str) -> String {
+    let filler = "The finches of the islands differ from one another in the shape of their beaks. ".repeat(450);
+    format!(
+        "---\ntitle: On the Origin of Species\nauthor: Charles Darwin\n---\n\n# Introduction\n\nWhen on board H.M.S. Beagle, as naturalist, I was much struck with certain facts in the distribution of the inhabitants of South America.\n\n# Chapter I. Variation under Domestication\n\nThe pigeon fanciers of London keep a {BODY_SENTENCE}.\n\n{filler}\n{extra}\n"
+    )
+}
+
+async fn add_book(t: &TestApp) -> String {
+    t.write("Darwin/Origin.md", &book_text(""));
+    assert_eq!(t.get("/api/tree").await.status, 200);
+    let docs = t.get("/api/documents").await;
+    assert_eq!(docs.status, 200, "{}", docs.text);
+    docs.body[0]["id"].as_str().unwrap().to_string()
+}
+
+async fn wait_run(t: &TestApp, id: &str) -> Value {
+    for _ in 0..1000 {
+        let r = t.get(&format!("/api/tools/context/runs/{id}")).await;
+        assert_eq!(r.status, 200, "{}", r.text);
+        if r.body["status"] != "running" {
+            return r.body;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    panic!("the run never finished");
+}
+
+async fn start(t: &TestApp, doc: &str, body: Value) -> Answer {
+    t.json("POST", &format!("/api/tools/context/briefings/{doc}"), Some(body)).await
+}
+
+fn stored_text(t: &TestApp) -> String {
+    let c = t.app.lock();
+    let b: Vec<String> = c.all("SELECT briefing || ' ' || usage || ' ' || model FROM context_briefings", &[], |r| r.get(0)).unwrap();
+    let r: Vec<String> = c.all("SELECT id || ' ' || status || ' ' || coalesce(error, '') || ' ' || coalesce(usage, '') FROM context_runs", &[], |r| r.get(0)).unwrap();
+    format!("{}\n{}", b.join("\n"), r.join("\n"))
+}
+
+#[tokio::test]
+async fn a_briefing_keeps_what_checks_out_and_drops_the_rest() {
+    let fake = Fake::new();
+    fake.catalogue();
+    fake.script();
+    let t = app_with(&fake, true, limits());
+    let doc = add_book(&t).await;
+
+    let started = start(&t, &doc, json!({})).await;
+    assert_eq!(started.status, 202, "{}", started.text);
+    assert!(started.body["briefing"].is_null());
+    let run = wait_run(&t, started.body["run"]["id"].as_str().unwrap()).await;
+    assert_eq!(run["status"], "done", "{run}");
+
+    let got = t.get(&format!("/api/tools/context/briefings/{doc}")).await;
+    assert_eq!(got.status, 200, "{}", got.text);
+    assert_eq!(got.body["stale"], false);
+    assert_eq!(got.body["cachedLevels"], json!(["general"]));
+    let b: Briefing = serde_json::from_value(got.body["briefing"].clone()).unwrap();
+    let kinds: Vec<SectionKind> = b.sections.iter().map(|s| s.kind).collect();
+    assert_eq!(kinds, vec![SectionKind::Overview, SectionKind::Moment, SectionKind::Conversation, SectionKind::ReadFirst, SectionKind::FurtherReading], "terms held only a Wikipedia claim");
+    assert!(!b.little_known);
+
+    // The overview: a fetched page, a search snippet, the computer's own fetch, a Wikidata record.
+    let overview = &b.sections[0].items[0].claims;
+    assert_eq!(overview.len(), 4);
+    assert!(overview[..3].iter().all(|c| c.citations[0].check == Some(Check::Quoted)));
+    assert_eq!(overview[3].citations[0].check, Some(Check::Record));
+    assert_eq!(overview[3].citations[0].url.as_deref(), Some("https://www.wikidata.org/wiki/Q20124"));
+
+    // The quote that isn't on its page is gone; so is the one-sided disagreement.
+    assert_eq!(b.sections[1].items[0].claims.len(), 1);
+    assert!(b.sections[2].items[0].disagreement.is_none());
+    assert_eq!(b.sections[2].items[0].relation.as_deref(), Some("borrows from"));
+
+    // Read first: only Malthus survives (made-up DOI, bad check digit, someone else's ISBN dropped).
+    let read_first = &b.sections[3].items;
+    assert_eq!(read_first.len(), 1);
+    let w = read_first[0].work.as_ref().unwrap();
+    assert_eq!(w.resolved_url.as_deref(), Some("https://openlibrary.org/works/OL1179009W"));
+    assert_eq!(read_first[0].tier, Some(Tier::Helpful));
+    assert!(read_first[0].claims[0].inferred);
+    let further = &b.sections[4].items[0];
+    assert_eq!(further.work.as_ref().unwrap().resolved_url.as_deref(), Some("https://openlibrary.org/isbn/9780691023069"));
+    assert!(further.claims.is_empty() && further.suits.is_some());
+
+    assert_eq!((b.stats.claims_kept, b.stats.claims_dropped, b.stats.works_kept, b.stats.works_dropped), (7, 7, 2, 3));
+    assert_eq!((b.stats.api_calls, b.stats.searches, b.stats.fetches), (3, 1, 2));
+    assert_eq!(b.stats.output_tokens, 3700);
+    assert!(b.stats.cost_usd > 0.0);
+    assert_eq!(b.model, "claude-sonnet-5-5");
+
+    // The loop: find_book answered from Open Library, then the paused turn sent back as it was.
+    let bodies = fake.api_bodies();
+    assert_eq!(bodies.len(), 3);
+    let second = bodies[1]["messages"].as_array().unwrap();
+    let last = second.last().unwrap();
+    assert_eq!(last["role"], "user");
+    assert_eq!(last["content"][0]["type"], "tool_result");
+    assert_eq!(last["content"][0]["tool_use_id"], "toolu_find1");
+    assert!(last["content"][0]["content"].as_str().unwrap().contains("OL1179009W"));
+    assert_eq!(bodies[2]["messages"].as_array().unwrap().last().unwrap()["role"], "assistant", "a paused turn is resumed as is");
+    for body in &bodies {
+        assert_eq!(body["model"], "claude-sonnet-5-5");
+        assert_eq!(body["tool_choice"]["type"], "auto");
+        assert_eq!(body["fallbacks"], "default");
+        let names: Vec<&str> = body["tools"].as_array().unwrap().iter().map(|t| t["name"].as_str().unwrap()).collect();
+        assert_eq!(names, vec!["web_search", "web_fetch", "find_book", "find_article", "submit_briefing"]);
+    }
+
+    // The model saw the front matter, never the body text.
+    let first = bodies[0]["messages"][0]["content"].as_str().unwrap();
+    assert!(first.contains("much struck with certain facts"), "front matter goes");
+    for body in &bodies {
+        assert!(!body.to_string().contains(BODY_SENTENCE), "body text never leaves the computer");
+    }
+
+    // A bad check digit is caught without asking anyone.
+    let urls = fake.urls();
+    assert!(!urls.iter().any(|u| u.contains("9780140439129")), "{urls:?}");
+    assert!(urls.iter().any(|u| u.starts_with("https://api.crossref.org/works/10.9999%2Ffake.2004.001")), "{urls:?}");
+
+    // The key: only in x-api-key, only to the model's API; never in a response or the database.
+    for r in fake.seen() {
+        let key_headers: Vec<&(String, String)> = r.headers.iter().filter(|(_, v)| v.contains(SENTINEL)).collect();
+        if r.url == API_URL {
+            assert_eq!(key_headers.len(), 1);
+            assert_eq!(key_headers[0].0, "x-api-key");
+        } else {
+            assert!(key_headers.is_empty(), "the key went to {}", r.url);
+            assert!(!r.headers.iter().any(|(k, _)| k == "x-api-key"));
+        }
+        assert!(!String::from_utf8_lossy(r.body.as_deref().unwrap_or(b"")).contains(SENTINEL));
+    }
+    for text in [&started.text, &got.text, &t.get("/api/tools/context/status").await.text, &t.get(&format!("/api/tools/context/runs/{}", run["id"].as_str().unwrap())).await.text] {
+        assert!(!text.contains(SENTINEL));
+    }
+    let stored = stored_text(&t);
+    assert!(stored.contains("claude-sonnet-5-5") && !stored.contains(SENTINEL));
+}
+
+#[tokio::test]
+async fn the_verifier_rejects_a_made_up_citation() {
+    let fake = Fake::new();
+    fake.catalogue();
+    let lookups = Lookups::new(fake.clone(), 50);
+    let draft: Draft = serde_json::from_value(json!({
+        "littleKnown": false,
+        "sections": [{ "kind": "readFirst", "items": [
+            { "heading": "A study that doesn't exist", "spoiler": false,
+              "work": { "title": "The Hidden Darwin Letters", "authors": ["A. Nobody"], "year": "2004", "record": { "kind": "doi", "value": "10.9999/fake.2004.001" } },
+              "claims": [{ "text": "It reveals Darwin's private doubts.", "inferred": false, "spoiler": false, "citations": [
+                  { "kind": "page", "url": "https://plato.stanford.edu/entries/darwinism/", "title": "Darwinism", "quote": "Charles Darwin published On the Origin of Species in November 1859, presenting a theory" }] }] },
+            { "heading": "Malthus and Darwin", "spoiler": false,
+              "claims": [{ "text": "They were close friends.", "inferred": false, "spoiler": false, "citations": [
+                  { "kind": "page", "url": "https://plato.stanford.edu/entries/darwinism/", "title": "Darwinism", "quote": "Malthus was Darwin's closest friend and visited Down House every summer" },
+                  { "kind": "page", "url": "https://example.org/nowhere", "title": "Nowhere", "quote": "Malthus was Darwin's closest friend and visited Down House every summer" },
+                  { "kind": "record", "title": "Darwin's Notebooks", "record": { "kind": "isbn", "value": "9780140439129" } }] }] }
+        ] }]
+    }))
+    .unwrap();
+    let v = verify(draft, &Evidence::default(), &lookups).await;
+    assert!(v.sections.is_empty(), "nothing survives");
+    assert!(v.little_known);
+    assert_eq!((v.report.works_dropped, v.report.claims_dropped, v.report.claims_kept), (1, 2, 0));
+    let reasons: String = v.report.dropped.iter().map(|d| format!("{} — {}\n", d.what, d.reason)).collect();
+    assert!(reasons.contains("(work) — no such record"), "{reasons}");
+    assert!(reasons.contains("the quote isn't on the page"), "{reasons}");
+    assert!(reasons.contains("the page is missing"), "{reasons}");
+    assert!(reasons.contains("check digit is wrong"), "{reasons}");
+    assert!(!fake.urls().iter().any(|u| u.contains("9780140439129")));
+}
+
+#[tokio::test]
+async fn without_a_key_nothing_is_sent() {
+    let fake = Fake::new();
+    let t = app_with(&fake, false, limits());
+    let doc = add_book(&t).await;
+    let s = t.get("/api/tools/context/status").await;
+    assert_eq!(s.status, 200);
+    assert_eq!(s.body["ready"], false);
+    assert_eq!(s.body["keyVariable"], "ANTHROPIC_API_KEY");
+    assert_eq!(s.body["keyFile"], "~/.config/pager/secrets.env");
+    let r = start(&t, &doc, json!({})).await;
+    assert_eq!(r.status, 503, "{}", r.text);
+    assert_eq!(r.body["error"]["code"], "not_configured");
+    assert!(r.body["error"]["message"].as_str().unwrap().contains("ANTHROPIC_API_KEY"));
+    let g = t.get(&format!("/api/tools/context/briefings/{doc}")).await;
+    assert_eq!(g.status, 200);
+    assert!(g.body["briefing"].is_null() && g.body["run"].is_null());
+    assert!(fake.seen().is_empty(), "no request of any kind");
+}
+
+#[tokio::test]
+async fn a_cached_briefing_costs_nothing_and_requests_share_a_run() {
+    let fake = Fake::new();
+    fake.catalogue();
+    fake.script();
+    *fake.api_delay.lock().unwrap() = Duration::from_millis(150);
+    let t = app_with(&fake, true, limits());
+    let doc = add_book(&t).await;
+
+    let a = start(&t, &doc, json!({ "level": "general" })).await;
+    let b = start(&t, &doc, json!({ "level": "general" })).await;
+    assert_eq!((a.status, b.status), (202, 202));
+    assert_eq!(a.body["run"]["id"], b.body["run"]["id"], "one run for both");
+    let during = t.get(&format!("/api/tools/context/briefings/{doc}")).await;
+    assert_eq!(during.body["run"]["id"], a.body["run"]["id"]);
+    assert_eq!(wait_run(&t, a.body["run"]["id"].as_str().unwrap()).await["status"], "done");
+    assert_eq!(fake.api_bodies().len(), 3);
+
+    let cached = start(&t, &doc, json!({})).await;
+    assert_eq!(cached.status, 200, "{}", cached.text);
+    assert_eq!(cached.body["briefing"]["level"], "general");
+    assert!(cached.body["run"].is_null());
+    assert_eq!(fake.api_bodies().len(), 3, "a cache hit makes no call");
+
+    // Another level is its own briefing.
+    fake.script();
+    let s = start(&t, &doc, json!({ "level": "scholar" })).await;
+    assert_eq!(s.status, 202, "{}", s.text);
+    assert_eq!(wait_run(&t, s.body["run"]["id"].as_str().unwrap()).await["status"], "done");
+    let g = t.get(&format!("/api/tools/context/briefings/{doc}?level=scholar")).await;
+    assert_eq!(g.body["briefing"]["level"], "scholar");
+    assert_eq!(g.body["cachedLevels"], json!(["general", "scholar"]));
+    assert_eq!(fake.api_bodies()[3]["messages"][0]["content"].as_str().unwrap().split('\n').next().unwrap().starts_with("Written for: a scholar"), true);
+
+    // Refresh runs again even though one is cached.
+    fake.script();
+    let r = start(&t, &doc, json!({ "refresh": true })).await;
+    assert_eq!(r.status, 202);
+    assert_eq!(wait_run(&t, r.body["run"]["id"].as_str().unwrap()).await["status"], "done");
+    assert_eq!(t.db_count("SELECT COUNT(*) FROM context_briefings"), 2, "a refresh replaces the old one");
+    assert_eq!(t.db_count("SELECT COUNT(*) FROM context_runs"), 3);
+
+    let bad = start(&t, &doc, json!({ "level": "expert" })).await;
+    assert_eq!(bad.status, 400);
+}
+
+#[tokio::test]
+async fn a_changed_file_keeps_showing_its_last_briefing() {
+    let fake = Fake::new();
+    fake.catalogue();
+    fake.script();
+    let t = app_with(&fake, true, limits());
+    let doc = add_book(&t).await;
+    let a = start(&t, &doc, json!({})).await;
+    assert_eq!(wait_run(&t, a.body["run"]["id"].as_str().unwrap()).await["status"], "done");
+    let before = t.get(&format!("/api/tools/context/briefings/{doc}")).await.body;
+    assert_eq!(before["stale"], false);
+
+    t.write("Darwin/Origin.md", &book_text("A sentence added later."));
+    let after = t.get(&format!("/api/tools/context/briefings/{doc}")).await;
+    assert_eq!(after.status, 200, "{}", after.text);
+    assert_eq!(after.body["stale"], true);
+    assert_eq!(after.body["briefing"]["generatedAt"], before["briefing"]["generatedAt"]);
+    assert_ne!(after.body["briefing"]["contentHash"], json!(null));
+    // Asking again makes a new one for the new version.
+    let again = start(&t, &doc, json!({})).await;
+    assert_eq!(again.status, 202, "{}", again.text);
+}
+
+#[tokio::test]
+async fn a_run_that_hits_a_cap_saves_nothing() {
+    let fake = Fake::new();
+    fake.catalogue();
+    for _ in 0..3 {
+        fake.answer(fxj("api-2-pause.json"));
+    }
+    let t = app_with(&fake, true, Limits { max_calls: 2, ..limits() });
+    let doc = add_book(&t).await;
+    let a = start(&t, &doc, json!({})).await;
+    let run = wait_run(&t, a.body["run"]["id"].as_str().unwrap()).await;
+    assert_eq!(run["status"], "failed");
+    assert!(run["error"].as_str().unwrap().contains("limit of 2 API calls"), "{run}");
+    assert!(run["error"].as_str().unwrap().contains("Nothing was saved"));
+    assert_eq!(fake.api_bodies().len(), 2);
+    assert_eq!(t.db_count("SELECT COUNT(*) FROM context_briefings"), 0);
+    assert!(t.get(&format!("/api/tools/context/briefings/{doc}")).await.body["briefing"].is_null());
+}
+
+#[tokio::test]
+async fn refusals_silence_and_errors_fail_clearly() {
+    let usage = json!({ "input_tokens": 100, "output_tokens": 10 });
+    let cases: Vec<(Vec<Api>, &str)> = vec![
+        (vec![Api::Answer(200, json!({ "model": "claude-sonnet-5-5", "content": [], "stop_reason": "refusal", "usage": usage }))], "declined"),
+        (
+            vec![
+                Api::Answer(200, json!({ "model": "claude-sonnet-5-5", "content": [{ "type": "text", "text": "Done." }], "stop_reason": "end_turn", "usage": usage })),
+                Api::Answer(200, json!({ "model": "claude-sonnet-5-5", "content": [{ "type": "text", "text": "Done." }], "stop_reason": "end_turn", "usage": usage })),
+            ],
+            "without handing in a briefing",
+        ),
+        (vec![Api::NetworkError], "Couldn't reach Anthropic's API"),
+        (vec![Api::Answer(401, json!({ "type": "error", "error": { "type": "authentication_error", "message": "invalid x-api-key" } }))], "refused the API key"),
+        (vec![Api::Answer(529, json!({ "type": "error", "error": { "type": "overloaded_error", "message": "Overloaded" } }))], "busy"),
+        (vec![Api::Answer(200, json!({ "model": "claude-sonnet-5-5", "content": [], "stop_reason": "max_tokens", "usage": usage }))], "length limit"),
+    ];
+    for (script, expect) in cases {
+        let fake = Fake::new();
+        fake.catalogue();
+        for a in script {
+            fake.api(a);
+        }
+        let t = app_with(&fake, true, limits());
+        let doc = add_book(&t).await;
+        let a = start(&t, &doc, json!({})).await;
+        let run = wait_run(&t, a.body["run"]["id"].as_str().unwrap()).await;
+        assert_eq!(run["status"], "failed", "{expect}: {run}");
+        assert!(run["error"].as_str().unwrap().contains(expect), "{expect}: {run}");
+        assert_eq!(t.db_count("SELECT COUNT(*) FROM context_briefings"), 0);
+        if expect.contains("handing in") {
+            let bodies = fake.api_bodies();
+            assert_eq!(bodies.len(), 2);
+            assert!(bodies[1]["messages"].as_array().unwrap().last().unwrap()["content"].as_str().unwrap().contains("call submit_briefing now"));
+        }
+    }
+}
+
+#[tokio::test]
+async fn interrupted_runs_are_failed_at_startup() {
+    let t = make_app();
+    t.db_exec("INSERT INTO context_runs (id, document_id, content_hash, level, status, stage, started_at) VALUES ('r1', 'd1', 'h', 'general', 'running', 'researching', '2026-11-05T00:00:00Z')");
+    assert_eq!(t.app.lock().briefing_interrupt_runs().unwrap(), 1);
+    let r = t.get("/api/tools/context/runs/r1").await;
+    assert_eq!(r.body["status"], "failed");
+    assert!(r.body["error"].as_str().unwrap().contains("interrupted"));
+    assert_eq!(t.get("/api/tools/context/runs/nope").await.status, 404);
+}
+
+#[tokio::test]
+async fn tool_records_still_work_for_the_context_tool() {
+    let t = make_app();
+    let c = t.json("POST", "/api/tools/context/records", Some(json!({ "data": { "note": "kept" } }))).await;
+    assert_eq!(c.status, 201, "{}", c.text);
+    let l = t.get("/api/tools/context/records").await;
+    assert_eq!(l.status, 200);
+    assert_eq!(l.body.as_array().unwrap().len(), 1);
+    let one = t.get(&format!("/api/tools/context/records/{}", c.body["id"].as_str().unwrap())).await;
+    assert_eq!(one.status, 200, "{}", one.text);
+}
+
+#[tokio::test]
+async fn a_phone_cannot_use_context_yet() {
+    let t = make_app_with(Clock::fake("2026-11-05T12:00:00Z"), None, None);
+    let on = t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "enabled": true, "origin": "https://fedora.tail1234.ts.net" } }))).await;
+    assert_eq!(on.status, 200, "{}", on.text);
+    let w = t.json("POST", "/api/devices/pairing", None).await;
+    let req = t.remote_call(Call::new("POST", "/api/pair").json(json!({ "code": w.body["code"], "name": "iPhone" }))).await;
+    t.json("POST", "/api/devices/pairing/approve", Some(json!({ "requestId": req.body["requestId"] }))).await;
+    let done = t.remote_call(Call::new("POST", "/api/pair/poll").json(req.body.clone())).await;
+    let token = done.body["token"].as_str().unwrap().to_string();
+    for (method, path) in [("GET", "/api/tools/context/status"), ("GET", "/api/tools/context/briefings/x"), ("POST", "/api/tools/context/briefings/x"), ("GET", "/api/tools/context/runs/x")] {
+        let r = t.remote_call(Call::new(method, path).token(&token).json(json!({}))).await;
+        assert_eq!(r.status, 403, "{method} {path}: {}", r.text);
+    }
+}
+
+#[test]
+fn the_key_comes_from_the_environment_or_a_private_file() {
+    let dir = temp_dir("pager-secrets-");
+    let file = dir.join("secrets.env");
+    std::fs::write(&file, "# Pager\nANTHROPIC_API_KEY=sk-from-file\n").unwrap();
+    let from_env = load_api_key(Some("sk-from-env"), &file);
+    assert_eq!(from_env.source, Some(KeySource::Environment));
+    assert_eq!(from_env.key.unwrap().expose(), "sk-from-env");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o644)).unwrap();
+        let open = load_api_key(None, &file);
+        assert!(open.key.is_none(), "a file others can read is refused");
+        let warning = open.warning.unwrap();
+        assert!(warning.contains("chmod 600") && !warning.contains("sk-from-file"));
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).unwrap();
+    }
+    let private = load_api_key(Some(""), &file);
+    assert_eq!(private.source, Some(KeySource::File(file.clone())));
+    assert_eq!(private.key.as_ref().unwrap().expose(), "sk-from-file");
+    assert_eq!(format!("{:?}", private.key.unwrap()), "ApiKey(***)");
+    assert!(load_api_key(None, &dir.join("missing.env")).key.is_none());
+}
+
+#[test]
+fn extraction_sends_lists_and_front_matter_never_chapters() {
+    let bytes = std::fs::read(fixtures().join("epub").join("pg1342.epub")).unwrap();
+    let doc = pager_server::ingest::parse_file(&bytes, Format::Epub, &ingest_ctx(None, "pg1342.epub")).unwrap();
+    let input = extract_lists(&doc);
+    let names: Vec<&str> = input.names.iter().map(|c| c.text.as_str()).collect();
+    for n in ["Elizabeth", "Darcy", "Bennet", "Bingley"] {
+        assert!(names.contains(&n), "{n} in {names:?}");
+    }
+    assert!(!names.iter().any(|n| n.starts_with("But ") || *n == "I"), "{names:?}");
+    assert!(input.names.len() <= 60 && input.works.len() <= 40 && input.terms.len() <= 30);
+    let body = first_request(Level::General, &input, &json!({})).to_string();
+    assert!(!body.contains("In vain have I struggled"), "no chapter text");
+    assert!(body.len() < 60_000, "{} bytes", body.len());
+    assert!(input.front_matter.iter().map(|f| f.text.chars().count()).sum::<usize>() <= 12_000);
+}

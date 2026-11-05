@@ -48,6 +48,10 @@ hex = "0.4"
 iroh = "1"
 iroh-base = "1"
 iroh-tickets = "1"
+# Context: outbound HTTPS to the model's API, catalogues and cited pages, over the ring provider
+# iroh already brings in (no second crypto library).
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 
 [dev-dependencies]
 tempfile = "3"

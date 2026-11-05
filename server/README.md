@@ -173,7 +173,8 @@ against a character-tagging oracle; see `tests/reanchor.rs`.
 pager.db           SQLite (WAL): sources, documents, revisions, anchors, annotations, tool_records,
                     progress (with device_id: who wrote the place), settings, presets, events, FTS5
                     indexes, reading_sessions, mirror_files, devices (paired phones: name, sha256 of
-                    the token, last seen, revoked_at, endpoint_id for phones over iroh)
+                    the token, last seen, revoked_at, endpoint_id for phones over iroh),
+                    context_briefings and context_runs (Context's cache and its runs)
 cache/<rev>.json    parsed revisions (rebuildable from the file or its snapshot)
 files/              snapshots of the last 3 revisions of small text files
 assets/             images, content-addressed (<sha256>.<ext>)
@@ -186,7 +187,38 @@ server.json         pid/port of the running server (for the CLI)
 
 Migrations (`src/db/migrations.rs`) are append-only, applied by `PRAGMA user_version`. A newer
 database is refused rather than damaged. v1–v5 are the schema of the earlier TypeScript server this
-crate was ported from (deleted 2026-10-28); v6 (`devices.endpoint_id`) is this crate's own.
+crate was ported from (deleted 2026-10-28); v6 (`devices.endpoint_id`) and v7 (Context's
+`context_briefings` and `context_runs`) are this crate's own.
+
+## Context (an AI briefing, with an API key)
+
+Context writes a short, sourced briefing about the open book (API.md, "Context"). It calls
+Anthropic's API (`claude-sonnet-5-5` with web search), so it needs an API key **on this computer**:
+
+```sh
+mkdir -p ~/.config/pager && chmod 700 ~/.config/pager
+printf 'ANTHROPIC_API_KEY=%s\n' 'sk-ant-…' > ~/.config/pager/secrets.env
+chmod 600 ~/.config/pager/secrets.env
+```
+
+then start Pager again. At startup the server reads `ANTHROPIC_API_KEY` from its environment, else
+from `$XDG_CONFIG_HOME/pager/secrets.env` (`~/.config/pager/secrets.env`), which is outside the
+repository. A variable already set in the environment wins. It refuses the file, with a warning, if
+other users can read it. The key stays in the server's memory: it is never logged, never put in an
+API response or the database, and only ever sent in the `x-api-key` header to api.anthropic.com.
+With no key, Context says so and makes no calls.
+
+- **When it runs:** only when the reader asks. Nothing runs on import.
+- **What leaves the computer:** to the API, the book's metadata, front matter (capped) and short lists
+  of names, works and terms found in it, never chapters. Catalogue lookups go to openlibrary.org,
+  api.crossref.org and wikidata.org, and the verifier fetches the pages a briefing cites to check its
+  quotes.
+- **Cost:** capped per run in `src/briefing/mod.rs` (calls, tokens, searches, fetches, time). Each run
+  prints a line with its tokens, searches, fetches and estimated cost, e.g. `context: run … done in
+  74 s; 9 calls, input 182k (cache read 140k, written 30k), output 21k, 8 searches, 6 fetches, ≈ $0.55`.
+- **Trying it by hand:** `cargo run --release --example context-live -- <book.epub> [--level scholar]`
+  runs the real pipeline on one book with your key and prints what was kept and dropped and why;
+  `--dry-run` prints the exact request that would be sent, with no key and no network.
 
 ## Security
 
@@ -195,8 +227,8 @@ crate was ported from (deleted 2026-10-28); v6 (`devices.endpoint_id`) is this c
 - Changes from another origin are refused.
 - No CORS headers are sent.
 - Images are served `nosniff` and sandboxed by CSP.
-- The only network access is a remote image, and only when the UI chooses to load it, and iroh
-  while remote access is on. (Settings → Phone may run `tailscale status --json`, a local command,
+- The only network access is a remote image, and only when the UI chooses to load it, iroh
+  while remote access is on, and a Context briefing when the reader asks for one (below). (Settings → Phone may run `tailscale status --json`, a local command,
   to suggest the phone's address.)
 - **Phones** (off by default; setup in [`../docs/iphone.md`](../docs/iphone.md)). Turning on
   `app.remote` starts an iroh endpoint, plus a second listener on 127.0.0.1:3007 for `tailscale
@@ -227,12 +259,15 @@ src/devices/     paired devices (tokens, expiry, revocation), the pairing window
 src/remote/      phones over iroh: the identity key, the pager/1 protocol, the endpoint, the bridge
                  into the remote app, and the client the tests and fake phone use
 src/annotations.rs src/records.rs src/settings.rs src/journal/ src/search.rs src/mirror/ src/export.rs src/sessions.rs
-src/http/        routes (library, files, remember, keep, system, sync, devices), the local-only guard,
+src/briefing/    Context: the key (secrets), outbound HTTP (transport), local extraction, catalogue
+                 lookups, the prompt, the research loop with the model (run), the verifier, the cache
+src/http/        routes (library, files, remember, keep, system, sync, devices, context), the local-only guard,
                  remote (the phones' listener and its allowlist), the live stream, static web serving
 src/cli.rs       the `pager` command (bin/pager)
-tests/           10 files, 97 tests (16 more are unit tests in src/): parsers (with the Gutenberg
+tests/           11 files, 111 tests (27 more are unit tests in src/): parsers (with the Gutenberg
                  golden hashes; files in tests/fixtures), the reads folder, the watcher, re-anchoring,
-                 the remote listener's allowlist, no-paths and pairing, phones over iroh, sync
+                 the remote listener's allowlist, no-paths and pairing, phones over iroh, sync, and
+                 Context against a fake transport (tests/fixtures/context)
 ```
 
 The dev profile in `Cargo.toml` trims debug info and turns off incremental compilation so `target/`

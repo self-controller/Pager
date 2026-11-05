@@ -1,0 +1,15 @@
+{
+ "key": "/works/OL1179009W",
+ "title": "An essay on the principle of population",
+ "authors": [
+  {
+   "author": {
+    "key": "/authors/OL115066A"
+   },
+   "type": {
+    "key": "/type/author_role"
+   }
+  }
+ ],
+ "first_publish_date": "1798"
+}

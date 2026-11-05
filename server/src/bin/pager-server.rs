@@ -1,6 +1,8 @@
 //! `pager-server`: run the reading service in the foreground.
 
 use pager_server::app::AppOptions;
+use pager_server::briefing::secrets::{load_api_key, secrets_path, KeySource, KEY_VAR};
+use pager_server::briefing::transport::LiveTransport;
 use pager_server::config::{default_data_dir, default_port, default_reads_dir, default_remote_port, web_dir};
 use pager_server::devices::tailnet::system_origin;
 use pager_server::server::{start, StartOptions};
@@ -17,6 +19,21 @@ async fn main() {
     app.web = web_dir();
     app.welcome = true;
     app.suggest_origin = Some(system_origin());
+    // Context: the API key (environment, else ~/.config/pager/secrets.env) and outbound HTTPS.
+    let loaded = load_api_key(std::env::var(KEY_VAR).ok().as_deref(), &secrets_path());
+    if let Some(w) = &loaded.warning {
+        eprintln!("Context: {w}");
+    }
+    match &loaded.source {
+        Some(KeySource::Environment) => println!("Context: using the API key from {KEY_VAR}."),
+        Some(KeySource::File(p)) => println!("Context: using the API key from {}.", p.display()),
+        None => {}
+    }
+    app.anthropic_key = loaded.key;
+    match LiveTransport::new() {
+        Ok(t) => app.briefing_transport = Some(std::sync::Arc::new(t)),
+        Err(e) => eprintln!("Context: outbound HTTPS couldn't start ({e}); briefings are off."),
+    }
     // The CLI marks servers it starts in the background; only those stop themselves when idle.
     let idle = std::env::var("PAGER_BACKGROUND").map(|v| v == "1").unwrap_or(false);
     let mut running = match start(StartOptions { app, watch: true, idle_shutdown: idle }).await {

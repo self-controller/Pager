@@ -80,8 +80,9 @@ expands for more.
   for those, without changing ingest.
 - Front matter means the sections before the first chapter-like heading, plus any
   section titled like a preface, introduction, foreword, translator's or editor's note,
-  "note on the text", advertisement, "to the reader" or "historical sketch" (Darwin's
-  "An Historical Sketch" counts). It is capped at 4,000 characters per section and 12,000
+  "note on the text", advertisement, "to the reader" or "historical sketch" (the
+  "Historical Sketch" in later editions of Darwin's *Origin* counts; the first edition,
+  our test book, has none). It is capped at 4,000 characters per section and 12,000
   in total. Sections titled like notes, a bibliography, works cited, references or a
   glossary feed the name and work lists. Project Gutenberg licence sections are skipped.
 - List caps: 60 names, 40 works, 30 terms.
@@ -137,11 +138,16 @@ expands for more.
    (constants in one place; choose sensible values and report them). Log the token and
    search counts for each run on the server, so the cost can be checked.
    Chosen values (in `server/src/briefing/mod.rs`):
-   - per run: 12 API calls, 10 searches, 8 fetches (each capped at 8,000 tokens), 60
-     lookups, 40,000 output tokens, 800,000 input tokens, 8 minutes;
-   - per call: `max_tokens` 16,000 and a 180 s timeout.
+   - per run: 12 API calls, 40,000 output tokens, 800,000 input tokens, 60 catalogue
+     lookups for the model and 150 for the verifier, 10 minutes;
+   - searches and fetches: `max_uses` is per API call, so each call allows 5 searches and
+     5 fetches (each fetch capped at 8,000 tokens). That value stays the same on every
+     call, so the tool list and the prompt cache never change. The model is told its
+     budget (10 searches, 8 fetches); once that is spent, the next tool result tells it to
+     hand in. A run that passes 16 searches or 14 fetches fails;
+   - per call: `max_tokens` 16,000 and a 300 s timeout.
    A run that hits any cap fails and stores nothing. The expected cost is about
-   $0.30–0.70 a briefing, and at most about $2.10 with every cap hit. Each run's tokens,
+   $0.30–0.70 a briefing, and at most about $2.50 with every cap hit. Each run's tokens,
    cache reads, searches, fetches and estimated cost are logged and stored with the run.
 7. **iPhone: yes, the phone gets Context and can start briefings.**
    - Add the `/api/tools/context/*` routes to `REMOTE_ALLOW` in
@@ -292,3 +298,67 @@ Don't claim it was checked on a device.
 - A paired phone can start a briefing, and the per-device limit blocks the 11th new one
   in a day (tested in `server/tests/remote.rs` or a new test).
 - All work is on the `ai-book-context` branch, committed per phase.
+
+## Progress
+
+### Phase 1: backend pipeline (built 2026-11-05)
+**Built** (`server/src/briefing/`, routes in `server/src/http/routes/context.rs`):
+- The key loader (`secrets.rs`), and one `Transport` seam for all outbound HTTP
+  (`LiveTransport` in the server, `NoTransport` by default, a fake in tests). `reqwest` and
+  `rustls` reuse the ring provider already in the tree: no new crates in `Cargo.lock`.
+- Local extraction (`extract.rs`): metadata, plus translators, publisher and subjects read
+  again from the OPF; front matter (capped); names, works, terms and the bibliography.
+- Catalogue lookups (`lookup.rs`): Open Library, Crossref and Wikidata, and page text. Only
+  public http(s) addresses are fetched, so a cited URL can't reach this computer or its
+  network.
+- The prompt and tools (`prompt.rs`): web search and web fetch (`_20260318`), `find_book`,
+  `find_article`, and a strict `submit_briefing`.
+- The research loop (`run.rs`): `pause_turn`, client tools, one nudge, retries for a busy
+  API, caps, usage and cost.
+- The verifier (`verify.rs`): the rules in "What verified means".
+- The cache and runs (`store.rs`, migration v7), interrupted runs at startup, two runs at
+  once, and requests that share one run.
+- `GET /tools/context/status`, `GET|POST /tools/context/briefings/:docId`,
+  `GET /tools/context/runs/:runId` (`REMOTE_DENY` for now); error code `not_configured`.
+- The types in `shared/src/context.ts`, and docs in API.md, CONTRACT.md and server/README.md.
+- `cargo run --release --example context-live -- <book.epub> [--level scholar] [--record DIR]
+  [--out FILE] [--dry-run]`.
+
+**Verified:**
+- `cargo test`: 12 new tests in `server/tests/briefing.rs`, against fixtures built by hand
+  from the documented response shapes (`server/tests/fixtures/context/`):
+  - the happy path with a search, a fetch, a search snippet, `find_book` and a `pause_turn`;
+  - a made-up DOI, a bad ISBN check digit (rejected with no request), someone else's ISBN,
+    a quote not on its page, a Wikipedia-only claim and a one-sided disagreement, all
+    dropped;
+  - body text never in a request;
+  - the sentinel key only in `x-api-key` to api.anthropic.com, and never in a response or
+    the database;
+  - no key means no request of any kind;
+  - the cache, shared runs, levels and Refresh;
+  - a changed file keeps its briefing, marked stale;
+  - the call cap, a refusal, silence, network and 401/529 errors and `max_tokens` each
+    fail and save nothing;
+  - interrupted runs; tool records for `context` still work; a phone gets 403.
+  The whole server suite and `npm test` pass.
+- `--dry-run` on the 3 test books: sensible names (Darcy, Bennet, Lyell, Hooker, Wagner,
+  Schopenhauer), works (*Advancement of Learning*, *Bridgewater Treatise*), terms
+  (*tête-à-tête*, *hauteur*), and front matter (Origin's 1859 title page and Introduction,
+  Saintsbury's preface, Förster-Nietzsche's introduction). No chapter text in the request.
+  The first user message is about 10–11k characters.
+- The server binary with no key: `status.ready` is false, and POST answers 503
+  `not_configured` with the setup message.
+
+**Not verified yet (the user's live check):** real API calls. Things that may need
+adjusting then:
+- whether the strict `submit_briefing` schema is accepted as written;
+- whether dynamic-filtering fetch results come back as `web_fetch_tool_result` blocks the
+  verifier can read (if not, it fetches the pages itself, which costs lookups but works);
+- how many quotes survive;
+- the real cost.
+Run, with your key, `cargo run --release --example context-live -- "reads/context-test/<book>.epub"`
+for each book, plus `--level scholar` on Darwin, and add `--record DIR` to save the real
+responses as fixtures.
+
+**Left:** Phase 2 (the reader panel, the level setting, the phone, its per-device limit),
+Phase 3 (the selection action) and Phase 4 (polish).

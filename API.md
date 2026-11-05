@@ -452,6 +452,34 @@ A phone in Rust, for trying the whole path before the app exists: in `server/`,
 through the relay, and `--ticket … --token … --key phone.key` reads again later as the same phone
 (`--relay-token` with your own relay; with a link, `rt` gives it).
 
+## Context: sourced briefings (Phase 1)
+
+A briefing on what a reader needs to know *around* a book: its historical moment, the author's
+conversation, what to read first, key terms, further reading. Every claim carries 1–3 citations the
+server checked: a page whose quote it found on that page, or a catalogue record (Open Library,
+Crossref, Wikidata) that resolved and matched. Anything it couldn't check is dropped, never shown.
+The shapes are `shared/src/context.ts`; the build prompt is `prompts/book-context.md`.
+
+| Route | |
+|---|---|
+| `GET /tools/context/status` | `ContextStatus { ready, model, keyFile, keyVariable }`. `ready` is false when no API key is set on the computer. |
+| `GET /tools/context/briefings/:docId?level=general\|student\|scholar` | `ContextState { briefing, stale, run, cachedLevels }`. With no briefing for the file as it is now, `briefing` is the newest one for an earlier version and `stale` is true. `run` is a run in progress for this book and level. |
+| `POST /tools/context/briefings/:docId` | `{ level?, refresh? }`. A cached briefing (and no `refresh`): 200 `{ briefing, run: null }`. Otherwise 202 `{ briefing: null, run }`: a new run, or the one already running for this book, level and file version. No key: 503 `not_configured`, and nothing is sent anywhere. |
+| `GET /tools/context/runs/:runId` | `ContextRun { id, docId, level, status: running\|done\|failed, stage, error?, startedAt, finishedAt? }`. Poll it every 2 s; `error` is a calm sentence to show as is. |
+
+- **When it runs:** only when asked. A run lives on the server: it continues if the client goes away,
+  but not across a restart (runs still marked running at startup become failed). Two at a time.
+- **What leaves the computer:** to Anthropic's API, the book's metadata, its front matter (at most
+  12,000 characters) and short lists of names, works and terms found in it, never body text. To
+  openlibrary.org, api.crossref.org and wikidata.org, catalogue searches; to cited sites, the
+  verifier's fetches of the pages it checks. All with the User-Agent `Pager/0.1 (personal reading app)`.
+- **Cost:** capped per run (constants in `server/src/briefing/mod.rs`), and each run's tokens,
+  searches, fetches and estimated cost are logged and stored with it (`stats` on the briefing).
+- **Cache:** one briefing per document, level and file version (`content_hash`); Refresh replaces it.
+  Briefings are a cache: they are not in the export.
+- **Phones:** Phase 1 keeps these routes on the computer (`REMOTE_DENY`). Phase 2 opens them to
+  paired phones with a per-device daily limit.
+
 ## Other routes
 
 | Route | |
@@ -477,6 +505,7 @@ through the relay, and `--ticket … --token … --key phone.key` reads again la
 | `not_epub` / `drm_protected` / `empty_document` | 422 | The file can't be read as a book |
 | `source_missing` | 410 | The file has moved or been deleted, and no cached copy is available |
 | `gone` | 410 | A pairing code or request that is no longer valid: start again |
+| `not_configured` | 503 | Context: no API key on the computer. The message says where to put it. |
 | `internal` | 500 | A bug. The message says so. |
 
 ## Security model

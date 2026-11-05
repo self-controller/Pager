@@ -588,6 +588,19 @@ pub fn make_app_with(clock: Clock, web: Option<PathBuf>, suggest: Option<String>
     TestApp { local: local_app(&app), remote: remote_app(&app), app, clock, data_dir, reads_dir }
 }
 
+/// An app with its options adjusted (Context's transport, key and caps).
+pub fn make_app_custom(clock: Clock, edit: impl FnOnce(&mut AppOptions)) -> TestApp {
+    let data_dir = temp_dir("pager-test-");
+    let mut o = AppOptions::new(data_dir.clone());
+    o.clock = clock.clone();
+    o.mirror_delay_ms = 10;
+    o.suggest_origin = Some(Arc::new(|| None));
+    edit(&mut o);
+    let app = App::new(o).unwrap();
+    let reads_dir = app.reads_dir.clone();
+    TestApp { local: local_app(&app), remote: remote_app(&app), app, clock, data_dir, reads_dir }
+}
+
 pub fn make_app() -> TestApp {
     make_app_with(Clock::fake("2026-10-24T12:00:00Z"), None, None)
 }

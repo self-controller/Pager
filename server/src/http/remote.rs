@@ -97,6 +97,11 @@ pub const REMOTE_DENY: &[&str] = &[
     "GET /documents/:id/export",
     "POST /mirror/rebuild",
     "POST /shutdown",
+    // Context (Phase 1): computer only until the per-phone limit lands (Phase 2).
+    "GET /tools/context/status",
+    "GET /tools/context/briefings/:id",
+    "POST /tools/context/briefings/:id",
+    "GET /tools/context/runs/:rid",
 ];
 
 /// Answered by the remote app itself, ahead of the shared router.

@@ -222,6 +222,38 @@ pub const MIGRATIONS: &[&str] = &[
   ALTER TABLE devices ADD COLUMN endpoint_id TEXT;
   CREATE UNIQUE INDEX devices_endpoint_live ON devices(endpoint_id) WHERE endpoint_id IS NOT NULL AND revoked_at IS NULL;
   "#,
+    // v7: Context briefings (a cache, keyed by document, level, focus and the file's content hash)
+    // and the runs that make them (a paired phone's runs count toward its daily limit).
+    r#"
+  CREATE TABLE context_briefings (
+    id TEXT PRIMARY KEY,
+    document_id TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    level TEXT NOT NULL,
+    focus TEXT NOT NULL DEFAULT '',
+    briefing TEXT NOT NULL,
+    model TEXT NOT NULL,
+    usage TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+  CREATE UNIQUE INDEX context_briefings_key ON context_briefings(document_id, level, focus, content_hash);
+  CREATE TABLE context_runs (
+    id TEXT PRIMARY KEY,
+    document_id TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    level TEXT NOT NULL,
+    focus TEXT NOT NULL DEFAULT '',
+    device_id TEXT,
+    status TEXT NOT NULL,
+    stage TEXT,
+    error TEXT,
+    usage TEXT,
+    briefing_id TEXT,
+    started_at TEXT NOT NULL,
+    finished_at TEXT
+  );
+  CREATE INDEX context_runs_device ON context_runs(device_id, started_at);
+  "#,
 ];
 
 pub const SCHEMA_VERSION: usize = MIGRATIONS.len();

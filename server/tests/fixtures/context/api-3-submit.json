@@ -1,0 +1,479 @@
+{
+ "id": "msg_03",
+ "type": "message",
+ "role": "assistant",
+ "model": "claude-sonnet-5-5",
+ "content": [
+  {
+   "type": "text",
+   "text": "Here is the briefing."
+  },
+  {
+   "type": "tool_use",
+   "id": "toolu_submit",
+   "name": "submit_briefing",
+   "input": {
+    "littleKnown": false,
+    "sections": [
+     {
+      "kind": "overview",
+      "items": [
+       {
+        "heading": "On the Origin of Species",
+        "relation": null,
+        "work": null,
+        "tier": null,
+        "readScope": null,
+        "readNote": null,
+        "timeEstimate": null,
+        "suits": null,
+        "spoiler": false,
+        "claims": [
+         {
+          "text": "Darwin published the Origin in November 1859 as a theory of descent with modification by natural selection.",
+          "inferred": false,
+          "spoiler": false,
+          "citations": [
+           {
+            "kind": "page",
+            "url": "https://plato.stanford.edu/entries/darwinism/",
+            "title": "Darwinism",
+            "author": "Tim Lewens",
+            "year": "2004",
+            "quote": "Charles Darwin published On the Origin of Species in November 1859, presenting a theory of descent with modification",
+            "record": null
+           }
+          ]
+         },
+         {
+          "text": "Its full title names natural selection and the struggle for life.",
+          "inferred": false,
+          "spoiler": false,
+          "citations": [
+           {
+            "kind": "page",
+            "url": "https://www.britannica.com/topic/On-the-Origin-of-Species",
+            "title": "On the Origin of Species",
+            "author": null,
+            "year": null,
+            "quote": "On the Origin of Species by Means of Natural Selection, or the Preservation of Favoured Races",
+            "record": null
+           }
+          ]
+         },
+         {
+          "text": "Darwin presented it as an abstract of a much longer book on species.",
+          "inferred": false,
+          "spoiler": false,
+          "citations": [
+           {
+            "kind": "page",
+            "url": "https://www.darwinproject.ac.uk/letters/darwins-works/origin",
+            "title": "Origin | Darwin Correspondence Project",
+            "author": null,
+            "year": null,
+            "quote": "Darwin wrote the Origin as an abstract of a much longer work on species",
+            "record": null
+           }
+          ]
+         },
+         {
+          "text": "It is Darwin's best-known work.",
+          "inferred": false,
+          "spoiler": false,
+          "citations": [
+           {
+            "kind": "record",
+            "url": null,
+            "title": "On the Origin of Species",
+            "author": null,
+            "year": null,
+            "quote": null,
+            "record": {
+             "kind": "wikidata",
+             "value": "Q20124"
+            }
+           }
+          ]
+         }
+        ],
+        "disagreement": null
+       }
+      ]
+     },
+     {
+      "kind": "moment",
+      "items": [
+       {
+        "heading": "The population debate",
+        "relation": null,
+        "work": null,
+        "tier": null,
+        "readScope": null,
+        "readNote": null,
+        "timeEstimate": null,
+        "suits": null,
+        "spoiler": false,
+        "claims": [
+         {
+          "text": "Darwin read Malthus in October 1838.",
+          "inferred": false,
+          "spoiler": false,
+          "citations": [
+           {
+            "kind": "page",
+            "url": "https://plato.stanford.edu/entries/darwinism/",
+            "title": "Darwinism",
+            "author": null,
+            "year": null,
+            "quote": "in October 1838 he happened to read Malthus on Population for amusement",
+            "record": null
+           }
+          ]
+         },
+         {
+          "text": "Malthus and Darwin were close friends.",
+          "inferred": false,
+          "spoiler": false,
+          "citations": [
+           {
+            "kind": "page",
+            "url": "https://plato.stanford.edu/entries/darwinism/",
+            "title": "Darwinism",
+            "author": null,
+            "year": null,
+            "quote": "Malthus was Darwin's closest friend and visited Down House every summer",
+            "record": null
+           }
+          ]
+         }
+        ],
+        "disagreement": null
+       }
+      ]
+     },
+     {
+      "kind": "conversation",
+      "items": [
+       {
+        "heading": "Thomas Malthus",
+        "relation": "borrows from",
+        "work": null,
+        "tier": null,
+        "readScope": null,
+        "readNote": null,
+        "timeEstimate": null,
+        "suits": null,
+        "spoiler": false,
+        "claims": [
+         {
+          "text": "Malthus's essay prompted Darwin's idea that favourable variations are preserved.",
+          "inferred": false,
+          "spoiler": false,
+          "citations": [
+           {
+            "kind": "page",
+            "url": "https://plato.stanford.edu/entries/darwinism/",
+            "title": "Darwinism",
+            "author": null,
+            "year": null,
+            "quote": "it at once struck him that favourable variations would tend to be preserved",
+            "record": null
+           }
+          ]
+         }
+        ],
+        "disagreement": {
+         "summary": "How much the Origin owes to Malthus.",
+         "sides": [
+          {
+           "position": "Malthus supplied the key insight",
+           "claims": [
+            {
+             "text": "Some historians credit the essay with the key insight.",
+             "inferred": false,
+             "spoiler": false,
+             "citations": [
+              {
+               "kind": "page",
+               "url": "https://plato.stanford.edu/entries/darwinism/",
+               "title": "Darwinism",
+               "author": null,
+               "year": null,
+               "quote": "some argue that the essay supplied the key insight, while others hold",
+               "record": null
+              }
+             ]
+            }
+           ]
+          },
+          {
+           "position": "The breeders mattered more",
+           "claims": [
+            {
+             "text": "Others credit the animal breeders.",
+             "inferred": false,
+             "spoiler": false,
+             "citations": [
+              {
+               "kind": "page",
+               "url": "https://example.org/blog/darwin",
+               "title": "A blog",
+               "author": null,
+               "year": null,
+               "quote": "made up words that are nowhere at all on this page",
+               "record": null
+              }
+             ]
+            }
+           ]
+          }
+         ]
+        }
+       }
+      ]
+     },
+     {
+      "kind": "readFirst",
+      "items": [
+       {
+        "heading": "Malthus, An Essay on the Principle of Population",
+        "relation": null,
+        "work": {
+         "title": "An Essay on the Principle of Population",
+         "authors": [
+          "Thomas Robert Malthus"
+         ],
+         "year": "1798",
+         "record": {
+          "kind": "olid",
+          "value": "OL1179009W"
+         }
+        },
+        "tier": "helpful",
+        "readScope": "summary",
+        "readNote": "A summary of chapters 1–2 is enough.",
+        "timeEstimate": "20 minutes",
+        "suits": null,
+        "spoiler": false,
+        "claims": [
+         {
+          "text": "Darwin took the struggle for existence from Malthus's argument.",
+          "inferred": true,
+          "spoiler": false,
+          "citations": [
+           {
+            "kind": "page",
+            "url": "https://plato.stanford.edu/entries/darwinism/",
+            "title": "Darwinism",
+            "author": null,
+            "year": null,
+            "quote": "it at once struck him that favourable variations would tend to be preserved",
+            "record": null
+           }
+          ]
+         }
+        ],
+        "disagreement": null
+       },
+       {
+        "heading": "The Hidden Darwin Letters",
+        "relation": null,
+        "work": {
+         "title": "The Hidden Darwin Letters",
+         "authors": [
+          "A. Nobody"
+         ],
+         "year": "2004",
+         "record": {
+          "kind": "doi",
+          "value": "10.9999/fake.2004.001"
+         }
+        },
+        "tier": "essential",
+        "readScope": "whole",
+        "readNote": null,
+        "timeEstimate": "6 hours",
+        "suits": null,
+        "spoiler": false,
+        "claims": [
+         {
+          "text": "This study reveals Darwin's private doubts.",
+          "inferred": false,
+          "spoiler": false,
+          "citations": [
+           {
+            "kind": "page",
+            "url": "https://plato.stanford.edu/entries/darwinism/",
+            "title": "Darwinism",
+            "author": null,
+            "year": null,
+            "quote": "Charles Darwin published On the Origin of Species in November 1859, presenting a theory",
+            "record": null
+           }
+          ]
+         }
+        ],
+        "disagreement": null
+       },
+       {
+        "heading": "A book with a broken ISBN",
+        "relation": null,
+        "work": {
+         "title": "Darwin's Notebooks",
+         "authors": [
+          "Charles Darwin"
+         ],
+         "year": "1987",
+         "record": {
+          "kind": "isbn",
+          "value": "9780140439129"
+         }
+        },
+        "tier": "optional",
+        "readScope": null,
+        "readNote": null,
+        "timeEstimate": null,
+        "suits": null,
+        "spoiler": false,
+        "claims": [
+         {
+          "text": "A claim.",
+          "inferred": false,
+          "spoiler": false,
+          "citations": [
+           {
+            "kind": "page",
+            "url": "https://plato.stanford.edu/entries/darwinism/",
+            "title": "Darwinism",
+            "author": null,
+            "year": null,
+            "quote": "Charles Darwin published On the Origin of Species in November 1859, presenting a theory",
+            "record": null
+           }
+          ]
+         }
+        ],
+        "disagreement": null
+       },
+       {
+        "heading": "Lyell, Principles of Geology",
+        "relation": null,
+        "work": {
+         "title": "Principles of Geology",
+         "authors": [
+          "Charles Lyell"
+         ],
+         "year": "1830",
+         "record": {
+          "kind": "isbn",
+          "value": "9780141439518"
+         }
+        },
+        "tier": "helpful",
+        "readScope": null,
+        "readNote": null,
+        "timeEstimate": null,
+        "suits": null,
+        "spoiler": false,
+        "claims": [
+         {
+          "text": "Darwin carried Lyell's Principles on the Beagle.",
+          "inferred": false,
+          "spoiler": false,
+          "citations": [
+           {
+            "kind": "page",
+            "url": "https://plato.stanford.edu/entries/darwinism/",
+            "title": "Darwinism",
+            "author": null,
+            "year": null,
+            "quote": "Charles Darwin published On the Origin of Species in November 1859, presenting a theory",
+            "record": null
+           }
+          ]
+         }
+        ],
+        "disagreement": null
+       }
+      ]
+     },
+     {
+      "kind": "terms",
+      "items": [
+       {
+        "heading": "Natural selection",
+        "relation": null,
+        "work": null,
+        "tier": null,
+        "readScope": null,
+        "readNote": null,
+        "timeEstimate": null,
+        "suits": null,
+        "spoiler": false,
+        "claims": [
+         {
+          "text": "Natural selection is differential survival and reproduction.",
+          "inferred": false,
+          "spoiler": false,
+          "citations": [
+           {
+            "kind": "page",
+            "url": "https://en.wikipedia.org/wiki/Natural_selection",
+            "title": "Natural selection",
+            "author": null,
+            "year": null,
+            "quote": "Natural selection is the differential survival and reproduction of individuals due to differences in phenotype",
+            "record": null
+           }
+          ]
+         }
+        ],
+        "disagreement": null
+       }
+      ]
+     },
+     {
+      "kind": "furtherReading",
+      "items": [
+       {
+        "heading": "Janet Browne, Charles Darwin: Voyaging",
+        "relation": null,
+        "work": {
+         "title": "Charles Darwin: Voyaging",
+         "authors": [
+          "Janet Browne"
+         ],
+         "year": "1995",
+         "record": {
+          "kind": "isbn",
+          "value": "9780691023069"
+         }
+        },
+        "tier": null,
+        "readScope": null,
+        "readNote": null,
+        "timeEstimate": null,
+        "suits": "Readers who want the life behind the book.",
+        "spoiler": false,
+        "claims": [],
+        "disagreement": null
+       }
+      ]
+     }
+    ]
+   }
+  }
+ ],
+ "stop_reason": "tool_use",
+ "usage": {
+  "input_tokens": 400,
+  "cache_creation_input_tokens": 500,
+  "cache_read_input_tokens": 11000,
+  "output_tokens": 2500,
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  }
+ }
+}

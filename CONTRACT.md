@@ -21,6 +21,7 @@ events, stream, block model) are documented in [API.md](API.md); everything ther
 | `unsupported` | Shown as an info note, not an error (e.g. a path the preview build can't read). No retries. |
 | `unauthorized` | Only from the remote listener (a phone not paired, revoked or expired). Any query or mutation failing with it sends the app to `/pair`; no retries. |
 | `gone` | Only while pairing: the pairing page explains it and offers Start again. |
+| `not_configured` | Context only: no API key on the computer. The tool shows its setup steps instead of an error; no retries. |
 | `invalid_request`, `conflict`, `forbidden` | Shown inline (in the dialog that asked). |
 | anything else | Shown inline. |
 | network failure, or a 5xx with no JSON body (proxy 502/504) | Treated as `unavailable`: "Can't reach the reading service", with a Try again button. |

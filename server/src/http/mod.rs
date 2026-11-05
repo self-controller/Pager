@@ -78,6 +78,7 @@ pub fn api(app: &Arc<App>, remote: bool) -> Api {
     api = routes::sync::mount(api);
     api = routes::remember::mount(api);
     api = routes::keep::mount(api);
+    api = routes::context::mount(api);
     api.router = api.router.fallback(api_not_found);
     let _ = app;
     api

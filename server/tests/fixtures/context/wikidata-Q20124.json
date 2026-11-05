@@ -1,0 +1,21 @@
+{
+ "entities": {
+  "Q20124": {
+   "type": "item",
+   "id": "Q20124",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "On the Origin of Species"
+    }
+   },
+   "descriptions": {
+    "en": {
+     "language": "en",
+     "value": "1859 book by Charles Darwin"
+    }
+   }
+  }
+ },
+ "success": 1
+}

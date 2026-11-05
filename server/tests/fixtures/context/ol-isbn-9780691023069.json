@@ -1,0 +1,11 @@
+{
+ "key": "/books/OL1112233M",
+ "title": "Charles Darwin",
+ "subtitle": "voyaging",
+ "authors": [
+  {
+   "key": "/authors/OL2658173A"
+  }
+ ],
+ "publish_date": "1996"
+}
