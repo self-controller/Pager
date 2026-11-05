@@ -38,14 +38,33 @@ expands for more.
   Wikidata, publisher and university pages, SEP/IEP, JSTOR landing pages). Draft each
   claim from what was retrieved, not from model memory alone.
 - Every book or article you recommend must resolve to a real record: an ISBN, DOI,
-  Open Library or WorldCat ID, or a stable URL that you fetched and checked. If no record
-  resolves, drop the item. Never invent a citation, a page number or a quote.
+  Open Library ID, Wikidata ID, or a stable URL that the computer fetched and checked.
+  If no record resolves, drop the item. Never invent a citation, a page number or a quote.
 - Each claim gets 1–3 citations: title, author, year, link. Prefer scholarly and
   reference sources over blogs; use Wikipedia only to get your bearings, never as the
   only source.
+- **Every web citation carries a short verbatim quote** from the cited page (decided
+  2026-11-05). The computer checks that the quote appears on that page; if it doesn't,
+  the citation is dropped.
 - Where scholars disagree (for example about the author's influences), say so and cite
   both sides. Don't flatten the disagreement.
-- Put a confidence mark on anything that is inferred rather than stated by a source.
+- Put a confidence mark on anything that is inferred rather than stated by a source. An
+  inferred claim still cites the sources it was inferred from.
+
+### What "verified" means (the verifier applies these rules mechanically, without a model)
+| What | Kept when |
+|---|---|
+| A recommended work with an ISBN | The checksum is valid, Open Library's `/isbn/<isbn>.json` answers, and its title and author match the work as named. |
+| A work with an Open Library, DOI or Wikidata ID | The record resolves (Open Library, Crossref, Wikidata), and its title (and its author, where the record names one) matches. |
+| A work given only as a URL | The URL answers 2xx, and the page's title or text contains the work's title. |
+| A page citation on a claim | Its quote is found on that page: first in the text the run itself fetched, otherwise in the computer's own fetch of the URL. Matching ignores case, punctuation, curly quotes and spacing. A quote is 6–60 words. |
+| A record citation on a claim | Allowed only for bibliographic facts (what a work is, who wrote it, when). The record resolves and matches. |
+
+- A claim with no surviving citation is dropped. A claim whose only surviving
+  citations are on wikipedia.org is dropped.
+- A disagreement with a side that has no surviving citation is dropped whole.
+- Items, and sections, left empty after drops are removed. The model never sees the
+  verifier's output, so nothing is re-drafted to fill the gaps.
 
 ## Input from the book
 - Use metadata (title, author, date, publisher) and front matter (preface, introduction,
@@ -56,6 +75,16 @@ expands for more.
   only these short lists plus metadata and front matter, never chapters of body text. The briefing is
   about the book's context, not its plot. Spoiler rule: never reveal plot events. If a
   context item gives away the ending, hide it behind a marked "contains spoilers" fold.
+- EPUB ingest keeps title, authors, one identifier, language, date and description, but
+  drops publisher, translators, editors and subjects. The extractor reads the OPF again
+  for those, without changing ingest.
+- Front matter means the sections before the first chapter-like heading, plus any
+  section titled like a preface, introduction, foreword, translator's or editor's note,
+  "note on the text", advertisement, "to the reader" or "historical sketch" (Darwin's
+  "An Historical Sketch" counts). It is capped at 4,000 characters per section and 12,000
+  in total. Sections titled like notes, a bibliography, works cited, references or a
+  glossary feed the name and work lists. Project Gutenberg licence sections are skipped.
+- List caps: 60 names, 40 works, 30 terms.
 
 ## Architecture (Pager)
 - Register a `PagerTool` (id `context`) in `src/tools/registry.ts` with a `Panel`. Also
@@ -64,8 +93,23 @@ expands for more.
 - The backend does the work in the Rust server under `/api/tools/context/*` (see
   CONTRACT.md): it calls the LLM with a search tool, then a verification pass that
   resolves every citation, then stores the result.
+- The pipeline, in order:
+  1. **Extract** (local): metadata, front matter and the name, work and term lists.
+  2. **Seed lookups** (no model): the book on Open Library, the author on Wikidata.
+  3. **Research and draft** (the model): web search, web fetch and two client tools,
+     `find_book` (Open Library search) and `find_article` (Crossref search), so works are
+     cited by real identifiers rather than remembered ones. The model hands back the
+     briefing by calling a strict `submit_briefing` tool.
+  4. **Verify** (no model): the rules above.
+  5. **Store**, and log the run's counts.
 - Cache the result per book (keyed by book ID + content hash) so it costs money once.
-  Offer "Refresh", and show when the briefing was generated.
+  Offer "Refresh", and show when the briefing was generated. When the book's file
+  changes (a new content hash), keep showing the newest older briefing, with no extra
+  note, only its creation date (decided 2026-11-05). Refresh makes a new one.
+- A run lives on the server. It survives a closed connection, but not a server restart:
+  runs still marked running at startup become failed ("interrupted"). At most 2 runs at
+  once, across all books.
+- Briefings are a cache: they are not part of Pager's export.
 - Return structured JSON (sections → items → claims → citations[]), not prose, so the UI
   can render tiers, links and folds, and the verifier can check each citation.
 - The UI follows DESIGN.md: black and white plus ink blue, no chat bubbles. The briefing is
@@ -92,12 +136,20 @@ expands for more.
 6. **Cost limits:** cap each briefing at a fixed number of searches and output tokens
    (constants in one place; choose sensible values and report them). Log the token and
    search counts for each run on the server, so the cost can be checked.
+   Chosen values (in `server/src/briefing/mod.rs`):
+   - per run: 12 API calls, 10 searches, 8 fetches (each capped at 8,000 tokens), 60
+     lookups, 40,000 output tokens, 800,000 input tokens, 8 minutes;
+   - per call: `max_tokens` 16,000 and a 180 s timeout.
+   A run that hits any cap fails and stores nothing. The expected cost is about
+   $0.30–0.70 a briefing, and at most about $2.10 with every cap hit. Each run's tokens,
+   cache reads, searches, fetches and estimated cost are logged and stored with the run.
 7. **iPhone: yes, the phone gets Context and can start briefings.**
    - Add the `/api/tools/context/*` routes to `REMOTE_ALLOW` in
      `server/src/http/remote.rs` and extend its test.
    - Starting a briefing from the phone spends money through the computer's key, so put a
-     limit on new briefings per paired device per day (default 10, a server setting).
-     Cached briefings and refreshes still inside the cache don't count. Over the limit, the
+     limit on paid runs per paired device (default 10, a server setting, over a rolling
+     24 hours). Every run that calls the API counts: a new briefing and a Refresh alike
+     (decided 2026-11-05). Opening a cached briefing never counts. Over the limit, the
      phone shows a clear message. Desktop requests are not limited.
    - A briefing runs on the server, not on the phone. If the phone sleeps or the
      connection drops, the run continues. The phone picks up the result when it reconnects
@@ -118,23 +170,72 @@ expands for more.
    Cache per book *and* level; switching level loads that level's cached briefing or
    offers to generate it.
 
+## API facts (checked against Anthropic's docs on 2026-11-05)
+There is no official Rust SDK, so the server calls `POST https://api.anthropic.com/v1/messages`
+over raw HTTP with `reqwest` (already in the dependency tree through iroh).
+- Headers: `x-api-key`, `anthropic-version: 2026-10-21`, `content-type: application/json`.
+- Model `claude-sonnet-5-5`: $2 per million input tokens, $10 per million output, $0.20
+  per million cache reads. Adaptive thinking is the default (leave `thinking` out);
+  `output_config.effort` is `medium`.
+- Tools:
+  - `web_search_20260318` with `max_uses`: $10 per 1,000 searches;
+  - `web_fetch_20260318` with `max_uses` and `max_content_tokens`: no charge beyond
+    tokens. It can only fetch URLs already in the conversation (the user message, a
+    client tool result, or an earlier search or fetch result).
+  Both filter their results with code on Anthropic's side (dynamic filtering), at no
+  extra charge.
+- Counts come back in `usage.server_tool_use.web_search_requests` and
+  `usage.server_tool_use.web_fetch_requests`, alongside `input_tokens`, `output_tokens`,
+  `cache_read_input_tokens` and `cache_creation_input_tokens`.
+- Search results carry `url`, `title`, `page_age` and an `encrypted_content` the server
+  can't read; fetch results carry the page text. Both must be sent back unchanged on the
+  next call.
+- `stop_reason`:
+  - `pause_turn`: send the conversation back unchanged to continue.
+  - `tool_use` when a client tool is called: if a search was asked for in the same
+    group, it runs after the client results are returned.
+  - `refusal`: the run fails.
+- Sonnet 5.5 rejects a forced `tool_choice` (`any` or `tool`) with a 400. The briefing
+  therefore comes back through a client tool, `submit_briefing`, with `strict: true` and
+  `tool_choice: auto`, and the prompt says to call it. Structured outputs
+  (`output_config.format`) can't be combined with citations, so they aren't used.
+- Prompt caching: a top-level `cache_control: {"type": "ephemeral"}` caches the growing
+  conversation, so each call in the loop re-reads the earlier part at the cache price.
+- Refusal fallback: `fallbacks: "default"` with the header
+  `anthropic-beta: server-side-fallback-2026-07-01` is on by default. If a call is
+  declined, the API retries it on another model, billed at that model's rates. The
+  model that answered is logged.
+
+## Privacy
+- To the model and web search: metadata, front matter (capped) and the extracted lists.
+  Never body text.
+- From the computer: lookups to openlibrary.org, api.crossref.org and wikidata.org, and
+  the verifier's fetches of cited pages. These use a generic User-Agent,
+  `Pager/0.1 (personal reading app)`, and never the user's email (Crossref's "polite
+  pool" asks for one; it is not given).
+
 ## Phases (split the work if it's too big for one pass)
 If the whole feature doesn't fit cleanly in one pass, build it in phases. Commit each
 phase on the branch, and end each one with passing tests and a short Progress note in
 this file (what was built, what's left, what was verified and how). Don't start a phase
-until the previous one works.
+until the previous one works. After Phase 1, stop: the user runs the live check on the 3
+test books, and Phase 2's UI is built against that real output (decided 2026-11-05).
 
 - **Phase 1: backend pipeline, no UI.** The `/api/tools/context/*` route, the
   retrieval → draft → verify pipeline, the JSON schema, and the cache. Tests include a
   made-up citation that the verifier must reject. Check the output by hand on the 3 test
-  books.
+  books. The routes go in `REMOTE_DENY` for now; Phase 2 moves them to `REMOTE_ALLOW`
+  together with the per-device limit.
 - **Phase 2: reader UI and phone.** The `context` `PagerTool` and its Panel: sections,
   tiers, citation links, spoiler folds, Refresh, the "generated at" stamp, the
   reader-level setting, the "not much is known" note, and the error, no-key and offline
   states. Add the routes to `REMOTE_ALLOW` with the per-device daily limit, and check the
   panel at phone width.
 - **Phase 3: selection action.** "Context for this" on a selected name or work, reusing
-  the Phase 1 pipeline with a narrowed query, and caching per item.
+  the Phase 1 pipeline with a narrowed query, and caching per item. A selection longer
+  than 120 characters is refused ("Select a name or a title"). The iPhone app's text menu
+  is a fixed list (`NativeMenuItem` in `src/lib/native.ts`, mirrored in Swift), so the
+  action is web-only until the app adds an item.
 - **Phase 4 (optional): polish.** Cost and latency measurements, streaming sections in as
   they're verified, and the Assistant page entry.
 
@@ -143,10 +244,17 @@ If one phase turns out to be large, split it again rather than leaving it half d
 ## Testing without spending money
 - Every automated test (`cargo test`, `npm test`) uses a mocked model and mocked lookups,
   with recorded responses stored as fixtures. They make no network calls and need no key.
-- Real API calls happen only in a separate check started by hand (for example
-  `cargo run --example context-live -- <book>`), which prints the token and search counts.
+  All outbound HTTP goes through one `Transport` seam; the app's default transport
+  refuses every request, so a test can't reach the network by accident.
+- Real responses can't be recorded without spending money, so the first fixtures are
+  built by hand from the documented response shapes. `context-live --record DIR` saves
+  real responses to refresh them later.
+- Real API calls happen only in a separate check started by hand:
+  `cargo run --release --example context-live -- <book.epub> [--level scholar]`. It
+  prints the token and search counts, the cost, and what was kept and dropped and why.
   The user runs it with their key at the end of a phase. Don't run it yourself unless the
-  user says so.
+  user says so. `--dry-run` prints the exact payload that would be sent; it needs no key
+  and makes no network calls, so it is safe to run.
 
 ## Test books
 All three are in `reads/context-test/` (the library folder, which git ignores), downloaded
@@ -175,7 +283,12 @@ Don't claim it was checked on a device.
 - The same book at General and Scholar levels gives noticeably different "Essential" and
   further-reading lists.
 - No key set → no API calls and a clear setup message. The key never appears in any
-  response or log.
+  response or log. A test with a sentinel key checks that it is sent only in `x-api-key`
+  to api.anthropic.com, never to a lookup host, and never appears in a response, a
+  database row or a log line.
+- A quote that isn't on its page is rejected (test).
+- A `pause_turn` answer is resumed (test).
+- A run that hits a cap fails and stores no partial briefing (test).
 - A paired phone can start a briefing, and the per-device limit blocks the 11th new one
   in a day (tested in `server/tests/remote.rs` or a new test).
 - All work is on the `ai-book-context` branch, committed per phase.
