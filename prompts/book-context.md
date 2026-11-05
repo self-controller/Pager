@@ -13,25 +13,53 @@ reading it. Every claim links to a real, checkable source. If a claim has no sou
 isn't shown.
 
 ## What the briefing covers (sections, in this order)
-1. **The book in one paragraph:** what it is, when and where it was written, and what kind
-   of book it is (novel, treatise, polemic, reply to someone, …).
-2. **Historical moment:** the events, institutions and debates of the author's time that the
-   book assumes the reader knows.
-3. **The author's conversation:** people, works and movements the author was reading,
-   answering, attacking or building on. Say what the relationship was: "replies to",
-   "borrows from", "satirises".
-4. **Read first?** Works that help with this book. Put each in one of three tiers:
-   - **Essential:** the book doesn't make sense without it. Give the specific reason.
-   - **Helpful:** it adds a lot, but you can skip it.
-   - **Optional / later:** for after the book, or for deeper study.
-   For each one, say *what* to read (the whole work, one chapter, or a summary is enough)
-   and roughly how long it takes.
-5. **Key terms and names** the book uses without explaining them.
-6. **Further reading:** a few respected scholarly treatments (a standard biography, a
-   major critical study, an accessible introduction), each with one line on who it suits.
+Revised 2026-11-05 after the first live run, at the user's direction:
+- **The briefing replaces homework.** Most of it is historical and situational context.
+  It explains in place whatever the book assumes, rather than sending the reader to read
+  something first.
+- **Pre-reading only when the book can't be followed without it.** Each suggestion
+  invites the reader to go back one more step before starting, and the models tend to keep
+  adding such steps. So there are no "helpful" or "optional" tiers.
+- **The page connects ideas, people, places and readings.** It does so with a connection
+  map (a tree or network), plus a timeline and a map where the data supports them.
 
-The briefing should be short: a reader takes it in within about 3 minutes, and each section
-expands for more.
+1. **The book in one paragraph** (`overview`): what it is, when and where it was
+   written, and what kind of book it is (novel, treatise, polemic, reply to someone, …).
+2. **Read first** (`readFirst`): usually absent. An item appears only when the book can't be
+   followed without it, for example a direct reply to, sequel to, or commentary on one
+   specific text that the book assumes and doesn't restate. Rules for an item:
+   - at most one, two at the very most;
+   - the narrowest scope that works ("chapter 1 only", "a two-page summary is enough"),
+     with a time estimate and a claim giving the specific reason;
+   - never reading for the reading;
+   - never an item saying that nothing is needed;
+   - it must name a real work, or the verifier drops it.
+3. **Historical moment** (`moment`): the events, institutions, debates and assumptions of
+   the author's time that the book takes for granted. 2–4 items.
+4. **The author's situation** (`situation`): where the author was in life and work, why
+   and for whom the book was written, the circumstances of writing, and how it first
+   appeared and was received. 2–4 items.
+5. **The author's conversation** (`conversation`): people, works and movements the
+   author was reading, answering, attacking or building on, each with its relation
+   ("replies to", "borrows from", "satirises"). 2–5 items.
+6. **Key terms and names** (`terms`) the book uses without explaining them, and that the
+   sections above don't already explain. 0–6 items.
+7. **Further reading** (`furtherReading`): for *after* the book. At most 3 items, each with
+   a record and one line on who it suits.
+
+**The connection map:**
+- **Entities:** 6–15 people, works, ideas, movements, institutions, places and events.
+  The book is `book` and the author is `author`. Each has a Wikidata ID where there is
+  one, and a catalogue record for works.
+- **Links:** 5–20 relations between entities ("read", "replied to", "studied under",
+  "lived in"). Each is a claim cited and verified like any other.
+- **Dates and coordinates** come from Wikidata, fetched by the verifier, never written by
+  the model. That gives a timeline (births and deaths, publication, events) and a map
+  (places) that are sourced too.
+
+**Length:** a reader takes it in within about 3 minutes, about 12–20 claims. The verifier
+caps the sections at 24 claims (links aside), trimming the last items of terms, then
+conversation, then situation, then moment.
 
 ## Sourcing rules (the core requirement)
 - Run a retrieval step: web search plus bibliographic lookups (Open Library, Crossref,
@@ -60,6 +88,14 @@ expands for more.
 | A page citation on a claim | Its quote is found on that page: first in the text the run itself fetched, otherwise in the computer's own fetch of the URL. Matching ignores case, punctuation, curly quotes and spacing. A quote is 6–60 words. |
 | A record citation on a claim | Allowed only for bibliographic facts (what a work is, who wrote it, when). The record resolves and matches. |
 
+- A map entity keeps its Wikidata ID only if Wikidata's label or one of its aliases matches
+  the name. Its dates and coordinates then come from Wikidata (one SPARQL query per run).
+  A work entity's record is checked like any work. A link survives only if its claim does
+  and both ends exist. Entities nothing points at are dropped, except the book and the
+  author.
+- Pre-reading without a work is dropped. Titles are compared without bracketed text, and
+  one changed letter in a word of five or more letters is allowed ("Thus Spoke" against
+  "Thus spake").
 - A claim with no surviving citation is dropped. A claim whose only surviving
   citations are on wikipedia.org is dropped.
 - A disagreement with a side that has no surviving citation is dropped whole.
@@ -97,9 +133,10 @@ expands for more.
 - The pipeline, in order:
   1. **Extract** (local): metadata, front matter and the name, work and term lists.
   2. **Seed lookups** (no model): the book on Open Library, the author on Wikidata.
-  3. **Research and draft** (the model): web search, web fetch and two client tools,
-     `find_book` (Open Library search) and `find_article` (Crossref search), so works are
-     cited by real identifiers rather than remembered ones. The model hands back the
+  3. **Research and draft** (the model): web search, web fetch and three client tools,
+     `find_book` (Open Library search), `find_article` (Crossref search) and
+     `find_entity` (Wikidata search), so works and map nodes carry real identifiers
+     rather than remembered ones. The model hands back the
      briefing by calling a strict `submit_briefing` tool.
   4. **Verify** (no model): the rules above.
   5. **Store**, and log the run's counts.
@@ -169,8 +206,8 @@ expands for more.
    (`shared/src/settings.ts`, `src/state/settings.ts`) and show it in Settings and as a
    small switcher in the Context panel. It changes:
    - how much background is assumed;
-   - how strict "Essential" is (a scholar gets fewer essentials, but primary sources and
-     critical debates);
+   - how deep the situation and the debates go (a scholar gets the textual history, the
+     sources and the positions in each debate). Pre-reading stays rare at every level;
    - which further reading is chosen (accessible introductions vs. standard monographs
      and journal articles).
    Cache per book *and* level; switching level loads that level's cached briefing or
@@ -232,11 +269,21 @@ test books, and Phase 2's UI is built against that real output (decided 2026-11-
   made-up citation that the verifier must reject. Check the output by hand on the 3 test
   books. The routes go in `REMOTE_DENY` for now; Phase 2 moves them to `REMOTE_ALLOW`
   together with the per-device limit.
-- **Phase 2: reader UI and phone.** The `context` `PagerTool` and its Panel: sections,
-  tiers, citation links, spoiler folds, Refresh, the "generated at" stamp, the
-  reader-level setting, the "not much is known" note, and the error, no-key and offline
-  states. Add the routes to `REMOTE_ALLOW` with the per-device daily limit, and check the
-  panel at phone width.
+- **Phase 2: reader UI and phone.** The `context` `PagerTool` and its Panel:
+  - **Context first.** The overview, the historical moment and the author's situation
+    lead; conversation, terms and further reading sit behind section folds so the reader
+    isn't overwhelmed. Pre-reading, when there is any, shows right after the overview.
+  - **Graphics, each only when the data supports it** (decide in the UI from counts):
+    - a **connection map**: a tree or network rooted at the book, from `entities` and
+      `links`; tapping a node shows its claim and sources, and an item's `entity` ties the
+      text to its node;
+    - a **timeline** of entities with Wikidata dates (at least three);
+    - a **map** of places with Wikidata coordinates (at least two).
+  - Also: citation links, spoiler folds, Refresh, the "generated at" stamp, the
+    reader-level setting, the "not much is known" note, and the error, no-key and offline
+    states.
+  - Add the routes to `REMOTE_ALLOW` with the per-device daily limit, and check the panel
+    at phone width.
 - **Phase 3: selection action.** "Context for this" on a selected name or work, reusing
   the Phase 1 pipeline with a narrowed query, and caching per item. A selection longer
   than 120 characters is refused ("Select a name or a title"). The iPhone app's text menu
@@ -258,9 +305,31 @@ If one phase turns out to be large, split it again rather than leaving it half d
 - Real API calls happen only in a separate check started by hand:
   `cargo run --release --example context-live -- <book.epub> [--level scholar]`. It
   prints the token and search counts, the cost, and what was kept and dropped and why.
-  The user runs it with their key at the end of a phase. Don't run it yourself unless the
-  user says so. `--dry-run` prints the exact payload that would be sent; it needs no key
-  and makes no network calls, so it is safe to run.
+  Only the user runs it, with their key. `--dry-run` prints the exact payload that would
+  be sent; it needs no key and makes no network calls, so it is safe to run.
+
+### Testing with Claude Code agents (the default, decided 2026-11-05)
+The user doesn't want to run paid checks or read the outputs. Claude Code tests the prompt
+itself, with agents standing in for the API model, and judges the results:
+1. `context-live <book.epub> --level L --prompt-dir DIR` writes `system.md`, `user.md`
+   (with live seed lookups), `schema.json` and `tools.md`. No key; only catalogue lookups.
+2. An agent on Sonnet follows `system.md` and `user.md` with stand-ins for the tools:
+   - `web_search`: the agent's WebSearch;
+   - `web_fetch`: a small script that prints a page's visible text, capped like
+     `max_content_tokens`. Not the WebFetch tool, which summarises, so quotes from it
+     wouldn't match;
+   - `find_book`, `find_article`, `find_entity`: the same Open Library, Crossref and
+     Wikidata queries as `lookup.rs`.
+   The agent writes `submit_briefing`'s input to `DIR/draft.json`.
+3. `context-live <book.epub> --level L --draft DIR/draft.json --out FILE` runs the draft
+   through the real verifier (live lookups and page fetches, no key) and prints what was
+   kept and dropped and why.
+4. Read the results and judge them against this prompt: context first, pre-reading only
+   when necessary, length, levels, the connection map. Fix the prompt or the verifier, and
+   run again.
+The stand-ins differ from the API in two ways. WebSearch returns summaries, not quotable
+results, so every quote costs a fetch. And four agents at once hit Wikidata's rate limit,
+which a single run rarely does.
 
 ## Test books
 All three are in `reads/context-test/` (the library folder, which git ignores), downloaded
@@ -281,13 +350,14 @@ The iOS app isn't compiled yet. Check phone behaviour with a narrow browser wind
 Don't claim it was checked on a device.
 
 ## Done when
-- On the 3 test books, in the user's live check, every recommended work resolves to a real record, every link opens, and
-  no section shows an unsourced claim.
+- On the 3 test books (agent runs, see "Testing with Claude Code agents"), every
+  recommended work resolves to a real record, every link opens, and no section shows an
+  unsourced claim.
 - A test feeds the verifier a made-up citation, and it is rejected.
 - A failed search or no network shows a clear error, never an unsourced briefing.
 - An obscure book gets the "not much is known" note, with no padded items.
-- The same book at General and Scholar levels gives noticeably different "Essential" and
-  further-reading lists.
+- The same book at General and Scholar levels gives noticeably different depth and
+  further-reading lists. Pre-reading stays rare at both.
 - No key set → no API calls and a clear setup message. The key never appears in any
   response or log. A test with a sentinel key checks that it is sent only in `x-api-key`
   to api.anthropic.com, never to a lookup host, and never appears in a response, a
@@ -362,3 +432,54 @@ responses as fixtures.
 
 **Left:** Phase 2 (the reader panel, the level setting, the phone, its per-device limit),
 Phase 3 (the selection action) and Phase 4 (polish).
+
+### Phase 1b: context first, the connection map, agent testing (2026-11-05)
+**Why:** the user's live run on Darwin (General) passed every check: 16 claims kept and
+none dropped, 3 calls, 4 searches, 5 fetches, $0.23, 80 s, and the strict schema was
+accepted. It also showed the pull toward pre-reading: a "Read first: Malthus [Optional]"
+item, plus a claim that nothing was essential. The user asked for:
+- minimal pre-reading, so the reader isn't sent back again and again before starting;
+- mostly historical and situational context;
+- a page that connects ideas, people, places and readings in trees and other graphics;
+- testing with Claude Code agents, not the API, with Claude judging the outputs.
+
+**Built** (schema version 2):
+- A `situation` section. `readFirst` loses its tiers: it needs a real work, and allows two
+  items at most.
+- Per-section limits, and a cap of 24 claims in the sections, trimmed from terms first.
+- `entities` and `links` (`find_entity` searches Wikidata). One SPARQL query brings each
+  entity's label, aliases, description, dates and coordinates. Dates go only to people,
+  works, events, movements and institutions; coordinates only to places.
+- `book` citations, quoted from the front matter that was sent.
+- Title matching ignores bracketed text and allows one changed letter in long words.
+- A catalogue 429 or 503 gets one retry.
+- A prompt rewritten around "the briefing replaces homework".
+- `context-live --prompt-dir` and `--draft`.
+- 14 Context tests (2 new: the length cap and front-matter citations).
+
+**Verified with agents** (Sonnet subagents with the tool stand-ins, drafts through the real
+verifier; section claims, then drops):
+
+| Run | Section claims | Dropped | Notes |
+|---|---|---|---|
+| Darwin, General, round 1 | 9 | 7 claims (Wikipedia-only) | moment section lost |
+| Darwin, General, round 2 | 22 | none | after the sourcing guidance |
+| Darwin, Scholar | 19 | none | the Wallace-letter date dispute, Peckham vs Shillingsburg on the editions, 3 DOIs/records |
+| Austen, General | 21 | none | marriage law, entails, the militia; one biography |
+| Nietzsche, General, round 1 | 15 | 5 | |
+| Nietzsche, General, round 2 | 16 | none | |
+
+No run produced pre-reading. General and Scholar differ clearly in depth and in further
+reading. The maps had 7–10 nodes and 6–10 links, with dates from Wikidata (and a few
+places).
+
+**Limits of the stand-ins:**
+- WebSearch returns summaries, so every quote costs a fetch.
+- Britannica answers 403 to the tool script.
+- Four agents at once hit Wikidata's 429s.
+The real API run (`web_search` results and `web_fetch` text in the conversation) should
+fare at least as well.
+
+**Left:** Phase 2 (the panel: context first, the connection map, the timeline and map when
+the data supports them, the phone and its limit), Phase 3, Phase 4.
+

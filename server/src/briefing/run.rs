@@ -311,6 +311,13 @@ pub async fn research(transport: &Arc<dyn Transport>, key: &ApiKey, level: Level
                             },
                             None => results.push(tool_result(id, "Give a title.".into(), true)),
                         },
+                        "find_entity" => match s("name") {
+                            Some(n) => match lookups.wikidata_search(&n, 5).await {
+                                Ok(hits) => results.push(tool_result(id, json!(hits).to_string(), false)),
+                                Err(e) => results.push(tool_result(id, format!("Wikidata couldn't be searched ({e})."), true)),
+                            },
+                            None => results.push(tool_result(id, "Give a name.".into(), true)),
+                        },
                         "find_article" => match s("query") {
                             Some(q) => match lookups.find_article(&q, 5).await {
                                 Ok(hits) => results.push(tool_result(id, json!(hits).to_string(), false)),
@@ -368,18 +375,29 @@ pub async fn generate(app: &Arc<App>, doc_id: &str, level: Level, limits: &Limit
         Err(f) => return Err((f, usage)),
     };
     progress(Stage::Checking);
-    let verifier = Lookups::new(transport, limits.verify_lookups);
-    let checked = verify(research.draft, &research.evidence, &verifier).await;
+    Ok(finish(app, extracted, level, research, usage, lookups.used(), limits, started).await)
+}
+
+/// Verify a draft and assemble the briefing. Also used for drafts written elsewhere (the
+/// `context-live --draft` check, where Claude Code agents stand in for the API).
+#[allow(clippy::too_many_arguments)]
+pub async fn finish(app: &Arc<App>, extracted: Extracted, level: Level, research: Research, usage: Usage, model_lookups: u32, limits: &Limits, started: Instant) -> Generated {
+    let verifier = Lookups::new(app.briefing.transport.clone(), limits.verify_lookups);
+    let mut evidence = research.evidence;
+    evidence.book = extracted.input.front_matter.iter().map(|f| format!("{}\n{}", f.title, f.text)).collect::<Vec<_>>().join("\n\n");
+    let checked = verify(research.draft, &evidence, &verifier).await;
     let report = checked.report;
     let stats = Stats {
         claims_kept: report.claims_kept,
         claims_dropped: report.claims_dropped,
         works_kept: report.works_kept,
         works_dropped: report.works_dropped,
+        links_kept: report.links_kept,
+        links_dropped: report.links_dropped,
         api_calls: usage.calls,
         searches: usage.searches,
         fetches: usage.fetches,
-        lookups: lookups.used() + verifier.used(),
+        lookups: model_lookups + verifier.used(),
         input_tokens: usage.input,
         cache_read_tokens: usage.cache_read,
         cache_write_tokens: usage.cache_write,
@@ -397,7 +415,9 @@ pub async fn generate(app: &Arc<App>, doc_id: &str, level: Level, limits: &Limit
         model: research.model,
         little_known: checked.little_known,
         sections: checked.sections,
+        entities: checked.entities,
+        links: checked.links,
         stats,
     };
-    Ok(Generated { briefing, report, usage })
+    Generated { briefing, report, usage }
 }

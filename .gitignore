@@ -10,3 +10,7 @@ reads/
 # Local toolchain
 swiftly-x86_64.tar.gz
 .swift-version
+
+# context-live output (prompts/book-context.md)
+/context-*.json
+/server/context-*.json

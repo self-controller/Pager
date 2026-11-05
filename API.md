@@ -454,10 +454,14 @@ through the relay, and `--ticket … --token … --key phone.key` reads again la
 
 ## Context: sourced briefings (Phase 1)
 
-A briefing on what a reader needs to know *around* a book: its historical moment, the author's
-conversation, what to read first, key terms, further reading. Every claim carries 1–3 citations the
-server checked: a page whose quote it found on that page, or a catalogue record (Open Library,
-Crossref, Wikidata) that resolved and matched. Anything it couldn't check is dropped, never shown.
+A briefing on what a reader needs to know *around* a book, mostly its historical moment and the
+author's situation, then the author's conversation, key terms and a little further reading;
+pre-reading only when the book can't be followed without it. Every claim carries 1–3 citations the
+server checked: a page whose quote it found on that page, a quote from the book's own front matter,
+or a catalogue record (Open Library, Crossref, Wikidata) that resolved and matched. Anything it
+couldn't check is dropped, never shown. `entities` and `links` are a small sourced graph (people,
+works, ideas, places, events) for a connection map; entities' dates and coordinates come from
+Wikidata, for a timeline and a map.
 The shapes are `shared/src/context.ts`; the build prompt is `prompts/book-context.md`.
 
 | Route | |

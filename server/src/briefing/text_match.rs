@@ -87,14 +87,58 @@ fn lcs(a: &[String], b: &[String]) -> usize {
 
 const ARTICLES: &[&str] = &["the", "a", "an", "le", "la", "les", "der", "die", "das", "el", "il", "lo"];
 
-/// Title words that carry meaning: the main title (before a colon or a dash), without a leading article.
+/// Title words that carry meaning: the main title (before a colon or a dash, without anything in
+/// brackets, such as "(1859)" or "[first edition]"), without a leading article.
 fn title_words(t: &str) -> Vec<String> {
-    let main = t.split([':', '—', '–']).next().unwrap_or(t);
+    let mut bare = String::new();
+    let mut depth = 0;
+    for c in t.chars() {
+        match c {
+            '(' | '[' => depth += 1,
+            ')' | ']' => depth = (depth - 1).max(0),
+            _ if depth == 0 => bare.push(c),
+            _ => {}
+        }
+    }
+    let main = bare.split([':', '—', '–']).next().unwrap_or(&bare);
     let mut w = tokens(main);
     if w.len() > 1 && ARTICLES.contains(&w[0].as_str()) {
         w.remove(0);
     }
     w
+}
+
+/// Two words are the same word, allowing one changed, added or dropped letter in words of five
+/// letters or more (spake/spoke, colour/color, Nietzsche/Nietzche).
+fn same_word(a: &str, b: &str) -> bool {
+    if a == b {
+        return true;
+    }
+    let (x, y): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
+    if x.len().min(y.len()) < 5 || x.len().abs_diff(y.len()) > 1 {
+        return false;
+    }
+    let (mut i, mut j, mut edits) = (0, 0, 0);
+    while i < x.len() && j < y.len() {
+        if x[i] == y[j] {
+            i += 1;
+            j += 1;
+            continue;
+        }
+        edits += 1;
+        if edits > 1 {
+            return false;
+        }
+        match x.len().cmp(&y.len()) {
+            std::cmp::Ordering::Greater => i += 1,
+            std::cmp::Ordering::Less => j += 1,
+            std::cmp::Ordering::Equal => {
+                i += 1;
+                j += 1;
+            }
+        }
+    }
+    edits + (x.len() - i) + (y.len() - j) <= 1
 }
 
 /// Does the claimed title name the record's work? Every word of the claimed main title appears in
@@ -104,8 +148,8 @@ pub fn title_matches(claimed: &str, record_title: &str, record_subtitle: Option<
     if c.is_empty() {
         return false;
     }
-    let full: HashSet<String> = tokens(&format!("{record_title} {}", record_subtitle.unwrap_or(""))).into_iter().collect();
-    if c.iter().all(|w| full.contains(w)) {
+    let full: Vec<String> = tokens(&format!("{record_title} {}", record_subtitle.unwrap_or("")));
+    if c.iter().all(|w| full.iter().any(|f| same_word(w, f))) {
         return true;
     }
     let r: HashSet<String> = title_words(record_title).into_iter().collect();
@@ -161,6 +205,10 @@ mod tests {
         assert!(title_matches("The Origin of Species", "On the origin of species by means of natural selection", None));
         assert!(title_matches("Principles of Geology", "Principles of geology", Some("being an attempt to explain")));
         assert!(!title_matches("Principles of Geology", "The Voyage of the Beagle", None));
+        assert!(title_matches("Thus Spoke Zarathustra", "Thus spake Zarathustra", None));
+        assert!(title_matches("On the Origin of Species (1859)", "On the origin of species by means of natural selection", None));
+        assert!(!title_matches("Principles of Geology", "Principles of Economics", None));
+        assert!(!title_matches("Emma", "Emme", None), "short words must match exactly");
         assert!(author_matches(&["Charles Lyell".into()], &["Lyell, Charles, Sir".into()]));
         assert!(!author_matches(&["Charles Lyell".into()], &["Alfred Russel Wallace".into()]));
     }

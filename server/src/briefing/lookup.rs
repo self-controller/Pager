@@ -46,6 +46,8 @@ pub struct PageText {
 
 pub struct Lookups {
     transport: Arc<dyn Transport>,
+    /// The wait before asking again after a 429 or 503.
+    pub retry_delay: Duration,
     cache: Mutex<HashMap<String, Fetched>>,
     count: AtomicU32,
     cap: u32,
@@ -69,7 +71,7 @@ fn year_in(s: &str) -> Option<String> {
 
 impl Lookups {
     pub fn new(transport: Arc<dyn Transport>, cap: u32) -> Lookups {
-        Lookups { transport, cache: Mutex::new(HashMap::new()), count: AtomicU32::new(0), cap }
+        Lookups { transport, retry_delay: Duration::from_secs(2), cache: Mutex::new(HashMap::new()), count: AtomicU32::new(0), cap }
     }
 
     /// Requests made so far (cache hits don't count).
@@ -85,7 +87,13 @@ impl Lookups {
             return Fetched::Failed("the run's lookup limit was reached".into());
         }
         let req = OutRequest::get(url, LOOKUP_TIMEOUT, MAX_BODY).header("accept", "application/json, text/html;q=0.9, text/plain;q=0.8, */*;q=0.1");
-        let out = match self.transport.send(req).await {
+        let mut answer = self.transport.send(req.clone()).await;
+        // Wikidata and Crossref throttle bursts: wait a moment and ask once more.
+        if matches!(&answer, Ok(r) if r.status == 429 || r.status == 503) && !self.retry_delay.is_zero() {
+            tokio::time::sleep(self.retry_delay).await;
+            answer = self.transport.send(req).await;
+        }
+        let out = match answer {
             Ok(r) if (200..300).contains(&r.status) => Fetched::Ok(r),
             Ok(r) if r.status == 404 || r.status == 410 => Fetched::NotFound,
             Ok(r) => Fetched::Failed(format!("HTTP {}", r.status)),
@@ -264,6 +272,64 @@ impl Lookups {
         Ok(label.map(|l| RecordInfo { title: l.to_string(), subtitle: desc.map(str::to_string), authors: vec![], year: None, url: format!("https://www.wikidata.org/wiki/{qid}") }))
     }
 
+    /// Labels, descriptions, dates and coordinates for many Wikidata items in one SPARQL query.
+    /// An item with several values keeps the earliest date.
+    pub async fn wikidata_facts(&self, qids: &[String]) -> Result<HashMap<String, WikiFacts>, String> {
+        let ids: Vec<&String> = qids.iter().filter(|q| is_qid(q)).take(80).collect();
+        if ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+        let values: String = ids.iter().map(|q| format!("wd:{q}")).collect::<Vec<_>>().join(" ");
+        let query = format!(
+            "SELECT ?item ?label ?alias ?desc ?born ?died ?inception ?published ?start ?end ?when ?dissolved ?coord WHERE {{ VALUES ?item {{ {values} }} \
+             OPTIONAL {{ ?item rdfs:label ?label FILTER(LANG(?label) = \"en\") }} OPTIONAL {{ ?item skos:altLabel ?alias FILTER(LANG(?alias) = \"en\") }} OPTIONAL {{ ?item schema:description ?desc FILTER(LANG(?desc) = \"en\") }} \
+             OPTIONAL {{ ?item wdt:P569 ?born }} OPTIONAL {{ ?item wdt:P570 ?died }} OPTIONAL {{ ?item wdt:P571 ?inception }} OPTIONAL {{ ?item wdt:P577 ?published }} \
+             OPTIONAL {{ ?item wdt:P580 ?start }} OPTIONAL {{ ?item wdt:P582 ?end }} OPTIONAL {{ ?item wdt:P585 ?when }} OPTIONAL {{ ?item wdt:P576 ?dissolved }} \
+             OPTIONAL {{ ?item wdt:P625 ?coord }} }}"
+        );
+        let url = format!("https://query.wikidata.org/sparql?format=json&query={}", enc(&query));
+        let v = self.json(&url).await?.unwrap_or(Value::Null);
+        let rows = v.get("results").and_then(|r| r.get("bindings")).and_then(Value::as_array).cloned().unwrap_or_default();
+        // Rows are a cross product of the optional values: keep each field's earliest year.
+        const FIELDS: [&str; 8] = ["born", "published", "when", "start", "inception", "died", "end", "dissolved"];
+        let mut years: HashMap<String, HashMap<&str, i64>> = HashMap::new();
+        let mut out: HashMap<String, WikiFacts> = HashMap::new();
+        for row in rows {
+            let val = |k: &str| row.get(k).and_then(|x| x.get("value")).and_then(Value::as_str).map(str::to_string);
+            let Some(qid) = val("item").and_then(|u| u.rsplit('/').next().map(str::to_string)) else { continue };
+            let f = out.entry(qid.clone()).or_insert_with(|| WikiFacts { url: format!("https://www.wikidata.org/wiki/{qid}"), ..WikiFacts::default() });
+            if f.label.is_none() {
+                f.label = val("label");
+            }
+            if let Some(a) = val("alias") {
+                if !f.aliases.contains(&a) && f.aliases.len() < 20 {
+                    f.aliases.push(a);
+                }
+            }
+            if f.description.is_none() {
+                f.description = val("desc");
+            }
+            if f.coordinates.is_none() {
+                f.coordinates = val("coord").and_then(|p| parse_point(&p));
+            }
+            let ys = years.entry(qid).or_default();
+            for k in FIELDS {
+                if let Some(y) = val(k).as_deref().and_then(year_of).and_then(|y| y.parse::<i64>().ok()) {
+                    let e = ys.entry(k).or_insert(y);
+                    *e = (*e).min(y);
+                }
+            }
+        }
+        for (qid, f) in out.iter_mut() {
+            let ys = years.get(qid);
+            let first = |keys: &[&str]| keys.iter().find_map(|k| ys.and_then(|y| y.get(k)).map(|n| n.to_string()));
+            // A person's life; a work's publication; an event's date or span; an organisation's founding.
+            f.start = first(&["born", "published", "when", "start", "inception"]);
+            f.end = first(&["died", "end", "dissolved"]);
+        }
+        Ok(out)
+    }
+
     // ---- Pages ----
 
     /// A page's text (HTML or plain text). None for a missing page or one that isn't text (a PDF).
@@ -345,6 +411,43 @@ pub fn public_url(u: &str) -> bool {
     }
 }
 
+/// What Wikidata says about an item, for the verifier's entities.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct WikiFacts {
+    pub label: Option<String>,
+    /// Other names ("Fanny Burney" for Frances Burney).
+    pub aliases: Vec<String>,
+    pub description: Option<String>,
+    pub start: Option<String>,
+    pub end: Option<String>,
+    pub coordinates: Option<[f64; 2]>,
+    pub url: String,
+}
+
+pub fn is_qid(q: &str) -> bool {
+    q.len() > 1 && q.starts_with('Q') && q[1..].chars().all(|c| c.is_ascii_digit())
+}
+
+/// The year of an xsd:dateTime ("1809-02-12T00:00:00Z" → "1809", "-0427-01-01T…" → "-427").
+fn year_of(d: &str) -> Option<String> {
+    let (neg, rest) = match d.strip_prefix('-') {
+        Some(r) => (true, r),
+        None => (false, d.strip_prefix('+').unwrap_or(d)),
+    };
+    let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+    let n: i64 = digits.parse().ok()?;
+    Some(if neg { format!("-{n}") } else { n.to_string() })
+}
+
+/// "Point(lon lat)" → [lat, lon].
+fn parse_point(p: &str) -> Option<[f64; 2]> {
+    let inner = p.trim().strip_prefix("Point(")?.strip_suffix(')')?;
+    let mut it = inner.split_whitespace();
+    let lon: f64 = it.next()?.parse().ok()?;
+    let lat: f64 = it.next()?.parse().ok()?;
+    ((-90.0..=90.0).contains(&lat) && (-180.0..=180.0).contains(&lon)).then_some([lat, lon])
+}
+
 /// ISBN-10 or ISBN-13 with a valid check digit; returns the bare digits.
 pub fn valid_isbn(raw: &str) -> Option<String> {
     let s: String = raw.trim().trim_start_matches("urn:isbn:").chars().filter(|c| !matches!(c, '-' | ' ')).collect::<String>().to_ascii_uppercase();
@@ -384,6 +487,15 @@ mod tests {
         assert_eq!(valid_isbn("0140439129").as_deref(), Some("0140439129"));
         assert_eq!(valid_isbn("9780140439129"), None);
         assert_eq!(valid_isbn("12345"), None);
+    }
+
+    #[test]
+    fn wikidata_values() {
+        assert_eq!(year_of("1809-02-12T00:00:00Z").as_deref(), Some("1809"));
+        assert_eq!(year_of("-0427-01-01T00:00:00Z").as_deref(), Some("-427"));
+        assert_eq!(parse_point("Point(-0.1275 51.5072)"), Some([51.5072, -0.1275]));
+        assert_eq!(parse_point("nonsense"), None);
+        assert!(is_qid("Q1035") && !is_qid("Q") && !is_qid("P569"));
     }
 
     #[test]

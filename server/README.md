@@ -219,6 +219,9 @@ With no key, Context says so and makes no calls.
 - **Trying it by hand:** `cargo run --release --example context-live -- <book.epub> [--level scholar]`
   runs the real pipeline on one book with your key and prints what was kept and dropped and why;
   `--dry-run` prints the exact request that would be sent, with no key and no network.
+  `--prompt-dir DIR` and `--draft FILE` test the prompt without the API: the first writes what the
+  model would get, the second runs a draft written elsewhere (by a Claude Code agent) through the
+  real verifier (prompts/book-context.md, "Testing with Claude Code agents").
 
 ## Security
 
@@ -264,7 +267,7 @@ src/briefing/    Context: the key (secrets), outbound HTTP (transport), local ex
 src/http/        routes (library, files, remember, keep, system, sync, devices, context), the local-only guard,
                  remote (the phones' listener and its allowlist), the live stream, static web serving
 src/cli.rs       the `pager` command (bin/pager)
-tests/           11 files, 111 tests (27 more are unit tests in src/): parsers (with the Gutenberg
+tests/           11 files, 113 tests (28 more are unit tests in src/): parsers (with the Gutenberg
                  golden hashes; files in tests/fixtures), the reads folder, the watcher, re-anchoring,
                  the remote listener's allowlist, no-paths and pairing, phones over iroh, sync, and
                  Context against a fake transport (tests/fixtures/context)

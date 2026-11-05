@@ -1,7 +1,12 @@
 /**
  * Context: a sourced background briefing for a book (prompts/book-context.md, API.md "Context").
- * The same shape as server/src/briefing/schema.rs. Every claim carries 1–3 citations the server
- * checked: a page whose quote was found on it, or a catalogue record that resolved.
+ * The same shape as server/src/briefing/schema.rs (version 2). Every claim carries 1–3 citations the
+ * server checked: a page whose quote was found on it, or a catalogue record that resolved.
+ *
+ * Mostly historical and situational context. Pre-reading (`readFirst`) is rare: only what the book
+ * can't be followed without. `entities` and `links` are a small sourced graph for the connection
+ * map; entities' dates and coordinates (`facts`) come from Wikidata, never from the model, for a
+ * timeline and a map.
  *
  * Type-only module: cross-file imports in shared/ must be `import type`.
  */
@@ -9,9 +14,8 @@
 /** Who the briefing is written for. */
 export type ContextLevel = "general" | "student" | "scholar";
 
-export type ContextSectionKind = "overview" | "moment" | "conversation" | "readFirst" | "terms" | "furtherReading";
-
-export type ContextTier = "essential" | "helpful" | "optional";
+/** In display order: overview, readFirst, moment, situation, conversation, terms, furtherReading. */
+export type ContextSectionKind = "overview" | "readFirst" | "moment" | "situation" | "conversation" | "terms" | "furtherReading";
 
 export type ContextReadScope = "whole" | "part" | "summary";
 
@@ -23,8 +27,8 @@ export interface ContextRecord {
 }
 
 export interface ContextCitation {
-  /** `page`: a web page, with a quote found on it. `record`: a catalogue record. */
-  kind: "page" | "record";
+  /** `page`: a web page, with a quote found on it. `record`: a catalogue record. `book`: the book's own front matter, with a quote found in it. */
+  kind: "page" | "record" | "book";
   url: string | null;
   title: string;
   author: string | null;
@@ -60,10 +64,11 @@ export interface ContextDisagreement {
 
 export interface ContextItem {
   heading: string;
+  /** The entity this item is about (`ContextEntity.id`), to tie the text to the map. */
+  entity?: string;
   /** The author's conversation: "replies to", "borrows from", "satirises", … */
   relation?: string;
   work?: ContextWork;
-  tier?: ContextTier;
   readScope?: ContextReadScope;
   /** What exactly to read: "Chapters 1–3", "a summary is enough". */
   readNote?: string;
@@ -80,11 +85,48 @@ export interface ContextSection {
   items: ContextItem[];
 }
 
+export type ContextEntityKind = "person" | "work" | "idea" | "movement" | "institution" | "place" | "event";
+
+/** From the entity's Wikidata record. */
+export interface ContextFacts {
+  description?: string;
+  /** A year ("1809"; "-427" is 427 BCE): birth, publication, founding or the event's start. */
+  start?: string;
+  /** A year: death, dissolution or the event's end. */
+  end?: string;
+  /** [latitude, longitude], for places. */
+  coordinates?: [number, number];
+  /** The Wikidata page they came from. */
+  source: string;
+}
+
+/** A node of the connection map. The book is `book`, its author `author`. */
+export interface ContextEntity {
+  id: string;
+  kind: ContextEntityKind;
+  name: string;
+  wikidata: string | null;
+  record: ContextRecord | null;
+  facts?: ContextFacts;
+  resolvedUrl?: string;
+}
+
+/** An edge of the connection map, backed by a cited claim. */
+export interface ContextLink {
+  from: string;
+  to: string;
+  /** "read", "replied to", "studied under", "lived in", … */
+  relation: string;
+  claim: ContextClaim;
+}
+
 export interface ContextStats {
   claimsKept: number;
   claimsDropped: number;
   worksKept: number;
   worksDropped: number;
+  linksKept: number;
+  linksDropped: number;
   apiCalls: number;
   searches: number;
   fetches: number;
@@ -111,6 +153,8 @@ export interface ContextBriefing {
   littleKnown: boolean;
   /** In display order; sections with nothing verified are left out. */
   sections: ContextSection[];
+  entities: ContextEntity[];
+  links: ContextLink[];
   stats: ContextStats;
 }
 

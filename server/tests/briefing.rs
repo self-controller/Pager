@@ -89,6 +89,7 @@ impl Fake {
             ("https://openlibrary.org/authors/OL2658173A.json", "ol-author-OL2658173A.json"),
             ("https://www.wikidata.org/w/api.php?action=wbgetentities&ids=Q20124", "wikidata-Q20124.json"),
             ("https://www.wikidata.org/w/api.php?action=wbsearchentities", "wikidata-search.json"),
+            ("https://query.wikidata.org/sparql", "wikidata-sparql.json"),
         ] {
             self.route(prefix, 200, j, fx(file));
         }
@@ -205,7 +206,7 @@ async fn a_briefing_keeps_what_checks_out_and_drops_the_rest() {
     assert_eq!(got.body["cachedLevels"], json!(["general"]));
     let b: Briefing = serde_json::from_value(got.body["briefing"].clone()).unwrap();
     let kinds: Vec<SectionKind> = b.sections.iter().map(|s| s.kind).collect();
-    assert_eq!(kinds, vec![SectionKind::Overview, SectionKind::Moment, SectionKind::Conversation, SectionKind::ReadFirst, SectionKind::FurtherReading], "terms held only a Wikipedia claim");
+    assert_eq!(kinds, vec![SectionKind::Overview, SectionKind::ReadFirst, SectionKind::Moment, SectionKind::Situation, SectionKind::Conversation, SectionKind::FurtherReading], "terms held only a Wikipedia claim");
     assert!(!b.little_known);
 
     // The overview: a fetched page, a search snippet, the computer's own fetch, a Wikidata record.
@@ -215,23 +216,42 @@ async fn a_briefing_keeps_what_checks_out_and_drops_the_rest() {
     assert_eq!(overview[3].citations[0].check, Some(Check::Record));
     assert_eq!(overview[3].citations[0].url.as_deref(), Some("https://www.wikidata.org/wiki/Q20124"));
 
-    // The quote that isn't on its page is gone; so is the one-sided disagreement.
-    assert_eq!(b.sections[1].items[0].claims.len(), 1);
-    assert!(b.sections[2].items[0].disagreement.is_none());
-    assert_eq!(b.sections[2].items[0].relation.as_deref(), Some("borrows from"));
-
-    // Read first: only Malthus survives (made-up DOI, bad check digit, someone else's ISBN dropped).
-    let read_first = &b.sections[3].items;
+    // Read first: only Malthus survives (no work, a made-up DOI, a bad check digit and someone
+    // else's ISBN are dropped).
+    let read_first = &b.sections[1].items;
     assert_eq!(read_first.len(), 1);
     let w = read_first[0].work.as_ref().unwrap();
     assert_eq!(w.resolved_url.as_deref(), Some("https://openlibrary.org/works/OL1179009W"));
-    assert_eq!(read_first[0].tier, Some(Tier::Helpful));
     assert!(read_first[0].claims[0].inferred);
-    let further = &b.sections[4].items[0];
+
+    // The quote that isn't on its page is gone; so is the one-sided disagreement.
+    assert_eq!(b.sections[2].items[0].claims.len(), 1);
+    assert_eq!(b.sections[3].items[0].entity.as_deref(), Some("london"));
+    assert!(b.sections[4].items[0].disagreement.is_none());
+    assert_eq!(b.sections[4].items[0].relation.as_deref(), Some("borrows from"));
+    let further = &b.sections[5].items[0];
     assert_eq!(further.work.as_ref().unwrap().resolved_url.as_deref(), Some("https://openlibrary.org/isbn/9780691023069"));
     assert!(further.claims.is_empty() && further.suits.is_some());
 
-    assert_eq!((b.stats.claims_kept, b.stats.claims_dropped, b.stats.works_kept, b.stats.works_dropped), (7, 7, 2, 3));
+    // The connection map: Wikidata's dates and coordinates; a wrong ID and an unused node are gone.
+    let ids: Vec<&str> = b.entities.iter().map(|e| e.id.as_str()).collect();
+    assert_eq!(ids, vec!["book", "author", "malthus", "london", "lyell"], "the unused node is pruned");
+    let ent = |id: &str| b.entities.iter().find(|e| e.id == id).unwrap();
+    let darwin = ent("author").facts.as_ref().unwrap();
+    assert_eq!((darwin.start.as_deref(), darwin.end.as_deref()), (Some("1809"), Some("1882")));
+    assert_eq!(darwin.source, "https://www.wikidata.org/wiki/Q1035");
+    assert_eq!(ent("book").facts.as_ref().unwrap().start.as_deref(), Some("1859"));
+    assert_eq!(ent("book").resolved_url.as_deref(), Some("https://www.wikidata.org/wiki/Q20124"), "a work's record is checked like any work");
+    let london = ent("london").facts.as_ref().unwrap();
+    assert_eq!(london.coordinates.map(|c| (c[0].round(), c[1].round())), Some((52.0, -0.0)));
+    assert_eq!(london.start, None, "a place gets coordinates, not dates");
+    assert!(darwin.coordinates.is_none(), "a person gets dates, not coordinates");
+    assert!(ent("lyell").wikidata.is_none() && ent("lyell").facts.is_none(), "Q1035 isn't Lyell");
+    assert_eq!(b.links.len(), 1);
+    assert_eq!((b.links[0].from.as_str(), b.links[0].to.as_str(), b.links[0].relation.as_str()), ("author", "malthus", "read"));
+
+    assert_eq!((b.stats.claims_kept, b.stats.claims_dropped, b.stats.works_kept, b.stats.works_dropped), (9, 9, 2, 3));
+    assert_eq!((b.stats.links_kept, b.stats.links_dropped), (1, 2));
     assert_eq!((b.stats.api_calls, b.stats.searches, b.stats.fetches), (3, 1, 2));
     assert_eq!(b.stats.output_tokens, 3700);
     assert!(b.stats.cost_usd > 0.0);
@@ -252,7 +272,7 @@ async fn a_briefing_keeps_what_checks_out_and_drops_the_rest() {
         assert_eq!(body["tool_choice"]["type"], "auto");
         assert_eq!(body["fallbacks"], "default");
         let names: Vec<&str> = body["tools"].as_array().unwrap().iter().map(|t| t["name"].as_str().unwrap()).collect();
-        assert_eq!(names, vec!["web_search", "web_fetch", "find_book", "find_article", "submit_briefing"]);
+        assert_eq!(names, vec!["web_search", "web_fetch", "find_book", "find_article", "find_entity", "submit_briefing"]);
     }
 
     // The model saw the front matter, never the body text.
@@ -297,7 +317,8 @@ async fn the_verifier_rejects_a_made_up_citation() {
             { "heading": "A study that doesn't exist", "spoiler": false,
               "work": { "title": "The Hidden Darwin Letters", "authors": ["A. Nobody"], "year": "2004", "record": { "kind": "doi", "value": "10.9999/fake.2004.001" } },
               "claims": [{ "text": "It reveals Darwin's private doubts.", "inferred": false, "spoiler": false, "citations": [
-                  { "kind": "page", "url": "https://plato.stanford.edu/entries/darwinism/", "title": "Darwinism", "quote": "Charles Darwin published On the Origin of Species in November 1859, presenting a theory" }] }] },
+                  { "kind": "page", "url": "https://plato.stanford.edu/entries/darwinism/", "title": "Darwinism", "quote": "Charles Darwin published On the Origin of Species in November 1859, presenting a theory" }] }] }
+        ] }, { "kind": "moment", "items": [
             { "heading": "Malthus and Darwin", "spoiler": false,
               "claims": [{ "text": "They were close friends.", "inferred": false, "spoiler": false, "citations": [
                   { "kind": "page", "url": "https://plato.stanford.edu/entries/darwinism/", "title": "Darwinism", "quote": "Malthus was Darwin's closest friend and visited Down House every summer" },
@@ -543,4 +564,52 @@ fn extraction_sends_lists_and_front_matter_never_chapters() {
     assert!(!body.contains("In vain have I struggled"), "no chapter text");
     assert!(body.len() < 60_000, "{} bytes", body.len());
     assert!(input.front_matter.iter().map(|f| f.text.chars().count()).sum::<usize>() <= 12_000);
+}
+
+#[tokio::test]
+async fn a_long_briefing_is_trimmed_from_terms_first() {
+    let sep = "https://plato.stanford.edu/entries/darwinism/";
+    let text = "Charles Darwin published On the Origin of Species in November 1859, presenting a theory of descent with modification by means of natural selection.";
+    let mut evidence = Evidence::default();
+    evidence.fetched.insert(pager_server::briefing::verify::norm_url(sep), text.to_string());
+    let claim = json!({ "text": "A sourced claim.", "inferred": false, "spoiler": false, "citations": [
+        { "kind": "page", "url": sep, "title": "Darwinism", "quote": "published On the Origin of Species in November 1859" }] });
+    let items = |n: usize, claims: usize| -> Value { json!((0..n).map(|i| json!({ "heading": format!("Item {i}"), "spoiler": false, "claims": vec![claim.clone(); claims] })).collect::<Vec<_>>()) };
+    let draft: Draft = serde_json::from_value(json!({ "littleKnown": false, "sections": [
+        { "kind": "overview", "items": items(1, 2) },
+        { "kind": "moment", "items": items(4, 3) },
+        { "kind": "situation", "items": items(4, 3) },
+        { "kind": "conversation", "items": items(3, 1) },
+        { "kind": "terms", "items": items(4, 1) },
+    ] }))
+    .unwrap();
+    let fake = Fake::new();
+    let v = verify(draft, &evidence, &Lookups::new(fake.clone(), 10)).await;
+    let shape: Vec<(SectionKind, usize)> = v.sections.iter().map(|s| (s.kind, s.items.len())).collect();
+    // 33 claims: terms 4 → 1 (30), conversation 3 → 1 (28), situation 4 → 2 (25, then 22). Moment and
+    // the overview are untouched.
+    assert_eq!(shape, vec![(SectionKind::Overview, 1), (SectionKind::Moment, 4), (SectionKind::Situation, 2), (SectionKind::Conversation, 1), (SectionKind::Terms, 1)]);
+    let total: usize = v.sections.iter().flat_map(|s| s.items.iter()).map(|i| i.claims.len()).sum();
+    assert_eq!(total, 22);
+    assert_eq!((v.report.claims_kept, v.report.claims_dropped), (22, 11));
+    assert!(fake.seen().is_empty(), "every quote was in what the run read");
+}
+
+#[tokio::test]
+async fn the_books_own_front_matter_can_be_cited() {
+    let mut evidence = Evidence::default();
+    evidence.book = "INTRODUCTION BY MRS FORSTER-NIETZSCHE.\n“Zarathustra” is my brother’s most personal work; it is the history of his most individual experiences.".into();
+    let cite = |q: &str| json!({ "kind": "book", "url": null, "title": "Introduction by Elisabeth Förster-Nietzsche", "quote": q });
+    let draft: Draft = serde_json::from_value(json!({ "littleKnown": false, "sections": [{ "kind": "situation", "items": [
+        { "heading": "The sister who introduces your edition", "spoiler": false, "claims": [
+            { "text": "His sister's introduction calls it his most personal work.", "inferred": false, "spoiler": false, "citations": [cite("Zarathustra is my brother's most personal work; it is the history")] },
+            { "text": "She says he dictated it.", "inferred": false, "spoiler": false, "citations": [cite("my brother dictated every word of it to me at Sils Maria")] }] }] }] }))
+    .unwrap();
+    let fake = Fake::new();
+    let v = verify(draft, &evidence, &Lookups::new(fake.clone(), 10)).await;
+    let claims = &v.sections[0].items[0].claims;
+    assert_eq!(claims.len(), 1);
+    assert_eq!(claims[0].citations[0].check, Some(Check::Quoted));
+    assert!(v.report.dropped.iter().any(|d| d.reason.contains("isn't in the book's front matter")));
+    assert!(fake.seen().is_empty(), "the book is checked on the computer");
 }

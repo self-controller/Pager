@@ -1,0 +1,130 @@
+{
+ "head": {
+  "vars": [
+   "item",
+   "label",
+   "desc",
+   "born",
+   "died",
+   "inception",
+   "published",
+   "start",
+   "end",
+   "when",
+   "dissolved",
+   "coord"
+  ]
+ },
+ "results": {
+  "bindings": [
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q20124"
+    },
+    "label": {
+     "xml:lang": "en",
+     "type": "literal",
+     "value": "On the Origin of Species"
+    },
+    "desc": {
+     "xml:lang": "en",
+     "type": "literal",
+     "value": "1859 book by Charles Darwin"
+    },
+    "published": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1859-11-24T00:00:00Z"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1035"
+    },
+    "label": {
+     "xml:lang": "en",
+     "type": "literal",
+     "value": "Charles Darwin"
+    },
+    "desc": {
+     "xml:lang": "en",
+     "type": "literal",
+     "value": "English naturalist and biologist (1809–1882)"
+    },
+    "born": {
+     "type": "literal",
+     "value": "1809-02-12T00:00:00Z"
+    },
+    "died": {
+     "type": "literal",
+     "value": "1882-04-19T00:00:00Z"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q13526"
+    },
+    "label": {
+     "xml:lang": "en",
+     "type": "literal",
+     "value": "Thomas Robert Malthus"
+    },
+    "born": {
+     "type": "literal",
+     "value": "1766-02-13T00:00:00Z"
+    },
+    "died": {
+     "type": "literal",
+     "value": "1834-12-29T00:00:00Z"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q84"
+    },
+    "label": {
+     "xml:lang": "en",
+     "type": "literal",
+     "value": "London"
+    },
+    "desc": {
+     "xml:lang": "en",
+     "type": "literal",
+     "value": "capital and largest city of the United Kingdom"
+    },
+    "coord": {
+     "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+     "type": "literal",
+     "value": "Point(-0.1275 51.507222222)"
+    },
+    "inception": {
+     "type": "literal",
+     "value": "0047-01-01T00:00:00Z"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q84"
+    },
+    "label": {
+     "xml:lang": "en",
+     "type": "literal",
+     "value": "London"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(-0.1275 51.507222222)"
+    },
+    "inception": {
+     "type": "literal",
+     "value": "0050-01-01T00:00:00Z"
+    }
+   }
+  ]
+ }
+}

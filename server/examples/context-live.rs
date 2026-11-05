@@ -11,11 +11,21 @@
 //! needs no key, makes no network calls and costs nothing.
 //! --record DIR saves every outbound request (never its headers, so never the key) and its answer,
 //! to refresh the test fixtures.
+//!
+//! Without the API (no key, no cost), for drafts written by Claude Code agents standing in for the
+//! model (see prompts/book-context.md, "Testing with Claude Code agents"):
+//! --prompt-dir DIR writes what the model would get: system.md, user.md (with the seed lookups),
+//!   schema.json (submit_briefing's input) and tools.md.
+//! --draft FILE runs a draft (submit_briefing's input, as JSON) through the real verifier, with
+//!   live catalogue lookups and page fetches, and reports it like a run.
 
 use futures::future::BoxFuture;
 use pager_server::app::{App, AppOptions};
-use pager_server::briefing::run::{first_request, generate, Limits, Stage};
-use pager_server::briefing::schema::{Briefing, CitationKind, Level};
+use pager_server::briefing::lookup::Lookups;
+use pager_server::briefing::prompt::{system_prompt, tools, user_message};
+use pager_server::briefing::run::{finish, first_request, generate, seed, Limits, Research, Stage, Usage};
+use pager_server::briefing::schema::{draft_schema, Briefing, CitationKind, Draft, Level};
+use pager_server::briefing::verify::Evidence;
 use pager_server::briefing::secrets::{load_api_key, secrets_path, KEY_VAR};
 use pager_server::briefing::transport::{LiveTransport, OutError, OutRequest, OutResponse, Transport};
 use serde_json::{json, Value};
@@ -29,22 +39,26 @@ struct Args {
     out: Option<PathBuf>,
     record: Option<PathBuf>,
     dry_run: bool,
+    prompt_dir: Option<PathBuf>,
+    draft: Option<PathBuf>,
 }
 
 fn usage() -> ! {
-    eprintln!("usage: context-live <book.epub> [--level general|student|scholar] [--out FILE] [--record DIR] [--dry-run]");
+    eprintln!("usage: context-live <book.epub> [--level general|student|scholar] [--out FILE] [--record DIR] [--dry-run | --prompt-dir DIR | --draft FILE]");
     std::process::exit(2);
 }
 
 fn parse_args() -> Args {
     let mut it = std::env::args().skip(1);
-    let mut a = Args { book: PathBuf::new(), level: Level::General, out: None, record: None, dry_run: false };
+    let mut a = Args { book: PathBuf::new(), level: Level::General, out: None, record: None, dry_run: false, prompt_dir: None, draft: None };
     while let Some(x) = it.next() {
         match x.as_str() {
             "--level" => a.level = it.next().and_then(|l| Level::parse(&l)).unwrap_or_else(|| usage()),
             "--out" => a.out = Some(it.next().map(PathBuf::from).unwrap_or_else(|| usage())),
             "--record" => a.record = Some(it.next().map(PathBuf::from).unwrap_or_else(|| usage())),
             "--dry-run" => a.dry_run = true,
+            "--prompt-dir" => a.prompt_dir = Some(it.next().map(PathBuf::from).unwrap_or_else(|| usage())),
+            "--draft" => a.draft = Some(it.next().map(PathBuf::from).unwrap_or_else(|| usage())),
             "-h" | "--help" => usage(),
             _ if a.book.as_os_str().is_empty() => a.book = PathBuf::from(x),
             _ => usage(),
@@ -102,8 +116,8 @@ fn render(b: &Briefing) -> String {
             if let Some(r) = &it.relation {
                 head.push_str(&format!(" [{r}]"));
             }
-            if let Some(t) = it.tier {
-                head.push_str(&format!(" [{t:?}]"));
+            if let Some(e) = &it.entity {
+                head.push_str(&format!(" (#{e})"));
             }
             if it.spoiler {
                 head.push_str(" [spoiler]");
@@ -131,12 +145,31 @@ fn render(b: &Briefing) -> String {
                     let src = match cit.kind {
                         CitationKind::Page => format!("“{}”", cit.quote.clone().unwrap_or_default()),
                         CitationKind::Record => format!("record {:?}", cit.record.as_ref().map(|r| &r.value)),
+                        CitationKind::Book => format!("(the book) “{}”", cit.quote.clone().unwrap_or_default()),
                     };
                     s.push_str(&format!("        – {} {} <{}> {}\n", cit.title, cit.year.clone().unwrap_or_default(), cit.url.clone().unwrap_or_default(), src));
                 }
             }
         }
         s.push('\n');
+    }
+    if !b.entities.is_empty() {
+        s.push_str("## connection map\n");
+        for e in &b.entities {
+            let f = e.facts.as_ref();
+            let dates = match (f.and_then(|f| f.start.clone()), f.and_then(|f| f.end.clone())) {
+                (Some(a), Some(z)) => format!(" {a}–{z}"),
+                (Some(a), None) => format!(" {a}"),
+                _ => String::new(),
+            };
+            let place = f.and_then(|f| f.coordinates).map(|c| format!(" @{:.2},{:.2}", c[0], c[1])).unwrap_or_default();
+            let wd = e.wikidata.clone().map(|q| format!(" [{q}]")).unwrap_or_default();
+            s.push_str(&format!("- {} ({:?}): {}{dates}{place}{wd}\n", e.id, e.kind, e.name));
+        }
+        for l in &b.links {
+            let cite = l.claim.citations.first().map(|c| c.title.clone()).unwrap_or_default();
+            s.push_str(&format!("  {} —{}→ {}: {} [{}]\n", l.from, l.relation, l.to, l.claim.text, cite));
+        }
     }
     s
 }
@@ -156,7 +189,12 @@ async fn main() {
     let mut o = AppOptions::new(data_dir.clone());
     o.reads_dir = Some(reads);
     o.mirror_delay_ms = 60_000;
-    if !args.dry_run {
+    let no_api = args.dry_run || args.prompt_dir.is_some() || args.draft.is_some();
+    if args.prompt_dir.is_some() || args.draft.is_some() {
+        // Catalogue lookups and page fetches only: no key, nothing sent to the model's API.
+        o.briefing_transport = Some(Arc::new(LiveTransport::new().expect("HTTPS")));
+    }
+    if !no_api {
         let loaded = load_api_key(std::env::var(KEY_VAR).ok().as_deref(), &secrets_path());
         if let Some(w) = loaded.warning {
             eprintln!("{w}");
@@ -205,12 +243,47 @@ async fn main() {
         return;
     }
 
+    if let Some(dir) = &args.prompt_dir {
+        std::fs::create_dir_all(dir).expect("the --prompt-dir folder");
+        let d = doc_id.clone();
+        let ex = app.run(move |c| c.briefing_extract(&d)).await.expect("extract");
+        let lookups = Lookups::new(app.briefing.transport.clone(), 20);
+        let seed_records = seed(&lookups, &ex.input).await;
+        std::fs::write(dir.join("system.md"), system_prompt()).unwrap();
+        std::fs::write(dir.join("user.md"), user_message(args.level, &ex.input, &seed_records)).unwrap();
+        std::fs::write(dir.join("schema.json"), serde_json::to_vec_pretty(&draft_schema()).unwrap()).unwrap();
+        let tool_list: Vec<String> = tools().as_array().unwrap().iter().map(|t| format!("- {}: {}", t["name"].as_str().unwrap_or(""), t["description"].as_str().unwrap_or("(Anthropic's server tool)"))).collect();
+        std::fs::write(dir.join("tools.md"), tool_list.join("\n")).unwrap();
+        println!("Wrote system.md, user.md, schema.json and tools.md to {}.", dir.display());
+        return;
+    }
+
     let progress = |s: Stage| eprintln!("… {}", s.as_str());
-    match generate(&app, &doc_id, args.level, &Limits::default(), &progress).await {
+    let result = match &args.draft {
+        Some(path) => {
+            let draft: Draft = match serde_json::from_slice(&std::fs::read(path).expect("read the draft")) {
+                Ok(d) => d,
+                Err(e) => {
+                    eprintln!("The draft doesn't match the schema: {e}");
+                    std::process::exit(1);
+                }
+            };
+            let d = doc_id.clone();
+            let ex = app.run(move |c| c.briefing_extract(&d)).await.expect("extract");
+            progress(Stage::Checking);
+            let research = Research { draft, evidence: Evidence::default(), model: "draft (Claude Code agent)".into() };
+            Ok(finish(&app, ex, args.level, research, Usage::default(), 0, &Limits::default(), std::time::Instant::now()).await)
+        }
+        None => generate(&app, &doc_id, args.level, &Limits::default(), &progress).await,
+    };
+    match result {
         Ok(g) => {
             let b = &g.briefing;
             println!("{}", render(b));
-            println!("Kept {} claims and {} works; dropped {} claims and {} works.", b.stats.claims_kept, b.stats.works_kept, b.stats.claims_dropped, b.stats.works_dropped);
+            println!(
+                "Kept {} claims, {} works and {} links; dropped {} claims, {} works and {} links.",
+                b.stats.claims_kept, b.stats.works_kept, b.stats.links_kept, b.stats.claims_dropped, b.stats.works_dropped, b.stats.links_dropped
+            );
             if !g.report.dropped.is_empty() {
                 println!("\nDropped:");
                 for d in &g.report.dropped {

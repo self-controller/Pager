@@ -9,7 +9,7 @@
 //! - A claim needs one surviving citation that isn't Wikipedia; a disagreement needs two sides that
 //!   keep a claim each. Items and sections left empty go.
 
-use super::lookup::{valid_isbn, Lookups, PageText, RecordInfo};
+use super::lookup::{is_qid, valid_isbn, Lookups, PageText, RecordInfo, WikiFacts};
 use super::schema::*;
 use super::text_match::{author_matches, quote_found, quote_words, title_matches, tokens, QUOTE_MAX_WORDS, QUOTE_MIN_WORDS};
 use futures::stream::{self, StreamExt};
@@ -17,9 +17,10 @@ use serde::Serialize;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 
-/// Most citations kept per claim, items per section.
+/// Most citations kept per claim (items per section: `SectionKind::max_items`).
 pub const MAX_CITATIONS: usize = 3;
-pub const MAX_ITEMS: usize = 8;
+/// Most claims across the sections (links aside): about three minutes' reading.
+pub const MAX_CLAIMS: u32 = 24;
 /// Fewer kept claims than this outside the overview means "not much is known".
 pub const LITTLE_KNOWN_BELOW: u32 = 3;
 const CONCURRENCY: usize = 6;
@@ -27,6 +28,8 @@ const CONCURRENCY: usize = 6;
 /// What the run itself retrieved: fetched pages' text, search results, search citations' snippets.
 #[derive(Clone, Debug, Default)]
 pub struct Evidence {
+    /// The book's front matter as it was sent to the model, for `book` citations.
+    pub book: String,
     pub fetched: HashMap<String, String>,
     pub found: HashMap<String, String>,
     pub snippets: HashMap<String, Vec<String>>,
@@ -119,11 +122,15 @@ pub struct Report {
     pub claims_dropped: u32,
     pub works_kept: u32,
     pub works_dropped: u32,
+    pub links_kept: u32,
+    pub links_dropped: u32,
     pub dropped: Vec<Dropped>,
 }
 
 pub struct Verified {
     pub sections: Vec<Section>,
+    pub entities: Vec<Entity>,
+    pub links: Vec<Link>,
     pub little_known: bool,
     pub report: Report,
 }
@@ -151,7 +158,7 @@ async fn resolve_record(lookups: &Lookups, r: &Record) -> Result<Option<RecordIn
         }
         RecordKind::Wikidata => {
             let q = v.rsplit('/').next().unwrap_or(v);
-            if q.starts_with('Q') && q[1..].chars().all(|c| c.is_ascii_digit()) && q.len() > 1 {
+            if is_qid(q) {
                 lookups.wikidata_entity(q).await
             } else {
                 Err("that isn't a Wikidata ID".into())
@@ -230,6 +237,21 @@ impl Ctx<'_> {
                     Some(Ok(None)) => Err("the page is missing, or isn't text (a PDF)".into()),
                     Some(Err(e)) => Err(format!("couldn't fetch the page ({e})")),
                     None => Err("the quote isn't in what the run read".into()),
+                }
+            }
+            CitationKind::Book => {
+                let quote = c.quote.clone().filter(|q| !q.trim().is_empty()).ok_or("no quote")?;
+                let n = quote_words(&quote);
+                if !(QUOTE_MIN_WORDS..=QUOTE_MAX_WORDS).contains(&n) {
+                    return Err("the quote is too short or too long to check".into());
+                }
+                let book = self.evidence.book.clone();
+                if quote_found(&quote, self.tokens_for("book", &book)) {
+                    c.check = Some(Check::Quoted);
+                    c.url = None;
+                    Ok(())
+                } else {
+                    Err("the quote isn't in the book's front matter".into())
                 }
             }
             CitationKind::Record => {
@@ -313,6 +335,12 @@ impl Ctx<'_> {
     fn check_item(&mut self, kind: SectionKind, mut item: Item) -> Option<Item> {
         let place = format!("{} › {}", kind.as_str(), short(&item.heading, 50));
         let claim_count = item.claims.len() + item.disagreement.as_ref().map(|d| d.sides.iter().map(|s| s.claims.len()).sum()).unwrap_or(0);
+        // Pre-reading names a real work, or it isn't pre-reading ("nothing is essential" isn't an item).
+        if kind == SectionKind::ReadFirst && item.work.is_none() {
+            self.report.claims_dropped += claim_count as u32;
+            self.drop(place, "pre-reading without a work to read");
+            return None;
+        }
         let mut work_ok = false;
         if let Some(w) = item.work.as_mut() {
             if let Err(reason) = self.check_work(w) {
@@ -358,12 +386,18 @@ impl Ctx<'_> {
     }
 }
 
+fn item_claims(i: &Item) -> u32 {
+    i.claims.len() as u32 + i.disagreement.as_ref().map(|d| d.sides.iter().map(|s| s.claims.len() as u32).sum()).unwrap_or(0)
+}
+
 /// Check a draft against its evidence. Lookups run up to six at a time.
 pub async fn verify(draft: Draft, evidence: &Evidence, lookups: &Lookups) -> Verified {
-    // What needs looking up: every record, and the pages whose quotes the run didn't already read.
+    // What needs looking up: every record, every Wikidata ID, and the pages whose quotes the run
+    // didn't already read.
     let mut records: HashSet<Record> = HashSet::new();
     let mut pages: HashSet<String> = HashSet::new();
     let note_citation = |c: &Citation, records: &mut HashSet<Record>, pages: &mut HashSet<String>| match c.kind {
+        CitationKind::Book => {}
         CitationKind::Record => {
             if let Some(r) = &c.record {
                 records.insert(r.clone());
@@ -380,21 +414,39 @@ pub async fn verify(draft: Draft, evidence: &Evidence, lookups: &Lookups) -> Ver
             }
         }
     };
+    let mut all_claims: Vec<&Claim> = Vec::new();
     for s in &draft.sections {
         for it in &s.items {
             if let Some(w) = &it.work {
                 records.insert(w.record.clone());
             }
-            let side_claims = it.disagreement.iter().flat_map(|d| d.sides.iter().flat_map(|s| s.claims.iter()));
-            for c in it.claims.iter().chain(side_claims) {
-                for cit in c.citations.iter().take(MAX_CITATIONS) {
-                    note_citation(cit, &mut records, &mut pages);
-                }
-            }
+            all_claims.extend(it.claims.iter());
+            all_claims.extend(it.disagreement.iter().flat_map(|d| d.sides.iter().flat_map(|s| s.claims.iter())));
         }
     }
-    let record_results: HashMap<Record, Result<Option<RecordInfo>, String>> = stream::iter(records.into_iter()).map(|r| async move { let out = resolve_record(lookups, &r).await; (r, out) }).buffer_unordered(CONCURRENCY).collect().await;
-    let page_results: HashMap<String, Result<Option<PageText>, String>> = stream::iter(pages.into_iter()).map(|u| async move { let out = lookups.page(&u).await; (u, out) }).buffer_unordered(CONCURRENCY).collect().await;
+    all_claims.extend(draft.links.iter().map(|l| &l.claim));
+    for c in all_claims {
+        for cit in c.citations.iter().take(MAX_CITATIONS) {
+            note_citation(cit, &mut records, &mut pages);
+        }
+    }
+    for e in &draft.entities {
+        if let Some(r) = &e.record {
+            records.insert(r.clone());
+        }
+    }
+    let qids: Vec<String> = draft.entities.iter().filter_map(|e| e.wikidata.as_deref().map(str::trim)).filter(|q| is_qid(q)).map(str::to_string).collect::<HashSet<_>>().into_iter().collect();
+    let facts_job = async {
+        if qids.is_empty() {
+            Ok(HashMap::new())
+        } else {
+            lookups.wikidata_facts(&qids).await
+        }
+    };
+    let records_job = stream::iter(records.into_iter()).map(|r| async move { let out = resolve_record(lookups, &r).await; (r, out) }).buffer_unordered(CONCURRENCY).collect::<HashMap<Record, Result<Option<RecordInfo>, String>>>();
+    let pages_job = stream::iter(pages.into_iter()).map(|u| async move { let out = lookups.page(&u).await; (u, out) }).buffer_unordered(CONCURRENCY).collect::<HashMap<String, Result<Option<PageText>, String>>>();
+    let (facts, record_results, page_results) = futures::join!(facts_job, records_job, pages_job);
+    let facts: HashMap<String, WikiFacts> = facts.unwrap_or_default();
     let resolved = Resolved { records: record_results, pages: page_results };
 
     let mut ctx = Ctx { evidence, resolved: &resolved, page_tokens: HashMap::new(), report: Report::default() };
@@ -407,16 +459,126 @@ pub async fn verify(draft: Draft, evidence: &Evidence, lookups: &Lookups) -> Ver
         }
     }
     let mut sections = Vec::new();
-    let mut outside_overview = 0u32;
     for kind in SectionKind::ORDER {
         if let Some(mut items) = by_kind.remove(&kind) {
-            items.truncate(if kind == SectionKind::Overview { 1 } else { MAX_ITEMS });
-            if kind != SectionKind::Overview {
-                outside_overview += items.iter().map(|i| i.claims.len() as u32 + i.disagreement.as_ref().map(|d| d.sides.iter().map(|s| s.claims.len() as u32).sum()).unwrap_or(0)).sum::<u32>();
+            for extra in items.drain(kind.max_items().min(items.len())..) {
+                let n = item_claims(&extra);
+                ctx.report.claims_kept -= n;
+                ctx.report.claims_dropped += n;
+                ctx.drop(format!("{} › {}", kind.as_str(), short(&extra.heading, 50)), format!("past the section's limit of {}", kind.max_items()));
             }
             sections.push(Section { kind, items });
         }
     }
+    // A briefing the reader takes in at a glance: past MAX_CLAIMS, trim the last items of the least
+    // central sections first. The overview and pre-reading are never trimmed.
+    let mut total: u32 = sections.iter().flat_map(|s| s.items.iter()).map(item_claims).sum();
+    for kind in [SectionKind::Terms, SectionKind::Conversation, SectionKind::Situation, SectionKind::Moment] {
+        let Some(sec) = sections.iter_mut().find(|s| s.kind == kind) else { continue };
+        while total > MAX_CLAIMS && sec.items.len() > 1 {
+            let extra = sec.items.pop().unwrap();
+            let n = item_claims(&extra);
+            total -= n;
+            ctx.report.claims_kept -= n;
+            ctx.report.claims_dropped += n;
+            ctx.drop(format!("{} › {}", kind.as_str(), short(&extra.heading, 50)), format!("past the briefing's length of {MAX_CLAIMS} claims"));
+        }
+    }
+    sections.retain(|s| !s.items.is_empty());
+    let mut outside_overview: u32 = sections.iter().filter(|s| s.kind != SectionKind::Overview).flat_map(|s| s.items.iter()).map(item_claims).sum();
+
+    // Entities: a Wikidata ID stays only if its label matches the name, and brings the item's dates
+    // and coordinates; a work's record stays only if it resolves and matches.
+    let mut entities: Vec<Entity> = Vec::new();
+    let mut seen_ids: HashSet<String> = HashSet::new();
+    for mut e in draft.entities {
+        e.id = e.id.trim().to_string();
+        if e.id.is_empty() || !seen_ids.insert(e.id.clone()) {
+            continue;
+        }
+        e.facts = None;
+        e.resolved_url = None;
+        if let Some(q) = e.wikidata.clone().map(|q| q.trim().to_string()) {
+            match facts.get(&q) {
+                Some(f) if f.label.iter().chain(f.aliases.iter()).any(|l| title_matches(&e.name, l, None) || title_matches(l, &e.name, None)) => {
+                    e.wikidata = Some(q);
+                    // Dates where a date means something (an idea's "inception" is usually a stray
+                    // match), coordinates for places only.
+                    let dated = matches!(e.kind, EntityKind::Person | EntityKind::Work | EntityKind::Event | EntityKind::Movement | EntityKind::Institution);
+                    let placed = e.kind == EntityKind::Place;
+                    e.facts = Some(Facts {
+                        description: f.description.clone(),
+                        start: f.start.clone().filter(|_| dated),
+                        end: f.end.clone().filter(|_| dated),
+                        coordinates: f.coordinates.filter(|_| placed),
+                        source: f.url.clone(),
+                    });
+                }
+                Some(f) => {
+                    ctx.drop(format!("entity {} (Wikidata {q})", e.name), format!("Wikidata calls it \"{}\"", f.label.clone().unwrap_or_default()));
+                    e.wikidata = None;
+                }
+                None => {
+                    if is_qid(&q) {
+                        ctx.drop(format!("entity {} (Wikidata {q})", e.name), "Wikidata didn't answer for it");
+                    }
+                    e.wikidata = None;
+                }
+            }
+        }
+        if let Some(r) = e.record.clone() {
+            let mut w = Work { title: e.name.clone(), authors: vec![], year: None, record: r, resolved_url: None };
+            match ctx.check_work(&mut w) {
+                Ok(()) => e.resolved_url = w.resolved_url,
+                Err(reason) => {
+                    ctx.drop(format!("entity {} (record)", e.name), reason);
+                    e.record = None;
+                }
+            }
+        }
+        entities.push(e);
+    }
+
+    // Links: a cited claim between two known entities.
+    let ids: HashSet<String> = entities.iter().map(|e| e.id.clone()).collect();
+    let mut links = Vec::new();
+    for mut l in draft.links {
+        let place = format!("link {} → {} ({})", l.from, l.to, short(&l.relation, 30));
+        if !ids.contains(&l.from) || !ids.contains(&l.to) || l.from == l.to {
+            ctx.report.links_dropped += 1;
+            ctx.drop(place, "it joins an unknown entity");
+            continue;
+        }
+        match ctx.check_claim(&place, l.claim.clone()) {
+            Some(c) => {
+                l.claim = c;
+                ctx.report.links_kept += 1;
+                outside_overview += 1;
+                links.push(l);
+            }
+            None => ctx.report.links_dropped += 1,
+        }
+    }
+
+    // Keep the entities something still points at, plus the book and its author.
+    let mut used: HashSet<String> = ["book".to_string(), "author".to_string()].into_iter().collect();
+    for l in &links {
+        used.insert(l.from.clone());
+        used.insert(l.to.clone());
+    }
+    for s in &mut sections {
+        for it in &mut s.items {
+            if let Some(id) = &it.entity {
+                if ids.contains(id) {
+                    used.insert(id.clone());
+                } else {
+                    it.entity = None;
+                }
+            }
+        }
+    }
+    entities.retain(|e| used.contains(&e.id));
+
     let little_known = draft.little_known || outside_overview < LITTLE_KNOWN_BELOW;
-    Verified { sections, little_known, report: ctx.report }
+    Verified { sections, entities, links, little_known, report: ctx.report }
 }

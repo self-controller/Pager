@@ -22,7 +22,6 @@
         "heading": "On the Origin of Species",
         "relation": null,
         "work": null,
-        "tier": null,
         "readScope": null,
         "readNote": null,
         "timeEstimate": null,
@@ -97,7 +96,8 @@
           ]
          }
         ],
-        "disagreement": null
+        "disagreement": null,
+        "entity": null
        }
       ]
      },
@@ -108,7 +108,6 @@
         "heading": "The population debate",
         "relation": null,
         "work": null,
-        "tier": null,
         "readScope": null,
         "readNote": null,
         "timeEstimate": null,
@@ -148,6 +147,42 @@
           ]
          }
         ],
+        "disagreement": null,
+        "entity": "lyell"
+       }
+      ]
+     },
+     {
+      "kind": "situation",
+      "items": [
+       {
+        "heading": "Writing at Down House",
+        "entity": "london",
+        "relation": null,
+        "work": null,
+        "readScope": null,
+        "readNote": null,
+        "timeEstimate": null,
+        "suits": null,
+        "spoiler": false,
+        "claims": [
+         {
+          "text": "Darwin presented the Origin as an abstract of a longer book.",
+          "inferred": false,
+          "spoiler": false,
+          "citations": [
+           {
+            "kind": "page",
+            "url": "https://www.darwinproject.ac.uk/letters/darwins-works/origin",
+            "title": "Origin | Darwin Correspondence Project",
+            "author": null,
+            "year": null,
+            "quote": "Darwin wrote the Origin as an abstract of a much longer work on species",
+            "record": null
+           }
+          ]
+         }
+        ],
         "disagreement": null
        }
       ]
@@ -159,7 +194,6 @@
         "heading": "Thomas Malthus",
         "relation": "borrows from",
         "work": null,
-        "tier": null,
         "readScope": null,
         "readNote": null,
         "timeEstimate": null,
@@ -229,13 +263,44 @@
            ]
           }
          ]
-        }
+        },
+        "entity": "malthus"
        }
       ]
      },
      {
       "kind": "readFirst",
       "items": [
+       {
+        "heading": "Nothing essential",
+        "entity": null,
+        "relation": null,
+        "work": null,
+        "readScope": null,
+        "readNote": null,
+        "timeEstimate": null,
+        "suits": null,
+        "spoiler": false,
+        "claims": [
+         {
+          "text": "Nothing is essential before the Origin.",
+          "inferred": false,
+          "spoiler": false,
+          "citations": [
+           {
+            "kind": "page",
+            "url": "https://plato.stanford.edu/entries/darwinism/",
+            "title": "Darwinism",
+            "author": null,
+            "year": null,
+            "quote": "Charles Darwin published On the Origin of Species in November 1859, presenting a theory",
+            "record": null
+           }
+          ]
+         }
+        ],
+        "disagreement": null
+       },
        {
         "heading": "Malthus, An Essay on the Principle of Population",
         "relation": null,
@@ -250,7 +315,6 @@
           "value": "OL1179009W"
          }
         },
-        "tier": "helpful",
         "readScope": "summary",
         "readNote": "A summary of chapters 1–2 is enough.",
         "timeEstimate": "20 minutes",
@@ -274,7 +338,8 @@
           ]
          }
         ],
-        "disagreement": null
+        "disagreement": null,
+        "entity": null
        },
        {
         "heading": "The Hidden Darwin Letters",
@@ -290,7 +355,6 @@
           "value": "10.9999/fake.2004.001"
          }
         },
-        "tier": "essential",
         "readScope": "whole",
         "readNote": null,
         "timeEstimate": "6 hours",
@@ -314,7 +378,8 @@
           ]
          }
         ],
-        "disagreement": null
+        "disagreement": null,
+        "entity": null
        },
        {
         "heading": "A book with a broken ISBN",
@@ -330,7 +395,6 @@
           "value": "9780140439129"
          }
         },
-        "tier": "optional",
         "readScope": null,
         "readNote": null,
         "timeEstimate": null,
@@ -354,7 +418,8 @@
           ]
          }
         ],
-        "disagreement": null
+        "disagreement": null,
+        "entity": null
        },
        {
         "heading": "Lyell, Principles of Geology",
@@ -370,7 +435,6 @@
           "value": "9780141439518"
          }
         },
-        "tier": "helpful",
         "readScope": null,
         "readNote": null,
         "timeEstimate": null,
@@ -394,7 +458,8 @@
           ]
          }
         ],
-        "disagreement": null
+        "disagreement": null,
+        "entity": null
        }
       ]
      },
@@ -405,7 +470,6 @@
         "heading": "Natural selection",
         "relation": null,
         "work": null,
-        "tier": null,
         "readScope": null,
         "readNote": null,
         "timeEstimate": null,
@@ -429,7 +493,8 @@
           ]
          }
         ],
-        "disagreement": null
+        "disagreement": null,
+        "entity": null
        }
       ]
      },
@@ -450,16 +515,128 @@
           "value": "9780691023069"
          }
         },
-        "tier": null,
         "readScope": null,
         "readNote": null,
         "timeEstimate": null,
         "suits": "Readers who want the life behind the book.",
         "spoiler": false,
         "claims": [],
-        "disagreement": null
+        "disagreement": null,
+        "entity": null
        }
       ]
+     }
+    ],
+    "entities": [
+     {
+      "id": "book",
+      "kind": "work",
+      "name": "On the Origin of Species",
+      "wikidata": "Q20124",
+      "record": {
+       "kind": "wikidata",
+       "value": "Q20124"
+      }
+     },
+     {
+      "id": "author",
+      "kind": "person",
+      "name": "Charles Darwin",
+      "wikidata": "Q1035",
+      "record": null
+     },
+     {
+      "id": "malthus",
+      "kind": "person",
+      "name": "Thomas Robert Malthus",
+      "wikidata": "Q13526",
+      "record": null
+     },
+     {
+      "id": "london",
+      "kind": "place",
+      "name": "London",
+      "wikidata": "Q84",
+      "record": null
+     },
+     {
+      "id": "lyell",
+      "kind": "person",
+      "name": "Charles Lyell",
+      "wikidata": "Q1035",
+      "record": null
+     },
+     {
+      "id": "orphan",
+      "kind": "idea",
+      "name": "Nothing points here",
+      "wikidata": null,
+      "record": null
+     }
+    ],
+    "links": [
+     {
+      "from": "author",
+      "to": "malthus",
+      "relation": "read",
+      "claim": {
+       "text": "Darwin read Malthus in October 1838.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/darwinism/",
+         "title": "Darwinism",
+         "author": null,
+         "year": null,
+         "quote": "in October 1838 he happened to read Malthus on Population for amusement",
+         "record": null
+        }
+       ]
+      }
+     },
+     {
+      "from": "malthus",
+      "to": "book",
+      "relation": "shaped",
+      "claim": {
+       "text": "Malthus visited Down House.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/darwinism/",
+         "title": "Darwinism",
+         "author": null,
+         "year": null,
+         "quote": "Malthus was Darwin's closest friend and visited Down House every summer",
+         "record": null
+        }
+       ]
+      }
+     },
+     {
+      "from": "author",
+      "to": "nobody",
+      "relation": "met",
+      "claim": {
+       "text": "Darwin met nobody.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/darwinism/",
+         "title": "Darwinism",
+         "author": null,
+         "year": null,
+         "quote": "in October 1838 he happened to read Malthus on Population for amusement",
+         "record": null
+        }
+       ]
+      }
      }
     ]
    }
