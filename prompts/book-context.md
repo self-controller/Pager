@@ -149,16 +149,17 @@ If one phase turns out to be large, split it again rather than leaving it half d
   user says so.
 
 ## Test books
-These go in `reads/context-test/` (the library folder, which git ignores). The user adds
-them; if they aren't there yet, build against the mocks and say which are missing.
+All three are in `reads/context-test/` (the library folder, which git ignores), downloaded
+2026-11-05. Pride and Prejudice is the illustrated edition (about 25 MB), which also tests
+a large EPUB.
 - **Classic novel:** Jane Austen, *Pride and Prejudice*, the Project Gutenberg EPUB
   (ebook #1342).
 - **Philosophy:** Friedrich Nietzsche, *Thus Spoke Zarathustra*, translated by Thomas
   Common, the Project Gutenberg EPUB (ebook #1998).
-- **Modern nonfiction:** Bart D. Ehrman, *Misquoting Jesus: The Story Behind Who Changed
-  the Bible and Why* (HarperSanFrancisco, 2005), in a DRM-free EPUB. It's a good test
-  because scholars dispute it in print (for example Daniel B. Wallace's reviews), so the
-  "where scholars disagree" rule gets exercised.
+- **Nonfiction:** Charles Darwin, *On the Origin of Species* (1859, first edition), the
+  Project Gutenberg EPUB (ebook #1228). Its reception, Darwin's sources (Malthus, Lyell,
+  Wallace) and the later scholarship give the "author's conversation" and "where scholars
+  disagree" rules plenty to work with.
 
 ## The phone
 The iOS app isn't compiled yet. Check phone behaviour with a narrow browser window
