@@ -30,8 +30,8 @@ fn level_of(v: Option<&str>) -> Result<Level> {
     }
 }
 
-async fn status(State(app): State<Arc<App>>) -> Response {
-    ok(briefing::status(&app))
+async fn status(State(app): State<Arc<App>>, device: Option<Extension<DeviceCtx>>) -> Result<Response> {
+    Ok(ok(briefing::status(&app, device.map(|d| d.0 .0.id.clone())).await?))
 }
 
 async fn get_briefing(State(app): State<Arc<App>>, Path(id): Path<String>, RawQuery(raw): RawQuery) -> Result<Response> {

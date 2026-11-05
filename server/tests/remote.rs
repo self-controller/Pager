@@ -270,6 +270,8 @@ async fn no_path_on_this_computer_leaves_it() {
     let p = pair(&t, "iPhone").await;
     let did = lib.doc["id"].as_str().unwrap();
     let sid = lib.section["id"].as_str().unwrap();
+    // A failed Context run (there is no API key here, so none can start).
+    t.db_exec(&format!("INSERT INTO context_runs (id, document_id, content_hash, level, status, stage, error, started_at) VALUES ('r1', '{did}', 'h', 'general', 'failed', 'failed', 'Couldn''t reach Anthropic''s API. Nothing was saved.', '2026-10-26T11:00:00.000Z')"));
     let urls: Vec<(&str, Vec<String>)> = vec![
         ("GET /documents", vec!["/documents".into(), "/documents?sort=title".into(), "/documents?history=true".into()]),
         ("GET /documents/:id", vec![format!("/documents/{did}")]),
@@ -292,6 +294,9 @@ async fn no_path_on_this_computer_leaves_it() {
         ("GET /assets/:file", vec![format!("/assets/{}", lib.asset)]),
         ("GET /tree", vec!["/tree".into()]),
         ("GET /sync/manifest", vec!["/sync/manifest".into(), "/sync/manifest?after=0".into()]),
+        ("GET /tools/context/status", vec!["/tools/context/status".into()]),
+        ("GET /tools/context/briefings/:id", vec![format!("/tools/context/briefings/{did}"), format!("/tools/context/briefings/{did}?level=scholar")]),
+        ("GET /tools/context/runs/:rid", vec!["/tools/context/runs/r1".into()]),
     ];
     let mut covered: Vec<&str> = urls.iter().map(|(r, _)| *r).collect();
     covered.sort();

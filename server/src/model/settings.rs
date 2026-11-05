@@ -31,6 +31,18 @@ pub struct RemoteSettings {
     pub relay_token: Option<String>,
 }
 
+/// Context briefings (prompts/book-context.md).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextSettings {
+    /// Paid runs (a new briefing or a Refresh) each paired phone may start in a rolling 24 hours.
+    /// 0 means phones only open briefings already made. The computer is never limited.
+    pub phone_daily_limit: i64,
+}
+
+pub const PHONE_DAILY_LIMIT_DEFAULT: i64 = 10;
+pub const PHONE_DAILY_LIMIT_MAX: i64 = 100;
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
@@ -38,6 +50,7 @@ pub struct AppSettings {
     pub record: RecordSettings,
     pub idle_shutdown_minutes: i64,
     pub remote: RemoteSettings,
+    pub context: ContextSettings,
 }
 
 impl Default for AppSettings {
@@ -47,6 +60,7 @@ impl Default for AppSettings {
             record: RecordSettings { navigation: true, lookups: true, search: true, sessions: true, other: true },
             idle_shutdown_minutes: 360,
             remote: RemoteSettings { enabled: false, origin: None, relay: None, relay_token: None },
+            context: ContextSettings { phone_daily_limit: PHONE_DAILY_LIMIT_DEFAULT },
         }
     }
 }

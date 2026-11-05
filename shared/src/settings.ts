@@ -29,6 +29,8 @@ export interface ReadingSettingsSuggestion {
   notes: "popover" | "end";
   remoteImages: "block" | "allow";
   customCss: string;
+  /** Who Context briefings are written for (the UI keeps it in src/state/settings.ts). */
+  contextLevel: "general" | "student" | "scholar";
 }
 
 export interface AppSettings {
@@ -73,6 +75,15 @@ export interface AppSettings {
      * clearing `relay` clears it. The pairing link carries it (`rt`) so phones can use the relay too.
      */
     relayToken: string | null;
+  };
+  /** Context briefings (API.md, "Context"). */
+  context: {
+    /**
+     * Paid runs (a new briefing or a Refresh) each paired phone may start in a rolling 24 hours: a
+     * whole number from 0 (phones only open briefings already made) to 100. Default 10. The
+     * computer is never limited.
+     */
+    phoneDailyLimit: number;
   };
 }
 

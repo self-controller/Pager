@@ -2,6 +2,10 @@ import type {
   Annotation,
   AppSettings,
   AppSettingsPatch,
+  ContextLevel,
+  ContextRun,
+  ContextState,
+  ContextStatus,
   CreateAnnotation,
   DeviceView,
   CreateFileInput,
@@ -23,6 +27,8 @@ import type {
   ProgressUpdate,
   ReadingProgress,
   Section,
+  StartContextInput,
+  StartContextResult,
   TagCount,
   TreeResponse,
   UpdateAnnotation,
@@ -98,4 +104,14 @@ export interface PagerApi {
   /** On the phone: ask to pair with the computer's code, then poll until it answers. */
   requestPairing(code: string, name: string): Promise<PairRequestResult>;
   pollPairing(request: PairRequestResult): Promise<PairPollResult>;
+
+  // ---- Context briefings (API.md, "Context"). Backend only: the mock answers `unsupported`. ----
+  /** Whether the computer has an API key, and on a phone how many paid runs it has left today. */
+  getContextStatus(): Promise<ContextStatus>;
+  /** The stored briefing for a document at a level (or the newest for an earlier file version), and any run going. */
+  getContextBriefing(docId: string, level: ContextLevel): Promise<ContextState>;
+  /** The cached briefing (200), or a run (202). `refresh` makes a new one even when one is cached: it costs money. */
+  startContextBriefing(docId: string, input: StartContextInput): Promise<StartContextResult>;
+  /** Poll every 2 s while it runs. */
+  getContextRun(runId: string): Promise<ContextRun>;
 }

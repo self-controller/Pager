@@ -8,8 +8,8 @@ interface Props {
   onClose: () => void;
   title: string;
   children: ReactNode;
-  /** "center" for modals, "left"/"right" for side sheets (table of contents, tools on mobile). */
-  placement?: "center" | "left" | "right";
+  /** "center" for modals, "left"/"right" for side sheets (table of contents, tools on mobile), "full" for the whole window. */
+  placement?: "center" | "left" | "right" | "full";
   className?: string;
   /** Hide the visible header (title is still announced). */
   bare?: boolean;
@@ -36,8 +36,13 @@ export function Dialog({ open, onClose, title, children, placement = "center", c
     <dialog
       ref={ref}
       aria-label={title}
-      onClose={onClose}
+      // React passes a nested dialog's close and cancel up to this one's handlers (a full-screen view
+      // inside the tool sheet would close the sheet too): answer only this dialog's own.
+      onClose={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
       onCancel={(e) => {
+        if (e.target !== e.currentTarget) return;
         e.preventDefault();
         onClose();
       }}
@@ -51,6 +56,8 @@ export function Dialog({ open, onClose, title, children, placement = "center", c
           "top-1/2 right-auto bottom-auto left-1/2 h-auto max-h-[calc(100dvh-32px)] w-[min(520px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-md",
         placement === "left" && "top-0 right-auto bottom-0 left-0 h-dvh max-h-none w-[min(360px,90vw)]",
         placement === "right" && "top-0 right-0 bottom-0 left-auto h-dvh max-h-none w-[min(var(--size-tool-panel),100vw)]",
+        placement === "full" &&
+          "inset-0 h-dvh max-h-none w-screen pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
         className,
       )}
     >

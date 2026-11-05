@@ -228,7 +228,7 @@ any settings response and cannot `PATCH /settings/app`.
 | `PATCH /settings/global` | patch returns `SettingsResponse` |
 | `PATCH /settings/documents/:id` | patch returns `SettingsResponse` |
 | `DELETE /settings/documents/:id` | resets the document to global, 204 |
-| `PATCH /settings/app` | deep patch of `AppSettings` returns `SettingsResponse`. `remote: { enabled, origin, relay, relayToken }` turns remote access on and off at once, without a restart; `origin` is optional (see [Phones](#phones-the-remote-listener-m6)). |
+| `PATCH /settings/app` | deep patch of `AppSettings` returns `SettingsResponse`. `remote: { enabled, origin, relay, relayToken }` turns remote access on and off at once, without a restart; `origin` is optional (see [Phones](#phones-the-remote-listener-m6)). `context: { phoneDailyLimit }` is a whole number from 0 to 100 (default 10): the paid Context runs each phone may start in 24 hours. |
 | `GET /presets`, `POST /presets {name, values}`, `PATCH /presets/:id`, `DELETE /presets/:id` | named snapshots. Apply one by PATCHing its values into a scope. |
 
 `shared/src/settings.ts` suggests a starting vocabulary (`ReadingSettingsSuggestion`).
@@ -352,6 +352,7 @@ are unchanged.
 | `GET /search`, `GET /search/documents` | search |
 | `GET /settings`, `PATCH /settings/global`, `PATCH /settings/documents/:id`, `DELETE /settings/documents/:id`, `GET /presets` | reading settings |
 | `POST /events`, `GET /stream`, `GET /assets/:file`, `GET /tree`, `GET /sync/manifest` | the journal (recording switches apply), the stream, images, the folder tree, the manifest |
+| `GET /tools/context/status`, `GET/POST /tools/context/briefings/:id`, `GET /tools/context/runs/:rid` | Context briefings; a new run counts toward the phone's daily limit (see [Context](#context-sourced-briefings-phase-1)) |
 | `GET /health` | answered by the remote listener itself: `{ app, apiVersion, version, remote: { device: { id, name } } \| null }` |
 
 Refused: `PATCH /settings/app` and changes to presets; `GET /events` and `DELETE /events`; `/sources*`;
@@ -466,9 +467,9 @@ The shapes are `shared/src/context.ts`; the build prompt is `prompts/book-contex
 
 | Route | |
 |---|---|
-| `GET /tools/context/status` | `ContextStatus { ready, model, keyFile, keyVariable }`. `ready` is false when no API key is set on the computer. |
+| `GET /tools/context/status` | `ContextStatus { ready, model, keyFile, keyVariable, phone }`. `ready` is false when no API key is set on the computer. `phone` is `{ used, limit, left }` on a paired phone (its paid runs in the last 24 hours) and null on the computer. |
 | `GET /tools/context/briefings/:docId?level=general\|student\|scholar` | `ContextState { briefing, stale, run, cachedLevels }`. With no briefing for the file as it is now, `briefing` is the newest one for an earlier version and `stale` is true. `run` is a run in progress for this book and level. |
-| `POST /tools/context/briefings/:docId` | `{ level?, refresh? }`. A cached briefing (and no `refresh`): 200 `{ briefing, run: null }`. Otherwise 202 `{ briefing: null, run }`: a new run, or the one already running for this book, level and file version. No key: 503 `not_configured`, and nothing is sent anywhere. |
+| `POST /tools/context/briefings/:docId` | `{ level?, refresh? }`. A cached briefing (and no `refresh`): 200 `{ briefing, run: null }`. Otherwise 202 `{ briefing: null, run }`: a new run, or the one already running for this book, level and file version. No key: 503 `not_configured`, and nothing is sent anywhere. A phone past its daily limit: 429 `limit_reached` (below). |
 | `GET /tools/context/runs/:runId` | `ContextRun { id, docId, level, status: running\|done\|failed, stage, error?, startedAt, finishedAt? }`. Poll it every 2 s; `error` is a calm sentence to show as is. |
 
 - **When it runs:** only when asked. A run lives on the server: it continues if the client goes away,
@@ -481,8 +482,13 @@ The shapes are `shared/src/context.ts`; the build prompt is `prompts/book-contex
   searches, fetches and estimated cost are logged and stored with it (`stats` on the briefing).
 - **Cache:** one briefing per document, level and file version (`content_hash`); Refresh replaces it.
   Briefings are a cache: they are not in the export.
-- **Phones:** Phase 1 keeps these routes on the computer (`REMOTE_DENY`). Phase 2 opens them to
-  paired phones with a per-device daily limit.
+- **Phones:** all four routes are open to paired phones (`REMOTE_ALLOW`). A new run spends the
+  computer's API key, so each phone may start `context.phoneDailyLimit` of them (an app setting,
+  default 10, 0 to 100) in a rolling 24 hours. A new briefing and a Refresh both count; a cache hit,
+  or joining a run already going for the same book, never does. The check and the run's record are
+  one step, so two requests at once can't both slip past it. Over the limit the POST answers 429
+  `limit_reached` with a calm sentence to show as is ("This phone has started 10 new briefings in the
+  last 24 hours, …"), and nothing is sent anywhere. The computer is never limited.
 
 ## Other routes
 

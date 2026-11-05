@@ -694,7 +694,17 @@ export function createMockApi(options: MockApiOptions = {}): PagerApi {
     revokeDevice: backendOnly,
     requestPairing: backendOnly,
     pollPairing: backendOnly,
+
+    // Context asks a model and checks sources from the computer: there is nothing to preview.
+    getContextStatus: contextBackendOnly,
+    getContextBriefing: contextBackendOnly,
+    startContextBriefing: contextBackendOnly,
+    getContextRun: contextBackendOnly,
   };
+}
+
+async function contextBackendOnly(): Promise<never> {
+  throw new ApiError(ErrorCodes.unsupported, "Context needs Pager running on your computer. The preview runs in this browser only.");
 }
 
 async function backendOnly(): Promise<never> {

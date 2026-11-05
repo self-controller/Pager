@@ -508,20 +508,135 @@ async fn tool_records_still_work_for_the_context_tool() {
     assert_eq!(one.status, 200, "{}", one.text);
 }
 
-#[tokio::test]
-async fn a_phone_cannot_use_context_yet() {
-    let t = make_app_with(Clock::fake("2026-11-05T12:00:00Z"), None, None);
+/// Pairs a phone over the remote listener and returns its bearer token.
+async fn pair_phone(t: &TestApp) -> String {
     let on = t.json("PATCH", "/api/settings/app", Some(json!({ "remote": { "enabled": true, "origin": "https://fedora.tail1234.ts.net" } }))).await;
     assert_eq!(on.status, 200, "{}", on.text);
     let w = t.json("POST", "/api/devices/pairing", None).await;
     let req = t.remote_call(Call::new("POST", "/api/pair").json(json!({ "code": w.body["code"], "name": "iPhone" }))).await;
     t.json("POST", "/api/devices/pairing/approve", Some(json!({ "requestId": req.body["requestId"] }))).await;
     let done = t.remote_call(Call::new("POST", "/api/pair/poll").json(req.body.clone())).await;
-    let token = done.body["token"].as_str().unwrap().to_string();
-    for (method, path) in [("GET", "/api/tools/context/status"), ("GET", "/api/tools/context/briefings/x"), ("POST", "/api/tools/context/briefings/x"), ("GET", "/api/tools/context/runs/x")] {
-        let r = t.remote_call(Call::new(method, path).token(&token).json(json!({}))).await;
-        assert_eq!(r.status, 403, "{method} {path}: {}", r.text);
+    done.body["token"].as_str().unwrap().to_string()
+}
+
+async fn phone_start(t: &TestApp, token: &str, doc: &str, body: Value) -> Answer {
+    t.remote_call(Call::new("POST", &format!("/api/tools/context/briefings/{doc}")).token(token).json(body)).await
+}
+
+async fn phone_status(t: &TestApp, token: &str) -> Answer {
+    t.remote_call(Call::get("/api/tools/context/status").token(token)).await
+}
+
+async fn phone_wait(t: &TestApp, token: &str, id: &str) -> Value {
+    for _ in 0..1000 {
+        let r = t.remote_call(Call::get(&format!("/api/tools/context/runs/{id}")).token(token)).await;
+        assert_eq!(r.status, 200, "{}", r.text);
+        if r.body["status"] != "running" {
+            return r.body;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
     }
+    panic!("the run never finished");
+}
+
+#[tokio::test]
+async fn a_phone_can_start_briefings_up_to_its_daily_limit() {
+    let fake = Fake::new();
+    fake.catalogue();
+    let t = app_with(&fake, true, limits());
+    let doc = add_book(&t).await;
+    let token = pair_phone(&t).await;
+
+    let s = phone_status(&t, &token).await;
+    assert_eq!(s.status, 200, "{}", s.text);
+    assert_eq!(s.body["ready"], true);
+    assert_eq!(s.body["phone"], json!({ "used": 0, "limit": 10, "left": 10 }));
+    assert!(t.get("/api/tools/context/status").await.body["phone"].is_null(), "the computer has no limit");
+
+    // The first run, then a cache hit, which never counts.
+    fake.script();
+    let first = phone_start(&t, &token, &doc, json!({})).await;
+    assert_eq!(first.status, 202, "{}", first.text);
+    assert_eq!(phone_wait(&t, &token, first.body["run"]["id"].as_str().unwrap()).await["status"], "done");
+    let cached = phone_start(&t, &token, &doc, json!({})).await;
+    assert_eq!(cached.status, 200, "{}", cached.text);
+    let got = t.remote_call(Call::get(&format!("/api/tools/context/briefings/{doc}")).token(&token)).await;
+    assert_eq!(got.status, 200, "{}", got.text);
+    assert_eq!(got.body["briefing"]["level"], "general");
+    assert_eq!(phone_status(&t, &token).await.body["phone"]["used"], 1);
+
+    // Nine Refreshes: each is a paid run.
+    for _ in 0..9 {
+        fake.script();
+        let r = phone_start(&t, &token, &doc, json!({ "refresh": true })).await;
+        assert_eq!(r.status, 202, "{}", r.text);
+        assert_eq!(phone_wait(&t, &token, r.body["run"]["id"].as_str().unwrap()).await["status"], "done");
+    }
+    assert_eq!(phone_status(&t, &token).await.body["phone"], json!({ "used": 10, "limit": 10, "left": 0 }));
+    let calls = fake.api_bodies().len();
+    assert_eq!(calls, 30);
+
+    // The 11th is refused before anything is sent or recorded, a new briefing and a Refresh alike.
+    for body in [json!({ "refresh": true }), json!({ "level": "scholar" })] {
+        let over = phone_start(&t, &token, &doc, body).await;
+        assert_eq!(over.status, 429, "{}", over.text);
+        assert_eq!(over.body["error"]["code"], "limit_reached");
+        let msg = over.body["error"]["message"].as_str().unwrap();
+        assert!(msg.contains("10 new briefings in the last 24 hours") && msg.contains("about 24 hours"), "{msg}");
+    }
+    assert_eq!(fake.api_bodies().len(), calls);
+    assert_eq!(t.db_count("SELECT COUNT(*) FROM context_runs"), 10);
+    assert_eq!(phone_start(&t, &token, &doc, json!({})).await.status, 200, "opening the cached briefing still works");
+
+    // The computer is never limited.
+    fake.script();
+    let desk = start(&t, &doc, json!({ "refresh": true })).await;
+    assert_eq!(desk.status, 202, "{}", desk.text);
+    assert_eq!(wait_run(&t, desk.body["run"]["id"].as_str().unwrap()).await["status"], "done");
+
+    // A rolling 24 hours: half a day later still none; just past a day, all ten are back.
+    t.clock.advance(12 * 60 * 60 * 1000);
+    let later = phone_start(&t, &token, &doc, json!({ "refresh": true })).await;
+    assert_eq!(later.status, 429);
+    assert!(later.body["error"]["message"].as_str().unwrap().contains("about 12 hours"), "{}", later.text);
+    t.clock.advance(12 * 60 * 60 * 1000 + 1000);
+    assert_eq!(phone_status(&t, &token).await.body["phone"]["left"], 10);
+    fake.script();
+    let again = phone_start(&t, &token, &doc, json!({ "refresh": true })).await;
+    assert_eq!(again.status, 202, "{}", again.text);
+    assert_eq!(phone_wait(&t, &token, again.body["run"]["id"].as_str().unwrap()).await["status"], "done");
+
+    // The limit is the computer's setting; 0 leaves phones only the briefings already made.
+    let zero = t.json("PATCH", "/api/settings/app", Some(json!({ "context": { "phoneDailyLimit": 0 } }))).await;
+    assert_eq!(zero.status, 200, "{}", zero.text);
+    let none = phone_start(&t, &token, &doc, json!({ "level": "student" })).await;
+    assert_eq!(none.status, 429);
+    assert!(none.body["error"]["message"].as_str().unwrap().contains("made on the computer"), "{}", none.text);
+    assert_eq!(phone_status(&t, &token).await.body["phone"], json!({ "used": 1, "limit": 0, "left": 0 }));
+    assert_eq!(phone_start(&t, &token, &doc, json!({})).await.status, 200);
+    let phone_patch = t.remote_call(Call::new("PATCH", "/api/settings/app").token(&token).json(json!({ "context": { "phoneDailyLimit": 100 } }))).await;
+    assert_eq!(phone_patch.status, 403, "a phone can't raise its own limit");
+}
+
+#[tokio::test]
+async fn the_phone_limit_is_a_checked_app_setting() {
+    let t = make_app();
+    assert_eq!(t.get("/api/settings").await.body["app"]["context"], json!({ "phoneDailyLimit": 10 }));
+    for bad in [json!(-1), json!(1.5), json!("10"), json!(101), json!(null), json!(true)] {
+        let r = t.json("PATCH", "/api/settings/app", Some(json!({ "context": { "phoneDailyLimit": bad } }))).await;
+        assert_eq!((bad.clone(), r.status), (bad.clone(), 400), "{}", r.text);
+        assert!(r.body["error"]["message"].as_str().unwrap().contains("context.phoneDailyLimit is a whole number from 0 to 100"), "{}", r.text);
+    }
+    assert_eq!(t.json("PATCH", "/api/settings/app", Some(json!({ "context": 5 }))).await.status, 400);
+    for good in [0, 25, 100] {
+        let r = t.json("PATCH", "/api/settings/app", Some(json!({ "context": { "phoneDailyLimit": good } }))).await;
+        assert_eq!(r.status, 200, "{}", r.text);
+        assert_eq!(r.body["app"]["context"]["phoneDailyLimit"], good);
+    }
+    // Other groups leave it alone, and it survives a restart of the settings read.
+    assert_eq!(t.json("PATCH", "/api/settings/app", Some(json!({ "idleShutdownMinutes": 30 }))).await.status, 200);
+    assert_eq!(t.get("/api/settings").await.body["app"]["context"]["phoneDailyLimit"], 100);
+    assert_eq!(t.app.lock().app_settings().context.phone_daily_limit, 100);
 }
 
 #[test]

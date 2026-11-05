@@ -8,6 +8,9 @@ import {
   type Annotation,
   type ApiErrorBody,
   type AppSettings,
+  type ContextRun,
+  type ContextState,
+  type ContextStatus,
   type CreateFileResult,
   type DocumentDetail,
   type DocumentQuery,
@@ -27,6 +30,7 @@ import {
   type ReadingProgress,
   type Section,
   type ServerEventType,
+  type StartContextResult,
   type TagCount,
   type TreeResponse,
 } from "./types";
@@ -236,5 +240,9 @@ export function createHttpApi(base = "/api", fetchImpl: typeof fetch = fetch.bin
     revokeDevice: (id) => request<void>(`/devices/${enc(id)}`, { method: "DELETE" }),
     requestPairing: (code, name) => request<PairRequestResult>(`/pair`, json("POST", { code, name })),
     pollPairing: (r) => request<PairPollResult>(`/pair/poll`, json("POST", { requestId: r.requestId, pollSecret: r.pollSecret })),
+    getContextStatus: () => request<ContextStatus>(`/tools/context/status`),
+    getContextBriefing: (docId, level) => request<ContextState>(`/tools/context/briefings/${enc(docId)}?level=${enc(level)}`),
+    startContextBriefing: (docId, input) => request<StartContextResult>(`/tools/context/briefings/${enc(docId)}`, json("POST", input)),
+    getContextRun: (runId) => request<ContextRun>(`/tools/context/runs/${enc(runId)}`),
   };
 }

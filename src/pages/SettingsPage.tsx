@@ -4,6 +4,7 @@ import { ChevronRight, Highlighter, LibraryBig } from "lucide-react";
 import { api } from "@/api";
 import { useRemoteDevice } from "@/api/hooks";
 import { ReadingSettings } from "@/components/reader/ReadingSettings";
+import { ContextLevelSetting, PhoneContextLimit } from "@/components/settings/ContextSettings";
 import { PhoneSettings } from "@/components/settings/PhoneSettings";
 import { CenterColumn, PageHeader } from "@/components/shell/Page";
 import { Button } from "@/components/ui/Button";
@@ -54,6 +55,13 @@ export function SettingsPage() {
       <PageHeader title="Settings" />
       <Group title="Reading">
         <ReadingSettings showPreview />
+      </Group>
+
+      <Group title="Context">
+        <div className="flex flex-col gap-5">
+          <ContextLevelSetting />
+          {api.mode === "http" && device === null && <PhoneContextLimit />}
+        </div>
       </Group>
 
       <Group title="Library">

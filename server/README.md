@@ -222,6 +222,14 @@ With no key, Context says so and makes no calls.
   `--prompt-dir DIR` and `--draft FILE` test the prompt without the API: the first writes what the
   model would get, the second runs a draft written elsewhere (by a Claude Code agent) through the
   real verifier (prompts/book-context.md, "Testing with Claude Code agents").
+- **Phones:** a paired phone can open briefings and start new ones. A new briefing or a Refresh from a
+  phone spends this computer's key, so each phone gets `context.phoneDailyLimit` of them (an app
+  setting, default 10, Settings → Context) in a rolling 24 hours; past that the server answers 429
+  `limit_reached`. Opening a briefing already made never counts, and the computer is never limited.
+- **Seeing real briefings in the UI without the API (dev only):** `context-live <book.epub> --briefing
+  tests/fixtures/context/samples/<name>.briefing.json --store .data-dev` stores a verified sample for
+  the matching book in the dev library (the same books are in the repository's `reads/context-test/`);
+  `--draft FILE --store .data-dev` verifies a draft first. Never part of the server's API.
 
 ## Security
 

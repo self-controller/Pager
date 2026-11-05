@@ -22,6 +22,7 @@ events, stream, block model) are documented in [API.md](API.md); everything ther
 | `unauthorized` | Only from the remote listener (a phone not paired, revoked or expired). Any query or mutation failing with it sends the app to `/pair`; no retries. |
 | `gone` | Only while pairing: the pairing page explains it and offers Start again. |
 | `not_configured` | Context only: no API key on the computer. The tool shows its setup steps instead of an error; no retries. |
+| `limit_reached` | Context only, 429: a paired phone has started its `context.phoneDailyLimit` paid runs in the last 24 hours. The message is shown as is, as a calm note (not an error); briefings already made still open. |
 | `invalid_request`, `conflict`, `forbidden` | Shown inline (in the dialog that asked). |
 | anything else | Shown inline. |
 | network failure, or a 5xx with no JSON body (proxy 502/504) | Treated as `unavailable`: "Can't reach the reading service", with a Try again button. |
@@ -46,7 +47,11 @@ events, stream, block model) are documented in [API.md](API.md); everything ther
 | `GET /jobs/:id` | | `IngestJob` | The UI polls every second until `done` or `error`, then refetches the library. |
 | `GET /search/documents?q=` | | `DocumentSearchResult[]` | Title/author/file-name matches plus text hits, grouped per document; `[]` for an empty query. |
 | `GET /health` | | `Health` | `remote.device` set means the app runs on a paired phone (remote mode). `remote.suggestedOrigin` (computer only) is offered in Settings → Phone. |
-| `GET /settings`, `PATCH /settings/app` | `AppSettingsPatch` | `SettingsResponse` | The UI reads and writes `app.remote` only (Settings → Phone). Computer only. |
+| `GET /settings`, `PATCH /settings/app` | `AppSettingsPatch` | `SettingsResponse` | The UI reads and writes `app.remote` (Settings → Phone) and `app.context.phoneDailyLimit` (Settings → Context). Computer only. |
+| `GET /tools/context/status` | | `ContextStatus` | The Context panel: no key → setup steps; on a phone, `phone.left` for the Refresh dialog. |
+| `GET /tools/context/briefings/:docId?level=` | | `ContextState` | The briefing for the reader's level (`contextLevel`, a UI setting), and a run going, if any. |
+| `POST /tools/context/briefings/:docId` | `StartContextInput { level, refresh? }` | 200 or 202 `StartContextResult` | Make a briefing, or Refresh (confirmed first: it costs money). 503 `not_configured`, 429 `limit_reached`. |
+| `GET /tools/context/runs/:runId` | | `ContextRun` | Polled every 2 s while `status` is `running`; `stage` is shown, a failed run's `error` as is. |
 | `POST /devices/pairing`, `GET /devices/pairing`, `POST /devices/pairing/approve`, `POST /devices/pairing/deny`, `DELETE /devices/pairing` | `{ requestId }` for approve and deny | `PairingWindow`, `PairingState`, `DeviceView` | The pairing dialog; it polls `GET` every 2 s while open, and cancels an open window when closed. Computer only. |
 | `GET /devices`, `PATCH /devices/:id`, `DELETE /devices/:id` | `{ name }` | `DeviceView[]`, `DeviceView`, 204 | The paired phones list: rename, Revoke (active), Remove (revoked or expired). Computer only. |
 | `POST /pair`, `POST /pair/poll` | `{ code, name }`, `{ requestId, pollSecret }` | `PairRequestResult`, then `{ status: "pending" }` (202) or `{ token, device }` | The phone's `/pair` page, every 2 s. The cookie that comes with the token is the credential; the page ignores the token in the body. Remote listener only. |

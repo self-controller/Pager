@@ -69,6 +69,12 @@ pub const REMOTE_ALLOW: &[&str] = &[
     "GET /assets/:file",
     "GET /tree",
     "GET /sync/manifest",
+    // Context briefings: reading them is free; a new run from a phone spends the computer's API key,
+    // so each phone gets `context.phoneDailyLimit` of them in a rolling 24 hours (429 limit_reached).
+    "GET /tools/context/status",
+    "GET /tools/context/briefings/:id",
+    "POST /tools/context/briefings/:id",
+    "GET /tools/context/runs/:rid",
 ];
 
 /// Refused from a phone. Listed so the route test can tell a deliberate refusal from a forgotten route.
@@ -97,11 +103,6 @@ pub const REMOTE_DENY: &[&str] = &[
     "GET /documents/:id/export",
     "POST /mirror/rebuild",
     "POST /shutdown",
-    // Context (Phase 1): computer only until the per-phone limit lands (Phase 2).
-    "GET /tools/context/status",
-    "GET /tools/context/briefings/:id",
-    "POST /tools/context/briefings/:id",
-    "GET /tools/context/runs/:rid",
 ];
 
 /// Answered by the remote app itself, ahead of the shared router.

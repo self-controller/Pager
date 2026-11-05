@@ -28,7 +28,10 @@ export function ToolPanel({
     <div className="flex h-full flex-col">
       {showHeader && (
         <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-detail pr-2 pl-5">
-          <h2 className="font-display text-[15px] leading-5 font-semibold">Tools</h2>
+          {/* One tool: its name is the title. */}
+          <h2 className="font-display text-[15px] leading-5 font-semibold">
+            {withPanels.length === 1 ? withPanels[0]!.label : "Tools"}
+          </h2>
           <IconButton icon={X} label="Close tools" onClick={onClose} />
         </div>
       )}

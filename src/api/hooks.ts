@@ -4,6 +4,10 @@ import { api } from "./index";
 import type {
   Annotation,
   AppSettingsPatch,
+  ContextLevel,
+  ContextRun,
+  ContextState,
+  StartContextInput,
   CreateAnnotation,
   CreateFileInput,
   DocumentQuery,
@@ -30,6 +34,9 @@ export const queryKeys = {
   appSettings: ["appSettings"] as const,
   devices: ["devices"] as const,
   pairing: ["pairing"] as const,
+  contextStatus: ["context", "status"] as const,
+  contextBriefing: (docId: string, level: ContextLevel) => ["context", "briefing", docId, level] as const,
+  contextRun: (runId: string) => ["context", "run", runId] as const,
 };
 
 /** The library changed shape: documents and the folder tree both show it. */
@@ -448,3 +455,60 @@ export const useApprovePairing = () => useDeviceMutation((requestId: string) => 
 export const useDenyPairing = () => useDeviceMutation((requestId: string) => api.denyPairing(requestId));
 export const useRenameDevice = () => useDeviceMutation(({ id, name }: { id: string; name: string }) => api.renameDevice(id, name));
 export const useRevokeDevice = () => useDeviceMutation((id: string) => api.revokeDevice(id));
+
+// ---- Context briefings (API.md, "Context") ----
+
+/** Whether the computer has an API key; on a phone, its paid runs left today. */
+export function useContextStatus(enabled = true) {
+  return useQuery({ queryKey: queryKeys.contextStatus, queryFn: () => api.getContextStatus(), enabled, staleTime: 10_000 });
+}
+
+/** The stored briefing for a document and level, and any run going for it. */
+export function useContextBriefing(docId: string | undefined, level: ContextLevel, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.contextBriefing(docId ?? "", level),
+    queryFn: () => api.getContextBriefing(docId!, level),
+    enabled: enabled && Boolean(docId),
+    staleTime: 60_000,
+  });
+}
+
+/**
+ * A run, polled every 2 s while it runs (CONTRACT: a run lives on the server, so this picks it up
+ * again after the app sleeps). When it ends, the briefing and the phone's count are fetched again.
+ */
+export function useContextRun(runId: string | undefined) {
+  const qc = useQueryClient();
+  return useQuery({
+    queryKey: queryKeys.contextRun(runId ?? ""),
+    queryFn: async (): Promise<ContextRun> => {
+      const run = await api.getContextRun(runId!);
+      if (run.status !== "running") {
+        void qc.invalidateQueries({ queryKey: ["context", "briefing", run.docId] });
+        void qc.invalidateQueries({ queryKey: queryKeys.contextStatus });
+      }
+      return run;
+    },
+    enabled: Boolean(runId),
+    staleTime: 0,
+    refetchInterval: (q) => (q.state.data && q.state.data.status !== "running" ? false : 2000),
+    refetchIntervalInBackground: false,
+  });
+}
+
+/** Ask for a briefing: the cached one comes back at once, otherwise a run starts (and costs money). */
+export function useStartContext(docId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ level, refresh }: StartContextInput & { level: ContextLevel }) => api.startContextBriefing(docId!, { level, refresh }),
+    onSuccess: (result, { level }) => {
+      qc.setQueryData<ContextState>(queryKeys.contextBriefing(docId!, level), (state) => {
+        const base: ContextState = state ?? { briefing: null, stale: false, run: null, cachedLevels: [] };
+        if (result.briefing) return { ...base, briefing: result.briefing, stale: false, run: null };
+        return { ...base, run: result.run };
+      });
+      if (result.run) qc.setQueryData(queryKeys.contextRun(result.run.id), result.run);
+      void qc.invalidateQueries({ queryKey: queryKeys.contextStatus });
+    },
+  });
+}

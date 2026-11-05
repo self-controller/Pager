@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
-import type { HighlightColor } from "@/api/types";
+import type { ContextLevel, HighlightColor } from "@/api/types";
 
 export type ThemeSetting = "system" | "light" | "dark";
 export type Typeface = "serif" | "sans";
@@ -32,6 +32,8 @@ export interface Settings {
   footerFormat: FooterFormat;
   /** Small taps from the iPhone app (src/lib/native.ts); nothing plays in a browser. */
   haptics: boolean;
+  /** Who Context briefings are written for: how much background they assume and how deep they go. */
+  contextLevel: ContextLevel;
 }
 
 export const FONT_OFFSET_MIN = -3;
@@ -50,6 +52,7 @@ const DEFAULTS: Settings = {
   pageTurn: "slide",
   footerFormat: "page",
   haptics: true,
+  contextLevel: "general",
 };
 
 const listeners = new Set<() => void>();

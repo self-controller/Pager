@@ -212,6 +212,15 @@ conversation, then situation, then moment.
      and journal articles).
    Cache per book *and* level; switching level loads that level's cached briefing or
    offers to generate it.
+10. **Phase 2's UI** (asked 2026-11-05, before the panel was built):
+   - the connection map is a **radial tree** rooted at the book, in hand-made SVG (no new
+     dependency);
+   - the graphics live in **tabs in the panel** (Briefing | Map | Timeline | Places, each only
+     when the data supports it), and each opens **full screen** when asked;
+   - the places map draws on a **bundled outline** (Natural Earth, public domain), so no tile
+     server learns what is being read;
+   - **Refresh asks first**, naming the last run's cost (left out when it is $0) and, on a
+     phone, how many of its runs a day are left.
 
 ## API facts (checked against Anthropic's docs on 2026-11-05)
 There is no official Rust SDK, so the server calls `POST https://api.anthropic.com/v1/messages`
@@ -482,4 +491,105 @@ fare at least as well.
 
 **Left:** Phase 2 (the panel: context first, the connection map, the timeline and map when
 the data supports them, the phone and its limit), Phase 3, Phase 4.
+
+### Phase 2: the reader panel, the graphics, the phone (2026-11-05)
+**Asked first** (one AskUserQuestion, see Decision 10): a radial tree, tabs in the panel with full
+screen, a bundled outline for the places map, and a Refresh dialog with the last cost and the phone's
+runs left.
+
+**Built:**
+- **The `context` tool** (`src/tools/context/`, registered in `src/tools/index.tsx`), whose Panel shows
+  in the reader's tool panel (titled "Context" while it is the only tool) and on the Assistant page:
+  - Context first: the book, then the rare pre-reading, the historical moment and the author's
+    situation, open; the author's conversation, terms and further reading folded, each with its count.
+  - Claims in Spectral, each with its sources beneath: title (a link that opens in a new tab, or Safari
+    in the iPhone app), author and year; a `book` citation reads "From the book: <part>". The same page
+    cited twice for one claim shows once. An "Inferred" mark with a one-line key at the end, spoiler
+    folds (items and claims), disagreements with both sides and their own sources, the work's record
+    for read-first and further-reading items. In the conversation, the relation reads as a phrase
+    above the name ("Jane Austen took her title from / Fanny Burney").
+  - "Not much is known about this book's context." when `littleKnown`; "Generated 5 November 2026" and
+    nothing more, stale or not.
+  - States: no document (the Assistant page); loading; no key (the setup steps from `keyFile` and
+    `keyVariable`; a cached briefing still shows, without Refresh); none at this level (what it is,
+    "Make a general briefing", its cost, and on a phone the runs left); running (the stage, polled
+    every 2 s, picked up again from `state.run` after the app sleeps; a Refresh keeps the old briefing
+    under a "Making a new briefing" line); failed (`run.error` as is, Try again); 429 `limit_reached`
+    as a calm note; offline (`unavailable`, Try again); the mock (`unsupported`: "Context needs Pager on
+    your computer").
+  - Refresh asks first: "Make a new briefing?", the last cost (`stats.costUsd`, left out at $0), and on
+    a phone "This phone has 7 of its 10 runs a day left" (the button is off at 0).
+- **Graphics**, decided from counts (`viewsFor` in `model.ts`): the map at 3 entities and 2 usable
+  links, the timeline at 3 dated entities, places at 2 with coordinates. All four samples get Map and
+  Timeline; only Austen gets Places (Chawton and Steventon; Nietzsche's Sils has no coordinates).
+  - **Connection map** (`ConnectionMap.tsx`): a breadth-first tree over the links from the book; the
+    author always hangs from the book and sits at the top (Darwin's links never join them, so that
+    edge comes from the book itself, unlabelled); leftover links are faint dashed curves; entities no
+    link reaches (Nietzsche's "God is dead") hang dotted from the book. Shapes by kind, so it reads in
+    black and white; the tapped node and its lines in ink blue. Tapping shows the detail card: kind,
+    Wikidata dates and description, links, each link as "X relation Y" with its claim and sources, and
+    "In the briefing" buttons that open the fold, scroll to the item and flash it. An item with an
+    `entity` gets "On the map".
+  - **Timeline** (`Timeline.tsx`): rows by start, lives as bars, works and events as marks, one scale
+    with round ticks, the book's year as a blue line.
+  - **Places** (`PlacesMap.tsx`): equirectangular, scaled by the cosine of the middle latitude, at
+    least 4° high so two villages still show their region; labels placed so they don't overlap. The
+    outline is Natural Earth 1:50m land and borders, simplified to 0.05° (`world.ts`, 143 KB, a
+    dynamic import loaded only when a places map shows).
+  - Full screen: a `Dialog` placement `full`, the graphic beside its detail card (below it on a phone).
+- **The level setting**, `contextLevel` in `src/state/settings.ts` (default General) and in
+  `ReadingSettingsSuggestion`; Settings → Context ("General reader | Student | Scholar") and a
+  switcher in the panel. Each level loads its own briefing or offers to make one.
+- **The phone:** the 4 routes moved to `REMOTE_ALLOW`. `briefing_phone_allowance` counts the runs a
+  phone started in the last 24 hours against the app setting `context.phoneDailyLimit` (default 10,
+  0–100, validated; Settings → Context on the computer). The check runs in the same core step that
+  records the run, so two requests can't both slip past. A cache hit or joining a running run never
+  counts. Over the limit: 429 `limit_reached`, "This phone has started 10 new briefings in the last
+  24 hours, the most it can in a day. You can start another in about 12 hours. …", or for a limit of
+  0, that new briefings are made on the computer. `status.phone` is `{ used, limit, left }` on a phone.
+  The desktop is never limited. CONTRACT.md's error table and routes, API.md and server/README.md
+  updated.
+- **Dev only:** `context-live <book.epub> --briefing <sample>.briefing.json --store server/.data-dev`
+  stores a verified sample for the matching document (by content hash) with no network;
+  `--draft FILE --store DIR` verifies first. Not in the server's API. The four samples are stored in
+  the dev library (the `reads/context-test/` books).
+
+**Verified:**
+- `cargo test`: all suites pass. New: `a_phone_can_start_briefings_up_to_its_daily_limit` (status
+  counts, a cache hit free, 9 Refreshes, the 11th refused for a Refresh and for a new level with no
+  call made and no run recorded, the computer unlimited, still refused 12 h later and free just past
+  24 h, a limit of 0, a phone can't change the setting) and `the_phone_limit_is_a_checked_app_setting`.
+  The remote suite's no-paths test now calls the three Context GETs from a phone; the allowlist and
+  deny tests pass with the routes moved.
+- `npm test`: 25 new tests in `test/context.test.ts`, against the four real samples: the 4 client
+  methods (the http adapter's URLs, bodies, a 202 and the 429/503 codes; the mock's `unsupported`),
+  section order and folds, which graphics show and their thresholds, the radial layout (the author
+  edge, loose nodes, every sourced link kept, deterministic, a cycle and a self-link), labels, the
+  timeline scale, the places view and the outline transform agreeing with the points, label overlap,
+  citation links (http(s) only), cost and date. `npm run typecheck` passes.
+- In a browser (Playwright's Chromium driven by REA, against the dev server with the samples
+  stored; the dev server ran with `XDG_CONFIG_HOME` pointed at an empty folder, so the real key
+  file was never read):
+  - 1440 px, panel beside the text: Briefing, an opened fold, the Scholar disagreements, Map with a
+    node tapped and "In the briefing" (switches to the text, opens the fold, scrolls, flashes),
+    Timeline, Places, Settings → Context, and the Assistant page with no book open.
+  - 390 px, the panel as a sheet: Briefing, Map with a node tapped, Places, full screen, and the
+    Refresh dialog (cancelled, never confirmed).
+  - The run path, with a dummy key that Anthropic refuses at no cost: "Make a student briefing" →
+    "Reading the book's front matter…" → "The briefing stopped. Anthropic refused the API key…" with
+    Try again. With no key: the setup steps where there is no briefing yet, and a stored briefing
+    still shown, without Refresh.
+  - Fixed on the way: place labels overlapping (now on the side away from the nearest place), a
+    cut-off timeline label, relation labels crowding the small map (now only in full screen), long
+    names running off the map's edge (now wrapped to the room on their side), and Escape in the full
+    screen view also closing the tool sheet (React passes a nested `<dialog>`'s close up to the outer
+    one's handler; `Dialog` now answers only its own). The panel is a lazy chunk (39 KB) so the main
+    bundle stays under its 700 KB warning; the outline is its own chunk (143 KB, 62 KB gzipped).
+  - No page errors in any run.
+- Not on a device: the iOS app isn't compiled.
+
+**Left:**
+- The real API on schema v2 (the user's paid check, when they choose).
+- Phase 3 (the "Context for this" selection action) and Phase 4 (polish: streaming sections,
+  measurements).
 

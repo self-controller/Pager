@@ -18,9 +18,18 @@
 //!   schema.json (submit_briefing's input) and tools.md.
 //! --draft FILE runs a draft (submit_briefing's input, as JSON) through the real verifier, with
 //!   live catalogue lookups and page fetches, and reports it like a run.
+//!
+//! Dev only, to see real briefings in the UI without the API (never part of the server's API):
+//! --store DATA_DIR saves the result into that Pager data folder (e.g. server/.data-dev) for the
+//!   library document whose file matches <book.epub>, as the server would after a run. The data
+//!   folder's reads folder is PAGER_READS_DIR or the repository's reads/, as for the dev server.
+//!   With --draft, the draft is verified first; with --briefing FILE, a briefing already verified
+//!   (a sample in tests/fixtures/context/samples, or a file --out wrote) is stored as it is, with
+//!   no network at all.
 
 use futures::future::BoxFuture;
 use pager_server::app::{App, AppOptions};
+use pager_server::config::default_reads_dir;
 use pager_server::briefing::lookup::Lookups;
 use pager_server::briefing::prompt::{system_prompt, tools, user_message};
 use pager_server::briefing::run::{finish, first_request, generate, seed, Limits, Research, Stage, Usage};
@@ -41,16 +50,18 @@ struct Args {
     dry_run: bool,
     prompt_dir: Option<PathBuf>,
     draft: Option<PathBuf>,
+    briefing: Option<PathBuf>,
+    store: Option<PathBuf>,
 }
 
 fn usage() -> ! {
-    eprintln!("usage: context-live <book.epub> [--level general|student|scholar] [--out FILE] [--record DIR] [--dry-run | --prompt-dir DIR | --draft FILE]");
+    eprintln!("usage: context-live <book.epub> [--level general|student|scholar] [--out FILE] [--record DIR] [--dry-run | --prompt-dir DIR | --draft FILE | --briefing FILE] [--store DATA_DIR]");
     std::process::exit(2);
 }
 
 fn parse_args() -> Args {
     let mut it = std::env::args().skip(1);
-    let mut a = Args { book: PathBuf::new(), level: Level::General, out: None, record: None, dry_run: false, prompt_dir: None, draft: None };
+    let mut a = Args { book: PathBuf::new(), level: Level::General, out: None, record: None, dry_run: false, prompt_dir: None, draft: None, briefing: None, store: None };
     while let Some(x) = it.next() {
         match x.as_str() {
             "--level" => a.level = it.next().and_then(|l| Level::parse(&l)).unwrap_or_else(|| usage()),
@@ -59,15 +70,55 @@ fn parse_args() -> Args {
             "--dry-run" => a.dry_run = true,
             "--prompt-dir" => a.prompt_dir = Some(it.next().map(PathBuf::from).unwrap_or_else(|| usage())),
             "--draft" => a.draft = Some(it.next().map(PathBuf::from).unwrap_or_else(|| usage())),
+            "--briefing" => a.briefing = Some(it.next().map(PathBuf::from).unwrap_or_else(|| usage())),
+            "--store" => a.store = Some(it.next().map(PathBuf::from).unwrap_or_else(|| usage())),
             "-h" | "--help" => usage(),
             _ if a.book.as_os_str().is_empty() => a.book = PathBuf::from(x),
             _ => usage(),
         }
     }
-    if a.book.as_os_str().is_empty() {
+    if a.book.as_os_str().is_empty() || (a.briefing.is_some() && (a.store.is_none() || a.draft.is_some())) {
         usage();
     }
     a
+}
+
+/// Dev only: saves a verified briefing into another Pager data folder (the dev server's), for the
+/// document there whose current file has the same content hash, as a finished run would.
+async fn store_into(data_dir: &Path, mut b: Briefing, usage: Value) {
+    let data_dir = std::fs::canonicalize(data_dir).unwrap_or_else(|_| {
+        eprintln!("No Pager data folder at {}.", data_dir.display());
+        std::process::exit(1);
+    });
+    let mut o = AppOptions::new(data_dir.clone());
+    o.reads_dir = Some(default_reads_dir());
+    o.mirror_delay_ms = 60_000;
+    let app = App::new(o).expect("the data folder's app");
+    let a = app.clone();
+    eprintln!("Reading the library in {} (its reads folder: {}) …", data_dir.display(), app.reads_dir.display());
+    tokio::task::spawn_blocking(move || a.ensure()).await.unwrap().expect("read the library");
+    let hash = b.content_hash.clone();
+    let docs: Vec<(String, String)> = app
+        .run(move |c| {
+            c.all(
+                "SELECT d.id, d.title FROM documents d JOIN revisions r ON r.id = d.current_revision_id WHERE r.content_hash = ?1 AND d.deleted_at IS NULL",
+                &[&hash as &dyn rusqlite::ToSql],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+        })
+        .await
+        .expect("look up the document");
+    if docs.is_empty() {
+        eprintln!("No document in that library has this file's content. Put the book in its reads folder first.");
+        std::process::exit(1);
+    }
+    for (id, title) in docs {
+        b.doc_id = id.clone();
+        let one = b.clone();
+        let u = usage.clone();
+        app.run(move |c| c.briefing_save(&one, &u)).await.expect("save the briefing");
+        println!("Stored the {} briefing for “{title}” ({id}) in {}.", b.level.as_str(), data_dir.display());
+    }
 }
 
 /// Saves each request (URL and body, never headers) and its answer as NNN.json in a folder.
@@ -189,7 +240,7 @@ async fn main() {
     let mut o = AppOptions::new(data_dir.clone());
     o.reads_dir = Some(reads);
     o.mirror_delay_ms = 60_000;
-    let no_api = args.dry_run || args.prompt_dir.is_some() || args.draft.is_some();
+    let no_api = args.dry_run || args.prompt_dir.is_some() || args.draft.is_some() || args.briefing.is_some();
     if args.prompt_dir.is_some() || args.draft.is_some() {
         // Catalogue lookups and page fetches only: no key, nothing sent to the model's API.
         o.briefing_transport = Some(Arc::new(LiveTransport::new().expect("HTTPS")));
@@ -221,6 +272,19 @@ async fn main() {
         eprintln!("Pager couldn't read {}.", book.display());
         std::process::exit(1);
     };
+
+    if let (Some(file), Some(store)) = (&args.briefing, &args.store) {
+        let raw: Value = serde_json::from_slice(&std::fs::read(file).expect("read the briefing")).expect("the briefing is JSON");
+        // A sample is the briefing itself; a file --out wrote has it under "briefing".
+        let mut b: Briefing = serde_json::from_value(raw.get("briefing").cloned().unwrap_or(raw)).unwrap_or_else(|e| {
+            eprintln!("That isn't a briefing: {e}");
+            std::process::exit(1);
+        });
+        let d = doc_id.clone();
+        b.content_hash = app.run(move |c| c.briefing_content_hash(&d)).await.expect("the book's content hash");
+        store_into(store, b, json!({ "note": "stored by context-live --briefing (dev)" })).await;
+        return;
+    }
 
     if args.dry_run {
         let d = doc_id.clone();
@@ -294,6 +358,9 @@ async fn main() {
             let out = args.out.clone().unwrap_or_else(|| PathBuf::from(format!("context-{}-{}.json", slug(&book), args.level.as_str())));
             std::fs::write(&out, serde_json::to_vec_pretty(&json!({ "briefing": b, "dropped": g.report.dropped, "usage": g.usage.to_json() })).unwrap()).expect("write the JSON");
             println!("Wrote {}.", out.display());
+            if let Some(store) = &args.store {
+                store_into(store, g.briefing.clone(), g.usage.to_json()).await;
+            }
         }
         Err((f, usage)) => {
             eprintln!("Failed: {}\nUsage so far: {}", f.message(), usage.summary());

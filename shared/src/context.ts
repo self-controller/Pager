@@ -170,6 +170,13 @@ export interface ContextRun {
   finishedAt?: string;
 }
 
+/** A paired phone's paid runs in the last 24 hours against `context.phoneDailyLimit`. */
+export interface ContextPhoneRuns {
+  used: number;
+  limit: number;
+  left: number;
+}
+
 /** GET /api/tools/context/status */
 export interface ContextStatus {
   /** False when no API key is set on the computer: show the setup steps, make no calls. */
@@ -177,6 +184,8 @@ export interface ContextStatus {
   model: string;
   keyFile: string;
   keyVariable: string;
+  /** On a paired phone: its runs left today. Null on the computer, which is never limited. */
+  phone: ContextPhoneRuns | null;
 }
 
 /** GET /api/tools/context/briefings/:docId?level= */

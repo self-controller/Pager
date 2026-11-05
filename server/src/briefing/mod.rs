@@ -136,10 +136,29 @@ pub struct Status {
     /// Where the key goes, for the setup message.
     pub key_file: &'static str,
     pub key_variable: &'static str,
+    /// On a paired phone: its paid runs in the last 24 hours against its limit. None on the computer.
+    pub phone: Option<PhoneRuns>,
 }
 
-pub fn status(app: &App) -> Status {
-    Status { ready: app.briefing.ready(), model: MODEL, key_file: SECRETS_HINT, key_variable: secrets::KEY_VAR }
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PhoneRuns {
+    pub used: i64,
+    pub limit: i64,
+    pub left: i64,
+}
+
+/// `device_id` is the paired phone asking (None on the computer).
+pub async fn status(app: &Arc<App>, device_id: Option<String>) -> Result<Status> {
+    let phone = match device_id {
+        Some(d) => {
+            let now = app.clock.now_ms();
+            let a = app.run(move |c| c.briefing_phone_allowance(&d, now)).await?;
+            Some(PhoneRuns { used: a.used, limit: a.limit, left: a.left() })
+        }
+        None => None,
+    };
+    Ok(Status { ready: app.briefing.ready(), model: MODEL, key_file: SECRETS_HINT, key_variable: secrets::KEY_VAR, phone })
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -182,7 +201,8 @@ pub enum Started {
 }
 
 /// Answer from the cache, join a run in progress, or start one. `device_id` is the paired phone
-/// that asked (None on the computer).
+/// that asked (None on the computer): a new run from a phone counts toward its daily limit, checked
+/// in the same step that records the run, so two requests at once can't both slip past it.
 pub async fn start(app: &Arc<App>, doc_id: &str, level: Level, refresh: bool, device_id: Option<String>) -> Result<Started> {
     if !app.briefing.ready() {
         return Err(not_configured());
@@ -224,7 +244,16 @@ pub async fn start(app: &Arc<App>, doc_id: &str, level: Level, refresh: bool, de
     };
     let row = view.clone();
     let device = device_id.clone();
-    if let Err(e) = app.run(move |c| c.briefing_run_insert(&row, &hash, "", device.as_deref())).await {
+    let now = app.clock.now_ms();
+    let recorded = app
+        .run(move |c| {
+            if let Some(d) = device.as_deref() {
+                c.briefing_phone_allowance(d, now)?.check()?;
+            }
+            c.briefing_run_insert(&row, &hash, "", device.as_deref())
+        })
+        .await;
+    if let Err(e) = recorded {
         app.briefing.active.lock().unwrap().remove(&key);
         app.briefing.live.lock().unwrap().remove(&view.id);
         return Err(e);

@@ -51,6 +51,29 @@ export type {
   PairRequestResult,
 } from "../../shared/src/api";
 export { API_VERSION } from "../../shared/src/api";
+/** Context briefings (API.md, "Context"): the backend's shapes, used as they are. */
+export type {
+  ContextBriefing,
+  ContextCitation,
+  ContextClaim,
+  ContextDisagreement,
+  ContextEntity,
+  ContextEntityKind,
+  ContextFacts,
+  ContextItem,
+  ContextLevel,
+  ContextLink,
+  ContextPhoneRuns,
+  ContextRecord,
+  ContextRun,
+  ContextSection,
+  ContextSectionKind,
+  ContextState,
+  ContextStatus,
+  ContextWork,
+  StartContextInput,
+  StartContextResult,
+} from "../../shared/src/context";
 export type { AppSettings };
 
 /** A change to the server's own settings: any of its groups, in part. */
@@ -213,4 +236,8 @@ export const ErrorCodes = {
   unauthorized: "unauthorized",
   /** A pairing code or request that is no longer valid: start again. */
   gone: "gone",
+  /** Context: no API key on the computer. Show the setup steps; no retries. */
+  notConfigured: "not_configured",
+  /** Context: this phone has started its paid runs for the day (429). Shown calmly, as is. */
+  limitReached: "limit_reached",
 } as const;

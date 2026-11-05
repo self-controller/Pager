@@ -3,8 +3,10 @@
 
 use super::schema::{Briefing, Level};
 use super::RunView;
+use crate::clock::{iso_ms, parse_iso};
 use crate::core::Core;
 use crate::db::to_json;
+use crate::errors::AppError;
 use crate::Result;
 use rusqlite::params;
 use serde_json::Value;
@@ -93,8 +95,64 @@ impl Core {
         )
     }
 
-    /// Paid runs a device started since `since` (ISO time): Phase 2's per-phone limit.
+    /// Paid runs a device started since `since` (ISO time): the per-phone limit.
     pub fn briefing_runs_since(&self, device_id: &str, since: &str) -> Result<i64> {
         self.count("SELECT COUNT(*) FROM context_runs WHERE device_id = ?1 AND started_at >= ?2", params![device_id, since])
+    }
+
+    /// How many paid runs a paired phone has left in the rolling 24 hours (`context.phoneDailyLimit`),
+    /// and when the next one frees up if none are left. Every run it started counts: a new
+    /// briefing and a Refresh alike. A cache hit, or joining a run already going, starts none.
+    pub fn briefing_phone_allowance(&self, device_id: &str, now_ms: i64) -> Result<PhoneAllowance> {
+        let limit = self.app_settings().context.phone_daily_limit.max(0);
+        let since = iso_ms(now_ms - DAY_MS);
+        let used = self.briefing_runs_since(device_id, &since)?;
+        let mut free_at_ms = None;
+        if used >= limit && limit > 0 {
+            // The run whose 24 hours end first among those over the limit.
+            let at: Option<String> = self.one(
+                "SELECT started_at FROM context_runs WHERE device_id = ?1 AND started_at >= ?2 ORDER BY started_at ASC LIMIT 1 OFFSET ?3",
+                params![device_id, since, used - limit],
+                |r| r.get(0),
+            )?;
+            free_at_ms = at.as_deref().and_then(parse_iso).map(|t| t + DAY_MS);
+        }
+        Ok(PhoneAllowance { used, limit, free_at_ms, now_ms })
+    }
+}
+
+const DAY_MS: i64 = 24 * 60 * 60 * 1000;
+
+/// A phone's paid runs in the last 24 hours, against its limit.
+#[derive(Clone, Debug)]
+pub struct PhoneAllowance {
+    pub used: i64,
+    pub limit: i64,
+    free_at_ms: Option<i64>,
+    now_ms: i64,
+}
+
+impl PhoneAllowance {
+    pub fn left(&self) -> i64 {
+        (self.limit - self.used).max(0)
+    }
+
+    /// 429 `limit_reached` when no run is left, with a calm message for the phone.
+    pub fn check(&self) -> Result<()> {
+        if self.left() > 0 {
+            return Ok(());
+        }
+        let message = if self.limit == 0 {
+            "New briefings are made on the computer: its settings don't let phones start them. Briefings already made still open here.".to_string()
+        } else {
+            let when = match self.free_at_ms.map(|t| t - self.now_ms) {
+                Some(ms) if ms <= 60 * 60 * 1000 => " You can start another within the hour.".to_string(),
+                Some(ms) => format!(" You can start another in about {} hours.", (ms + 60 * 60 * 1000 - 1) / (60 * 60 * 1000)),
+                None => String::new(),
+            };
+            let runs = if self.limit == 1 { "1 new briefing".to_string() } else { format!("{} new briefings", self.limit) };
+            format!("This phone has started {runs} in the last 24 hours, the most it can in a day.{when} Briefings already made still open, and the computer can make new ones any time.")
+        };
+        Err(AppError::new(429, "limit_reached", message))
     }
 }

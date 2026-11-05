@@ -189,3 +189,43 @@
   background: var(--bg-primary);
   pointer-events: none;
 }
+
+/* Context (src/tools/context): a briefing being made, and the item the map sent the reader to. */
+.context-progress {
+  animation: context-progress 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes context-progress {
+  0% {
+    left: -33%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+.context-flash {
+  animation: context-flash 3s ease-out forwards;
+}
+@keyframes context-flash {
+  0%,
+  66% {
+    background: var(--accent-bg);
+    box-shadow: 0 0 0 8px var(--accent-bg);
+  }
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .context-progress {
+    animation: none;
+    left: 0;
+    width: 100%;
+    opacity: 0.5;
+  }
+  .context-flash {
+    animation: none;
+    background: var(--accent-bg);
+    box-shadow: 0 0 0 8px var(--accent-bg);
+  }
+}

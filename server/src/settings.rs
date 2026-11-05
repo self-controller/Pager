@@ -55,6 +55,16 @@ fn parse_relay_token(raw: &Value) -> Result<Option<String>> {
     Ok(Some(s.to_string()))
 }
 
+/// Paid Context runs a phone may start in 24 hours: a whole number from 0 (none) to 100.
+fn parse_phone_limit(raw: &Value) -> Result<i64> {
+    let msg = || invalid(format!("context.phoneDailyLimit is a whole number from 0 to {PHONE_DAILY_LIMIT_MAX}."));
+    let n = raw.as_f64().filter(|f| f.is_finite() && f.fract() == 0.0).ok_or_else(msg)?;
+    if !(0.0..=PHONE_DAILY_LIMIT_MAX as f64).contains(&n) {
+        return Err(msg());
+    }
+    Ok(n as i64)
+}
+
 fn is_json(v: &Value, depth: u32) -> bool {
     if depth > 20 {
         return false;
@@ -127,6 +137,7 @@ impl Core {
                     _ => None,
                 },
             },
+            context: ContextSettings { phone_daily_limit: get(&["context", "phoneDailyLimit"]).and_then(|v| v.as_i64()).unwrap_or(d.context.phone_daily_limit) },
         }
     }
 
@@ -255,6 +266,14 @@ impl Core {
             keys.push("remote");
         } else if p.get("remote").map(|m| !m.is_null()).unwrap_or(false) {
             return Err(invalid("remote should be an object."));
+        }
+        if let Some(r) = p.get("context").and_then(Value::as_object) {
+            if let Some(v) = r.get("phoneDailyLimit") {
+                cur.context.phone_daily_limit = parse_phone_limit(v)?;
+            }
+            keys.push("context");
+        } else if p.get("context").map(|m| !m.is_null()).unwrap_or(false) {
+            return Err(invalid("context should be an object."));
         }
         let value = serde_json::to_value(&cur)?;
         self.tx(|c| {
