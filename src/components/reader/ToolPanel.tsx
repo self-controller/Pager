@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sparkles, X } from "lucide-react";
 import { IconButton } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
-import { useTools } from "@/tools/registry";
+import { getRequestedTool, useRequestedTool, useTools } from "@/tools/registry";
 import type { ToolContext } from "@/tools/types";
 
 /**
@@ -21,7 +21,12 @@ export function ToolPanel({
 }) {
   const tools = useTools();
   const withPanels = tools.filter((t) => t.Panel);
-  const [activeId, setActiveId] = useState<string | undefined>(undefined);
+  // A tool can ask for its panel (openToolPanel): the panel opens on it, now or when it next mounts.
+  const [activeId, setActiveId] = useState<string | undefined>(() => getRequestedTool()?.toolId);
+  const requested = useRequestedTool();
+  useEffect(() => {
+    if (requested) setActiveId(requested.toolId);
+  }, [requested]);
   const active = withPanels.find((t) => t.id === activeId) ?? withPanels[0];
 
   return (

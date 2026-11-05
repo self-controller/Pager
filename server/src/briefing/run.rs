@@ -7,7 +7,7 @@ use super::prompt::{system_prompt, tools, user_message, BUDGET_SPENT, NUDGE};
 use super::schema::*;
 use super::secrets::ApiKey;
 use super::transport::{OutError, OutRequest, Transport};
-use super::verify::{verify, Evidence, Report};
+use super::verify::{verify_shaped, Evidence, Report, Shape};
 use super::*;
 use crate::app::App;
 use serde_json::{json, Value};
@@ -202,8 +202,8 @@ pub fn request_body(messages: &[Value], max_tokens: u32) -> Value {
 }
 
 /// The first request of a run, as it would be sent (for `context-live --dry-run`).
-pub fn first_request(level: Level, book: &BookInput, seed: &Value) -> Value {
-    request_body(&[json!({ "role": "user", "content": user_message(level, book, seed) })], MAX_TOKENS_PER_CALL)
+pub fn first_request(level: Level, book: &BookInput, seed: &Value, focus: Option<&str>) -> Value {
+    request_body(&[json!({ "role": "user", "content": user_message(level, book, seed, focus) })], MAX_TOKENS_PER_CALL)
 }
 
 async fn call_api(transport: &Arc<dyn Transport>, key: &ApiKey, body: &Value, limits: &Limits) -> Result<Value, Failure> {
@@ -258,9 +258,11 @@ pub struct Research {
 }
 
 /// The loop with the model. Stops at the first cap, refusal or error; returns the usage either way.
-pub async fn research(transport: &Arc<dyn Transport>, key: &ApiKey, level: Level, book: &BookInput, seed: &Value, lookups: &Lookups, limits: &Limits, usage: &mut Usage) -> Result<Research, Failure> {
+#[allow(clippy::too_many_arguments)]
+pub async fn research(transport: &Arc<dyn Transport>, key: &ApiKey, level: Level, book: &BookInput, seed: &Value, focus: Option<&str>, lookups: &Lookups, limits: &Limits, usage: &mut Usage) -> Result<Research, Failure> {
     let started = Instant::now();
-    let mut messages: Vec<Value> = vec![json!({ "role": "user", "content": user_message(level, book, seed) })];
+    let (search_budget, fetch_budget) = if focus.is_some() { (FOCUS_SEARCH_BUDGET, FOCUS_FETCH_BUDGET) } else { (SEARCH_BUDGET, FETCH_BUDGET) };
+    let mut messages: Vec<Value> = vec![json!({ "role": "user", "content": user_message(level, book, seed, focus) })];
     let mut evidence = Evidence::default();
     let mut model = MODEL.to_string();
     let mut nudged = false;
@@ -331,7 +333,7 @@ pub async fn research(transport: &Arc<dyn Transport>, key: &ApiKey, level: Level
                 if results.is_empty() {
                     return Err(Failure::Api("the model asked for a tool but named none".into()));
                 }
-                if usage.searches >= SEARCH_BUDGET || usage.fetches >= FETCH_BUDGET {
+                if usage.searches >= search_budget || usage.fetches >= fetch_budget {
                     results.push(json!({ "type": "text", "text": BUDGET_SPENT }));
                 }
                 messages.push(json!({ "role": "user", "content": results }));
@@ -358,8 +360,8 @@ pub struct Generated {
     pub usage: Usage,
 }
 
-/// A whole briefing for a document. `progress` hears each stage.
-pub async fn generate(app: &Arc<App>, doc_id: &str, level: Level, limits: &Limits, progress: &(dyn Fn(Stage) + Send + Sync)) -> Result<Generated, (Failure, Usage)> {
+/// A briefing for a document, or (with `focus`) on one name or work in it. `progress` hears each stage.
+pub async fn generate(app: &Arc<App>, doc_id: &str, level: Level, focus: Option<&str>, limits: &Limits, progress: &(dyn Fn(Stage) + Send + Sync)) -> Result<Generated, (Failure, Usage)> {
     let started = Instant::now();
     let mut usage = Usage::default();
     let Some(key) = app.briefing.key().cloned() else { return Err((Failure::NotConfigured, usage)) };
@@ -370,22 +372,23 @@ pub async fn generate(app: &Arc<App>, doc_id: &str, level: Level, limits: &Limit
     progress(Stage::Researching);
     let lookups = Lookups::new(transport.clone(), limits.model_lookups);
     let seed_records = seed(&lookups, &extracted.input).await;
-    let research = match research(&transport, &key, level, &extracted.input, &seed_records, &lookups, limits, &mut usage).await {
+    let research = match research(&transport, &key, level, &extracted.input, &seed_records, focus, &lookups, limits, &mut usage).await {
         Ok(r) => r,
         Err(f) => return Err((f, usage)),
     };
     progress(Stage::Checking);
-    Ok(finish(app, extracted, level, research, usage, lookups.used(), limits, started).await)
+    Ok(finish(app, extracted, level, focus.map(str::to_string), research, usage, lookups.used(), limits, started).await)
 }
 
 /// Verify a draft and assemble the briefing. Also used for drafts written elsewhere (the
 /// `context-live --draft` check, where Claude Code agents stand in for the API).
 #[allow(clippy::too_many_arguments)]
-pub async fn finish(app: &Arc<App>, extracted: Extracted, level: Level, research: Research, usage: Usage, model_lookups: u32, limits: &Limits, started: Instant) -> Generated {
+pub async fn finish(app: &Arc<App>, extracted: Extracted, level: Level, focus: Option<String>, research: Research, usage: Usage, model_lookups: u32, limits: &Limits, started: Instant) -> Generated {
     let verifier = Lookups::new(app.briefing.transport.clone(), limits.verify_lookups);
     let mut evidence = research.evidence;
     evidence.book = extracted.input.front_matter.iter().map(|f| format!("{}\n{}", f.title, f.text)).collect::<Vec<_>>().join("\n\n");
-    let checked = verify(research.draft, &evidence, &verifier).await;
+    let shape = if focus.is_some() { Shape::Focus } else { Shape::Book };
+    let checked = verify_shaped(research.draft, &evidence, &verifier, shape).await;
     let report = checked.report;
     let stats = Stats {
         claims_kept: report.claims_kept,
@@ -409,7 +412,7 @@ pub async fn finish(app: &Arc<App>, extracted: Extracted, level: Level, research
         version: BRIEFING_VERSION,
         doc_id: extracted.doc_id,
         level,
-        focus: None,
+        focus,
         content_hash: extracted.content_hash,
         generated_at: app.clock.iso(),
         model: research.model,

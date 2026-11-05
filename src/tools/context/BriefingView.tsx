@@ -2,7 +2,18 @@ import { useEffect, useState } from "react";
 import { ArrowUpRight, ChevronDown, Waypoints } from "lucide-react";
 import type { ContextBriefing, ContextItem, ContextSection, ContextSectionKind } from "@/api/types";
 import { cx } from "@/lib/cx";
-import { entityById, orderedSections, isFolded, itemAnchor, SECTION_TITLES, safeHref, recordHref, type ItemRef } from "./model";
+import {
+  entityById,
+  focusName,
+  orderedSections,
+  isFolded,
+  itemAnchor,
+  relationLine,
+  sectionTitle,
+  safeHref,
+  recordHref,
+  type ItemRef,
+} from "./model";
 import { Claim, ExternalLink, INFERRED_NOTE, SpoilerFold } from "./parts";
 
 interface Props {
@@ -18,6 +29,7 @@ interface Props {
 export function BriefingView({ briefing, onMap, onShowOnMap, reveal }: Props) {
   const sections = orderedSections(briefing);
   const author = entityById(briefing, "author")?.name ?? "The author";
+  const relate = (item: ContextItem) => relationLine(briefing, item, author);
   const [open, setOpen] = useState<ReadonlySet<ContextSectionKind>>(new Set());
 
   useEffect(() => {
@@ -42,18 +54,22 @@ export function BriefingView({ briefing, onMap, onShowOnMap, reveal }: Props) {
   }, [reveal]);
 
   const anyInferred = JSON.stringify(briefing.sections).includes('"inferred":true');
+  const focused = Boolean(briefing.focus);
 
   return (
     <div className="flex flex-col">
       {briefing.littleKnown && (
         <p className="mx-5 mt-4 rounded-sm bg-surface-2 px-3 py-2.5 font-sans text-[13.5px] leading-5 text-fg">
-          Not much is known about this book's context.
+          {focused
+            ? `Not much is known about ${focusName(briefing)} in connection with this book.`
+            : "Not much is known about this book's context."}
         </p>
       )}
       {sections.map((s) =>
-        isFolded(s.kind) ? (
+        isFolded(s.kind, focused) ? (
           <FoldedSection
             key={s.kind}
+            title={sectionTitle(s.kind, briefing)}
             section={s}
             open={open.has(s.kind)}
             onToggle={() =>
@@ -66,14 +82,14 @@ export function BriefingView({ briefing, onMap, onShowOnMap, reveal }: Props) {
             }
             onMap={onMap}
             onShowOnMap={onShowOnMap}
-            author={author}
+            relate={relate}
           />
         ) : (
           <section key={s.kind} aria-labelledby={`context-h-${s.kind}`} className="border-b border-detail px-5 pt-5 pb-5">
             <h3 id={`context-h-${s.kind}`} className="pb-3 font-display text-[17px] leading-6 font-semibold">
-              {SECTION_TITLES[s.kind]}
+              {sectionTitle(s.kind, briefing)}
             </h3>
-            <Items section={s} onMap={onMap} onShowOnMap={onShowOnMap} author={author} />
+            <Items section={s} onMap={onMap} onShowOnMap={onShowOnMap} relate={relate} />
           </section>
         ),
       )}
@@ -87,19 +103,21 @@ export function BriefingView({ briefing, onMap, onShowOnMap, reveal }: Props) {
 }
 
 function FoldedSection({
+  title,
   section,
   open,
   onToggle,
   onMap,
   onShowOnMap,
-  author,
+  relate,
 }: {
+  title: string;
   section: ContextSection;
   open: boolean;
   onToggle: () => void;
   onMap: ReadonlySet<string>;
   onShowOnMap: (id: string) => void;
-  author: string;
+  relate: (item: ContextItem) => string | null;
 }) {
   const body = `context-body-${section.kind}`;
   return (
@@ -112,14 +130,14 @@ function FoldedSection({
           onClick={onToggle}
           className="flex w-full items-center gap-2 px-5 py-4 text-left transition-hover hover:bg-surface-hover"
         >
-          <span className="flex-1 font-display text-[17px] leading-6 font-semibold">{SECTION_TITLES[section.kind]}</span>
+          <span className="flex-1 font-display text-[17px] leading-6 font-semibold">{title}</span>
           <span className="font-sans text-[13px] text-fg-3 tabular-nums">{section.items.length}</span>
           <ChevronDown size={18} aria-hidden className={cx("text-fg-2 transition-transform", open && "rotate-180")} />
         </button>
       </h3>
       {open && (
         <div id={body} className="px-5 pb-5">
-          <Items section={section} onMap={onMap} onShowOnMap={onShowOnMap} author={author} />
+          <Items section={section} onMap={onMap} onShowOnMap={onShowOnMap} relate={relate} />
         </div>
       )}
     </section>
@@ -130,12 +148,12 @@ function Items({
   section,
   onMap,
   onShowOnMap,
-  author,
+  relate,
 }: {
   section: ContextSection;
   onMap: ReadonlySet<string>;
   onShowOnMap: (id: string) => void;
-  author: string;
+  relate: (item: ContextItem) => string | null;
 }) {
   return (
     <div className="flex flex-col gap-5">
@@ -147,7 +165,7 @@ function Items({
           item={item}
           onMap={onMap}
           onShowOnMap={onShowOnMap}
-          author={author}
+          relate={relate}
         />
       ))}
     </div>
@@ -160,17 +178,18 @@ function Item({
   item,
   onMap,
   onShowOnMap,
-  author,
+  relate,
 }: {
   id: string;
   kind: ContextSectionKind;
   item: ContextItem;
   onMap: ReadonlySet<string>;
   onShowOnMap: (id: string) => void;
-  author: string;
+  relate: (item: ContextItem) => string | null;
 }) {
   // The overview's one item is the book itself: "The book" above it says enough.
   const showHeading = kind !== "overview";
+  const relation = relate(item);
   const mapped = item.entity && onMap.has(item.entity) ? item.entity : null;
   const content = (
     <div className="flex flex-col gap-3">
@@ -194,11 +213,7 @@ function Item({
           {showHeading && (
             <h4 className="font-display text-[15.5px] leading-[22px] font-semibold">
               {/* The author's conversation: "Jane Austen took her title from / Fanny Burney". */}
-              {item.relation && (
-                <span className="block font-sans text-[12.5px] leading-[18px] font-normal text-fg-2">
-                  {author} {item.relation}
-                </span>
-              )}
+              {relation && <span className="block font-sans text-[12.5px] leading-[18px] font-normal text-fg-2">{relation}</span>}
               {item.heading}
             </h4>
           )}

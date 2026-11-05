@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { BookOpen, KeyRound, Landmark, Maximize2, RefreshCw } from "lucide-react";
+import { ArrowLeft, BookOpen, KeyRound, Landmark, Maximize2, RefreshCw } from "lucide-react";
 import {
   ApiError,
   ErrorCodes,
@@ -21,9 +21,13 @@ import type { ToolPanelProps } from "@/tools/types";
 import { BriefingView } from "./BriefingView";
 import { ConnectionMap } from "./ConnectionMap";
 import {
+  BOOK_COST,
   costLabel,
+  FOCUS_COST,
   generatedLabel,
   LEVEL_LABELS,
+  orderedSections,
+  phoneRunsLine,
   STAGE_TEXT,
   usableLinks,
   viewShows,
@@ -34,12 +38,17 @@ import {
 } from "./model";
 import { EntityDetail } from "./parts";
 import { PlacesMap } from "./PlacesMap";
+import { clearReveal, setPanelFocus, usePanelFocus, usePendingReveal } from "./store";
 import { Timeline } from "./Timeline";
 
 const LEVELS: ContextLevel[] = ["general", "student", "scholar"];
 
-/** Context: a sourced briefing on what's around the open book (prompts/book-context.md, Phase 2). */
+/**
+ * Context: a sourced briefing on what's around the open book (prompts/book-context.md, Phase 2), or,
+ * from "Context for this" (Phase 3), a focused briefing on one name or work in it.
+ */
 export function ContextPanel({ context }: ToolPanelProps) {
+  const panelFocus = usePanelFocus();
   if (!context.doc) {
     return (
       <EmptyState icon={Landmark} title="Open a book to see its context">
@@ -48,25 +57,29 @@ export function ContextPanel({ context }: ToolPanelProps) {
       </EmptyState>
     );
   }
-  return <ContextForDocument key={context.doc.id} doc={context.doc} />;
+  const focus = panelFocus?.docId === context.doc.id ? panelFocus.focus : null;
+  return <ContextForDocument key={`${context.doc.id}:${focus ?? ""}`} doc={context.doc} focus={focus} />;
 }
 
-function ContextForDocument({ doc }: { doc: DocumentDetail }) {
+/** The whole book's briefing, or with `focus` the briefing on that name or work in it. */
+function ContextForDocument({ doc, focus }: { doc: DocumentDetail; focus: string | null }) {
   const { contextLevel: level } = useSettings();
   const status = useContextStatus();
-  const state = useContextBriefing(doc.id, level);
+  const state = useContextBriefing(doc.id, level, focus);
   const start = useStartContext(doc.id);
+  const pending = usePendingReveal();
   const [runId, setRunId] = useState<string | undefined>();
   const [view, setView] = useState<ContextView>("briefing");
-  const [focus, setFocus] = useState<string | null>(null);
+  // The node tapped on a graphic.
+  const [picked, setPicked] = useState<string | null>(null);
   const [reveal, setReveal] = useState<(ItemRef & { nonce: number }) | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [full, setFull] = useState<ContextView | null>(null);
 
-  // Another level is another briefing: forget this one's run, error and focus.
+  // Another level is another briefing: forget this one's run, error and tapped node.
   useEffect(() => {
     setRunId(undefined);
-    setFocus(null);
+    setPicked(null);
     start.reset();
   }, [level]);
 
@@ -84,14 +97,14 @@ function ContextForDocument({ doc }: { doc: DocumentDetail }) {
     [views, briefing],
   );
 
-  useEffect(() => setFocus(null), [briefing?.generatedAt]);
+  useEffect(() => setPicked(null), [briefing?.generatedAt]);
 
   const begin = (refresh: boolean) => {
     setConfirm(false);
-    start.mutate({ level, refresh }, { onSuccess: (r) => setRunId(r.run?.id) });
+    start.mutate({ level, refresh, focus: focus ?? undefined }, { onSuccess: (r) => setRunId(r.run?.id) });
   };
   const showOnMap = (id: string) => {
-    setFocus(id);
+    setPicked(id);
     setView("map");
   };
   const read = (ref: ItemRef) => {
@@ -99,6 +112,24 @@ function ContextForDocument({ doc }: { doc: DocumentDetail }) {
     setView("briefing");
     setReveal({ ...ref, nonce: Date.now() });
   };
+
+  // From the card's "Open in Context" on a name the whole book's briefing covers: the node on the
+  // map when there is one, else the item in the text.
+  useEffect(() => {
+    if (focus || !pending || pending.docId !== doc.id || !briefing) return;
+    clearReveal();
+    if (pending.entity && views.includes("map") && briefing.entities.some((e) => e.id === pending.entity)) {
+      setPicked(pending.entity);
+      setView("map");
+      return;
+    }
+    const at = pending.item;
+    const item = at && orderedSections(briefing).find((s) => s.kind === at.kind)?.items[at.index];
+    if (at && item) {
+      setView("briefing");
+      setReveal({ kind: at.kind, index: at.index, item, nonce: pending.nonce });
+    }
+  }, [pending, briefing, views, focus, doc.id]);
 
   const loadError = status.error ?? state.error;
   if (loadError) return <LoadError error={loadError} onRetry={() => void Promise.all([status.refetch(), state.refetch()])} />;
@@ -110,15 +141,16 @@ function ContextForDocument({ doc }: { doc: DocumentDetail }) {
 
   const graphic = (v: ContextView, maxHeight?: number) =>
     briefing && v === "map" ? (
-      <ConnectionMap briefing={briefing} focus={focus} onFocus={setFocus} maxHeight={maxHeight} />
+      <ConnectionMap briefing={briefing} focus={picked} onFocus={setPicked} maxHeight={maxHeight} />
     ) : briefing && v === "timeline" ? (
-      <Timeline briefing={briefing} focus={focus} onFocus={setFocus} />
+      <Timeline briefing={briefing} focus={picked} onFocus={setPicked} />
     ) : briefing && v === "places" ? (
-      <PlacesMap briefing={briefing} focus={focus} onFocus={setFocus} maxHeight={maxHeight} />
+      <PlacesMap briefing={briefing} focus={picked} onFocus={setPicked} maxHeight={maxHeight} />
     ) : null;
 
   return (
     <div className="flex min-h-full flex-col">
+      {focus && <FocusHeader focus={focus} doc={doc} />}
       {views.length > 1 && (
         <div className="sticky top-0 z-10 border-b border-detail bg-surface px-3 py-2">
           <SegmentedTabs
@@ -165,7 +197,7 @@ function ContextForDocument({ doc }: { doc: DocumentDetail }) {
           ) : needsKey ? (
             <KeySetup status={status.data} />
           ) : !running && !failed ? (
-            <MakeOne level={level} phone={status.data.phone} onMake={() => begin(false)} />
+            <MakeOne level={level} focus={focus} phone={status.data.phone} onMake={() => begin(false)} />
           ) : null}
         </>
       ) : (
@@ -176,8 +208,8 @@ function ContextForDocument({ doc }: { doc: DocumentDetail }) {
             </div>
             {graphic(shown)}
             <div className="px-5 pt-4 pb-6">
-              {focus && viewShows(briefing, shown, focus) ? (
-                <EntityDetail briefing={briefing} id={focus} onRead={read} />
+              {picked && viewShows(briefing, shown, picked) ? (
+                <EntityDetail briefing={briefing} id={picked} onRead={read} />
               ) : (
                 <Hint view={shown} briefing={briefing} />
               )}
@@ -198,10 +230,10 @@ function ContextForDocument({ doc }: { doc: DocumentDetail }) {
         <Dialog
           open={full !== null}
           onClose={() => setFull(null)}
-          title={`${full ? VIEW_LABELS[full] : ""} · ${doc.title}`}
+          title={`${full ? VIEW_LABELS[full] : ""} · ${focus ? `${focus}, in ${doc.title}` : doc.title}`}
           placement="full"
         >
-          {full && <FullView briefing={briefing} graphic={graphic} view={full} focus={focus} onRead={read} />}
+          {full && <FullView briefing={briefing} graphic={graphic} view={full} focus={picked} onRead={read} />}
         </Dialog>
       )}
     </div>
@@ -243,29 +275,67 @@ function RunStatus({ run, compact }: { run: ContextRun | undefined; compact: boo
 }
 
 /** No briefing at this level yet: say what it is, what it costs, and offer to make one. */
-function MakeOne({ level, phone, onMake }: { level: ContextLevel; phone: ContextStatus["phone"]; onMake: () => void }) {
+function MakeOne({
+  level,
+  focus,
+  phone,
+  onMake,
+}: {
+  level: ContextLevel;
+  /** "Context for this": a short briefing on one name or work. */
+  focus: string | null;
+  phone: ContextStatus["phone"];
+  onMake: () => void;
+}) {
   const none = phone !== null && phone.left <= 0;
+  const runs = phoneRunsLine(phone);
   return (
     <div className="flex flex-col gap-4 px-5 py-6">
-      <div>
-        <h3 className="font-display text-[19px] leading-7 font-semibold">What's around this book</h3>
-        <p className="mt-1.5 font-serif text-[15px] leading-[1.55] text-fg">
-          A short briefing on the book's historical moment, its author's situation and the conversation it joined, with a map of
-          the people, works and places around it. Every claim links to a source Pager checked; anything it couldn't check is left
-          out.
+      {focus ? (
+        <p className="font-serif text-[15px] leading-[1.55] text-fg">
+          A short briefing on how {focus} bears on this book and its author, with a small map. Every claim links to a source Pager
+          checked; anything it couldn't check is left out.
         </p>
-      </div>
+      ) : (
+        <div>
+          <h3 className="font-display text-[19px] leading-7 font-semibold">What's around this book</h3>
+          <p className="mt-1.5 font-serif text-[15px] leading-[1.55] text-fg">
+            A short briefing on the book's historical moment, its author's situation and the conversation it joined, with a map of
+            the people, works and places around it. Every claim links to a source Pager checked; anything it couldn't check is
+            left out.
+          </p>
+        </div>
+      )}
       <div>
         <Button variant="primary" icon={BookOpen} disabled={none} onClick={onMake}>
-          Make a {LEVEL_LABELS[level].toLowerCase()} briefing
+          {focus ? `Make a briefing on “${focus}”` : `Make a ${LEVEL_LABELS[level].toLowerCase()} briefing`}
         </Button>
       </div>
       <p className="font-sans text-[12.5px] leading-[18px] text-fg-2">
-        It takes a minute or two and uses the API key on your computer, usually $0.20–0.70 a briefing.
-        {phone &&
-          (none
-            ? ` This phone has started its ${phone.limit} for today; the computer can make one any time.`
-            : ` This phone can start ${phone.left} more today.`)}
+        {focus
+          ? `It takes a minute or so and uses the API key on your computer, usually ${FOCUS_COST}.`
+          : `It takes a minute or two and uses the API key on your computer, usually ${BOOK_COST} a briefing.`}
+        {runs && ` ${runs}`}
+      </p>
+    </div>
+  );
+}
+
+/** A focused briefing's header: back to the whole book, then what it is about. */
+function FocusHeader({ focus, doc }: { focus: string; doc: DocumentDetail }) {
+  return (
+    <div className="border-b border-detail px-5 pt-2 pb-4">
+      <button
+        type="button"
+        onClick={() => setPanelFocus(null)}
+        className="-ml-1.5 inline-flex h-9 items-center gap-1 rounded-sm px-1.5 font-sans text-[13px] leading-4 font-semibold text-accent transition-hover hover:text-accent-hover"
+      >
+        <ArrowLeft size={14} strokeWidth={2} aria-hidden />
+        The whole book
+      </button>
+      <h2 className="font-display text-[20px] leading-7 font-semibold">{focus}</h2>
+      <p className="font-sans text-[13px] leading-[18px] text-fg-2">
+        in <cite className="font-serif text-[14px] text-fg-2 italic">{doc.title}</cite>
       </p>
     </div>
   );

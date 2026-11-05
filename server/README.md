@@ -219,6 +219,8 @@ With no key, Context says so and makes no calls.
 - **Trying it by hand:** `cargo run --release --example context-live -- <book.epub> [--level scholar]`
   runs the real pipeline on one book with your key and prints what was kept and dropped and why;
   `--dry-run` prints the exact request that would be sent, with no key and no network.
+  `--focus "Malthus"` narrows any of these to one name or work in the book ("Context for this"): a
+  short briefing on how it bears on the book, cached separately.
   `--prompt-dir DIR` and `--draft FILE` test the prompt without the API: the first writes what the
   model would get, the second runs a draft written elsewhere (by a Claude Code agent) through the
   real verifier (prompts/book-context.md, "Testing with Claude Code agents").

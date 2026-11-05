@@ -1,0 +1,454 @@
+{
+ "littleKnown": false,
+ "sections": [
+  {
+   "kind": "overview",
+   "items": [
+    {
+     "heading": "Malthus",
+     "entity": "focus",
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Thomas Robert Malthus (1766-1834) was an English political economist. In 1798 he published An Essay on the Principle of Population, arguing that human numbers tend to grow much faster than the food supply.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://www.lindahall.org/thomas-malthus/",
+         "title": "Scientist of the Day - Thomas Malthus (Linda Hall Library)",
+         "author": null,
+         "year": null,
+         "quote": "In 1798, Malthus published An Essay on the Principle of Population, in which he pointed out that human populations tend to increase much more rapidly than food supply and other resources",
+         "record": null
+        }
+       ]
+      },
+      {
+       "text": "He thought this made a struggle for survival unavoidable and that poor relief only made matters worse. He revised the Essay six times, partly to answer critics who found him cold and uncaring.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://www.lindahall.org/thomas-malthus/",
+         "title": "Scientist of the Day - Thomas Malthus (Linda Hall Library)",
+         "author": null,
+         "year": null,
+         "quote": "Malthus revised his book six times, trying to answer critics, especially those who called him cold and uncaring, which Malthus vehemently denied.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    }
+   ]
+  },
+  {
+   "kind": "conversation",
+   "items": [
+    {
+     "heading": "Darwin's reading of Malthus",
+     "entity": "focus",
+     "relation": "read, and took the idea of a struggle for existence from",
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Darwin read Malthus's Essay in autumn 1838, as a break from sorting his Beagle specimens. He recalled in his Autobiography that he read it \"for amusement\", and that it struck him that favourable variations would tend to be preserved.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://ucmp.berkeley.edu/history/malthus.html",
+         "title": "Thomas Malthus (1766-1834), UCMP Berkeley",
+         "author": null,
+         "year": null,
+         "quote": "In October 1838, that is, fifteen months after I had begun my systematic inquiry, I happened to read for amusement Malthus on Population,",
+         "record": null
+        },
+        {
+         "kind": "page",
+         "url": "https://www.lindahall.org/thomas-malthus/",
+         "title": "Scientist of the Day - Thomas Malthus (Linda Hall Library)",
+         "author": null,
+         "year": null,
+         "quote": "a copy of Malthus's Essay was lying around Charles Darwin's London flat in September of 1838, when he needed a break from sorting out HMS Beagle specimens and dived into Malthus as a diversion.",
+         "record": null
+        }
+       ]
+      },
+      {
+       "text": "Sources differ slightly on the month: Darwin's own recollection says October, while the Linda Hall Library places the reading in September 1838.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://ucmp.berkeley.edu/history/malthus.html",
+         "title": "Thomas Malthus (1766-1834), UCMP Berkeley",
+         "author": null,
+         "year": null,
+         "quote": "In October 1838, that is, fifteen months after I had begun my systematic inquiry, I happened to read for amusement Malthus on Population,",
+         "record": null
+        },
+        {
+         "kind": "page",
+         "url": "https://www.lindahall.org/thomas-malthus/",
+         "title": "Scientist of the Day - Thomas Malthus (Linda Hall Library)",
+         "author": null,
+         "year": null,
+         "quote": "a copy of Malthus's Essay was lying around Charles Darwin's London flat in September of 1838, when he needed a break from sorting out HMS Beagle specimens and dived into Malthus as a diversion.",
+         "record": null
+        }
+       ]
+      },
+      {
+       "text": "Darwin saw that nature has an even greater struggle for existence than the one Malthus described for humans, so only a few individuals in each generation survive and breed. This was the last element he needed for natural selection.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://www.lindahall.org/thomas-malthus/",
+         "title": "Scientist of the Day - Thomas Malthus (Linda Hall Library)",
+         "author": null,
+         "year": null,
+         "quote": "Darwin immediately realized that in nature there is an even greater \"struggle for existence,\" as he called it, so that only a few individuals of each generation can survive to produce offspring.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    },
+    {
+     "heading": "Where it shows in the Origin",
+     "entity": "focus",
+     "relation": "borrows from and extends",
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "In the Introduction's outline of the chapters, Darwin says that the struggle for existence, which follows from the high rate at which organisms multiply, \"is the doctrine of Malthus, applied to the whole animal and vegetable kingdoms\". This is the subject of Chapter III.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://www.gutenberg.org/cache/epub/1228/pg1228-images.html",
+         "title": "On the Origin of Species, Introduction (Project Gutenberg)",
+         "author": null,
+         "year": null,
+         "quote": "This is the doctrine of Malthus, applied to the whole animal and vegetable kingdoms.",
+         "record": null
+        }
+       ]
+      },
+      {
+       "text": "Unlike Malthus, who wrote about people and saw the outcome as divinely ordained, Darwin and Wallace framed the principle in purely natural terms. Wallace independently reached natural selection after reading Malthus too.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://ucmp.berkeley.edu/history/malthus.html",
+         "title": "Thomas Malthus (1766-1834), UCMP Berkeley",
+         "author": null,
+         "year": null,
+         "quote": "Unlike Malthus, they framed his principle in purely natural terms both in outcome and in ultimate reason.",
+         "record": null
+        },
+        {
+         "kind": "page",
+         "url": "https://ucmp.berkeley.edu/history/malthus.html",
+         "title": "Thomas Malthus (1766-1834), UCMP Berkeley",
+         "author": null,
+         "year": null,
+         "quote": "Both Darwin and Wallace independantly arrived at similar theories of Natural Selection after reading Malthus.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    }
+   ]
+  },
+  {
+   "kind": "moment",
+   "items": [
+    {
+     "heading": "Malthus's own time",
+     "entity": "focus",
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Malthus's views were politically live in the 1830s. In 1834 Parliament passed the Poor Law Act, cutting most outdoor relief for the poor, and Malthus's arguments about the futility of social programmes were invoked in support.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://www.lindahall.org/thomas-malthus/",
+         "title": "Scientist of the Day - Thomas Malthus (Linda Hall Library)",
+         "author": null,
+         "year": null,
+         "quote": "the British Parliament passed the Poor Law Act, in support of which Malthus's views on the futility of social programs were invoked in abolishing most forms of outdoor relief for the poor.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    }
+   ]
+  },
+  {
+   "kind": "furtherReading",
+   "items": [
+    {
+     "heading": "An Essay on the Principle of Population",
+     "entity": null,
+     "relation": null,
+     "work": {
+      "title": "An Essay on the Principle of Population",
+      "authors": [
+       "Thomas Robert Malthus"
+      ],
+      "year": "1798",
+      "record": {
+       "kind": "olid",
+       "value": "OL7979843W"
+      }
+     },
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": "Readers who want Malthus's argument in his own words, after finishing the Origin.",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Malthus first published the Essay in 1798.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://www.lindahall.org/thomas-malthus/",
+         "title": "Scientist of the Day - Thomas Malthus (Linda Hall Library)",
+         "author": null,
+         "year": null,
+         "quote": "In 1798, Malthus published An Essay on the Principle of Population, in which he pointed out that human populations tend to increase much more rapidly than food supply and other resources",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    }
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "id": "book",
+   "kind": "work",
+   "name": "On the Origin of Species",
+   "wikidata": null,
+   "record": {
+    "kind": "olid",
+    "value": "OL515051W"
+   }
+  },
+  {
+   "id": "author",
+   "kind": "person",
+   "name": "Charles Darwin",
+   "wikidata": "Q1035",
+   "record": null
+  },
+  {
+   "id": "focus",
+   "kind": "person",
+   "name": "Thomas Robert Malthus",
+   "wikidata": "Q13526",
+   "record": null
+  },
+  {
+   "id": "essay",
+   "kind": "work",
+   "name": "An Essay on the Principle of Population",
+   "wikidata": null,
+   "record": {
+    "kind": "olid",
+    "value": "OL7979843W"
+   }
+  },
+  {
+   "id": "wallace",
+   "kind": "person",
+   "name": "Alfred Russel Wallace",
+   "wikidata": "Q160627",
+   "record": null
+  },
+  {
+   "id": "natsel",
+   "kind": "idea",
+   "name": "Natural selection",
+   "wikidata": "Q43478",
+   "record": null
+  }
+ ],
+ "links": [
+  {
+   "from": "focus",
+   "to": "essay",
+   "relation": "wrote",
+   "claim": {
+    "text": "Malthus published the Essay in 1798.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://www.lindahall.org/thomas-malthus/",
+      "title": "Scientist of the Day - Thomas Malthus (Linda Hall Library)",
+      "author": null,
+      "year": null,
+      "quote": "In 1798, Malthus published An Essay on the Principle of Population, in which he pointed out that human populations tend to increase much more rapidly than food supply and other resources",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "author",
+   "to": "essay",
+   "relation": "read",
+   "claim": {
+    "text": "Darwin read the Essay in autumn 1838.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://ucmp.berkeley.edu/history/malthus.html",
+      "title": "Thomas Malthus (1766-1834), UCMP Berkeley",
+      "author": null,
+      "year": null,
+      "quote": "In October 1838, that is, fifteen months after I had begun my systematic inquiry, I happened to read for amusement Malthus on Population,",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "author",
+   "to": "focus",
+   "relation": "borrowed the struggle for existence from",
+   "claim": {
+    "text": "Reading Malthus gave Darwin the idea of a struggle for existence in nature.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://www.lindahall.org/thomas-malthus/",
+      "title": "Scientist of the Day - Thomas Malthus (Linda Hall Library)",
+      "author": null,
+      "year": null,
+      "quote": "Darwin immediately realized that in nature there is an even greater \"struggle for existence,\" as he called it, so that only a few individuals of each generation can survive to produce offspring.",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "book",
+   "to": "focus",
+   "relation": "names the doctrine of",
+   "claim": {
+    "text": "The Origin's Introduction calls the struggle for existence the doctrine of Malthus applied to all living things.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://www.gutenberg.org/cache/epub/1228/pg1228-images.html",
+      "title": "On the Origin of Species, Introduction (Project Gutenberg)",
+      "author": null,
+      "year": null,
+      "quote": "This is the doctrine of Malthus, applied to the whole animal and vegetable kingdoms.",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "wallace",
+   "to": "focus",
+   "relation": "read",
+   "claim": {
+    "text": "Wallace also reached natural selection after reading Malthus.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://ucmp.berkeley.edu/history/malthus.html",
+      "title": "Thomas Malthus (1766-1834), UCMP Berkeley",
+      "author": null,
+      "year": null,
+      "quote": "Both Darwin and Wallace independantly arrived at similar theories of Natural Selection after reading Malthus.",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "focus",
+   "to": "natsel",
+   "relation": "inspired",
+   "claim": {
+    "text": "Darwin and Wallace recast Malthus's principle in purely natural terms.",
+    "inferred": true,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://ucmp.berkeley.edu/history/malthus.html",
+      "title": "Thomas Malthus (1766-1834), UCMP Berkeley",
+      "author": null,
+      "year": null,
+      "quote": "Unlike Malthus, they framed his principle in purely natural terms both in outcome and in ultimate reason.",
+      "record": null
+     }
+    ]
+   }
+  }
+ ]
+}

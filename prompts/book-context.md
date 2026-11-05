@@ -222,6 +222,23 @@ conversation, then situation, then moment.
    - **Refresh asks first**, naming the last run's cost (left out when it is $0) and, on a
      phone, how many of its runs a day are left.
 
+11. **Phase 3, "Context for this"** (asked 2026-11-05, before it was built):
+   - **The first tap never spends money: look first, then offer.** A focused briefing already made
+     for that selection shows at once. Else, if the whole book's briefing (at the current level)
+     already covers the name (a map entity or an item), that shows, free, with "Go deeper on X", its
+     cost ("usually $0.10–0.30") and, on a phone, the runs left. Else an offer ("Make a briefing on
+     X") with the cost.
+   - **A focused briefing is short and about the link:** about 5–10 claims (the verifier keeps at
+     most 12): who or what it is; how it bears on this book and its author; a disagreement if
+     scholars have one; at most 2 further readings. No pre-reading and no terms. A small map centred
+     on the item (entity `focus`). A smaller research budget: 5 searches, 4 fetches.
+   - **Placement: a card by the text**, beside the selection like the footnote popover, with a
+     compact version and "Open in Context →", which opens the tool panel on the full focused
+     briefing.
+   - Also decided: a selection over 120 characters is refused ("Select a name or a title"); web only
+     (the iPhone app's text menu is a fixed list); a phone's browser shows the web menu, and focused
+     runs count toward the phone's daily limit like any paid run.
+
 ## API facts (checked against Anthropic's docs on 2026-11-05)
 There is no official Rust SDK, so the server calls `POST https://api.anthropic.com/v1/messages`
 over raw HTTP with `reqwest` (already in the dependency tree through iroh).
@@ -593,3 +610,103 @@ runs left.
 - Phase 3 (the "Context for this" selection action) and Phase 4 (polish: streaming sections,
   measurements).
 
+### Phase 3: "Context for this" (2026-11-05)
+**Asked first** (see Decision 11): look first, then offer; short and about the link; a card by the text.
+
+**Built:**
+- **Server** (`server/src/briefing/focus.rs`, and `focus` threaded through `mod.rs`, `run.rs`,
+  `prompt.rs`, `verify.rs`, `store.rs` and the routes):
+  - `GET …/briefings/:id?level=&focus=` and `POST { level, refresh, focus }`. The selection is cleaned
+    (spaces collapsed; clinging quotes, punctuation and unbalanced brackets dropped; a possessive ’s
+    removed) and cached per document, level, file version and focus, compared without case. Over 120
+    characters, no letter, or not a string: 400 `invalid_request` ("Select a name or a title …").
+  - The run key includes the focus, so a focused run and the whole book's never share. A focused run
+    from a phone goes through the same allowance check, so it counts like any paid run.
+  - One system prompt for both kinds of run (so it caches), with a "# A focused briefing" section that
+    replaces the counts, budget and research plan for a focused run; the user message puts the
+    selection in `<focus>…</focus>`, as data. The model is told 5 searches and 4 fetches; the hard caps
+    and tool list are unchanged.
+  - The verifier's `Shape::Focus`: at most 1 overview item, no pre-reading ("a focused briefing has no
+    pre-reading"), 2 each of moment, situation, terms and further reading, 3 conversation items, 12
+    claims, and the `focus` entity kept even with no link.
+  - `context-live --focus TEXT` for the live run, `--dry-run`, `--prompt-dir`, `--draft` and the file
+    name; `--briefing FILE --store DIR` keeps the briefing's own focus.
+  - Two prompt changes from the agent runs below: the focused section now says it replaces the general
+    counts and gives its own research plan; and an `inferred` claim "only joins what the cited passages
+    say: it adds no fact of its own" (both kinds of briefing).
+- **Web** (`src/tools/context/`):
+  - The selection action "Context for this" (Landmark) opens a card beside the selection and clears the
+    selection. Web only; the iPhone app's `NativeMenuItem` list is unchanged.
+  - `ContextCard.tsx`, the tool's new `Overlay` (lazy, 10 KB): the footnote popover's box and entrance,
+    at most as tall as the roomier side so it never covers the words; closes on a tap outside, ✕, Esc,
+    a page turn, a scroll, a resize, or another chapter. States in order: "Select a name or a title";
+    loading; offline and the mock's `unsupported`; a focused briefing already made (who or what it is,
+    its overview claims, the first claim of each "And this book" item, then "Open in Context →"); a run
+    going (the stage every 2 s, "You can close this; it will be here when it's done"); a failed run with
+    Try again; a match in the whole book's briefing ("From this book's briefing": the node's name, kind,
+    dates and description, and the claim that names the selection, else the node's sourced link, else
+    the item's first claim; "Open in Context →" opens the panel with the map on that node or the text on
+    that item; "Go deeper on “X”" with the cost and a phone's runs left, not without a key); nothing
+    found (the offer, "Make a briefing on “X”"); no key ("Context needs an API key on the computer." and
+    "Open in Context for the steps"); 429 as a calm note.
+  - The panel's focus view: "← The whole book", the selection and "in <book>", then the same tabs,
+    level switcher, Refresh and graphics; sections titled for the focus (the overview is its name, the
+    conversation "And this book", nothing folded); a relation line ending with the focus ("Charles
+    Darwin read Malthus"); "Not much is known about X in connection with this book."; the map centred on
+    `focus`.
+  - Seams: `PagerTool.Overlay`, rendered by `ReaderPage`; `openToolPanel(toolId)` in the registry
+    (the reader opens the panel, `ToolPanel` selects the tool); `store.ts` for the card, the panel's
+    focus and a pending reveal.
+  - `model.ts`: `normalizeFocus` (the server's cleaning, same cases), `findInBriefing` (a node's name,
+    a person's surname, a name without its brackets or the bracketed name, accents ignored, item
+    headings, one inflected word retried without its ending; nothing for 1–2 letters or stopwords),
+    `matchClaim`, `sectionTitle`, `focusName`, `relationLine`, `mapRoot`, `phoneRunsLine`, and
+    `radialLayout`'s optional root.
+  - The selection menu now stays 8px inside the viewport and its labels don't wrap: at 390 px, with a
+    third action, it ran off the right edge.
+
+**Verified:**
+- `cargo test`: all suites pass (147). New in `server/tests/briefing.rs`: a focused run end to end (202
+  then done; `<focus>Malthus</focus>` in the first request; `briefing.focus` "Malthus"; no pre-reading;
+  the `focus` node and its link; its own cache, which "“Malthus’s”" and "  malthus. " hit with no call,
+  apart from the whole book's; 400 for 121 characters, a number, an array and "1859", over POST and
+  GET); `Shape::Focus` on a long draft (12 kept, 7 dropped, the reasons, the focus node kept where the
+  book shape drops it); a focused run from a paired phone counted, opened again for free, and refused
+  at the limit with no call. `focus.rs` unit tests ("It's" stays; "Ross's" → "Ross").
+- `npm test`: 228 pass, `npm run typecheck` passes. New in `test/context.test.ts`: the adapter's
+  `?focus=` and POST body, the query key, `normalizeFocus` with the server's cases, `findInBriefing` on
+  the real samples (Darwin: "Malthus", "Wallace", "Darwin", "Murray", "Whewell"; Austen: "entail",
+  "entailed", "pin-money", "war"; Nietzsche: "Übermensch", "Rée"; null for "the", "of", "Mr", "1859",
+  "species", "power", "Lamarck"), `matchClaim`, the focused samples' shape, section titles and folds,
+  the relation line, the map's focus root.
+- **Agent runs** (Sonnet subagents with the tool stand-ins, drafts through the real verifier, all
+  General):
+
+  | Run | Section claims | Links | Dropped | Notes |
+  |---|---|---|---|---|
+  | Darwin, "Malthus" | 9 | 6 | none | Darwin's reading (the Autobiography's "for amusement"), the Origin's own "doctrine of Malthus" line, Wallace; a marginal 1834 Poor Law item |
+  | Austen, "Fanny Burney" | 7 | 7 | none | *Cecilia* and the title, the burlesque reading, Austen's subscription to *Camilla*, *Northanger Abbey*'s praise |
+  | Nietzsche, "Wagner", round 1 | 9 | 7 | none | an inferred claim added facts its quote didn't hold (Wagner "dead while Nietzsche wrote Zarathustra") → the `inferred` rule above |
+  | Nietzsche, "Wagner", round 2 | 7 | 7 | none | dates right (Part I in January 1883, Wagner dead in February); the Magician in Part Four (LitCharts, a weak source) |
+
+  Every map was centred on `focus` with 6–7 nodes, no run produced pre-reading, and each spent 2–3
+  searches and 4–5 fetches. The three good ones are samples (`*-malthus-general`, `*-burney-general`,
+  `*-wagner-general`) and are stored in the dev library.
+- In a browser (Playwright's Chromium, against the dev server with an empty `XDG_CONFIG_HOME` and a
+  dummy key; REA's click can't aim at one word inside a paragraph, so a small CDP script double-clicked
+  the word at its Range's box): at 1440 px, "Malthus" in the Origin's Introduction → the cached focused
+  card → "Open in Context" → the focus view, its map centred on Malthus, back to the whole book;
+  "Wallace" → the free match with Go deeper → the map on Wallace; "naturalist" → the offer; a whole
+  paragraph → "Select a name or a title"; Esc and a click outside close the card; Austen's "entail" →
+  the map on Entail; "Make a briefing" with the dummy key → the stage, then "Anthropic refused the API
+  key" with Try again (no cost). With no key: the match without Go deeper, the offer replaced by the
+  key note, and the setup steps in the focus view. At 390 px: the menu fits, the card (350 px) sits
+  above the word, the sheet opens on the focus view, the match and the offer. No page errors.
+
+**Not verified:**
+- The real API on a focused run (the cost line, $0.10–0.30, is an estimate).
+- A paired phone in a browser (the runs-left line and the 429 note in the card): covered by the server
+  test and a unit test, not seen on screen. Touch selection on a device; the dark theme.
+
+**Left:** Phase 4 (polish: streaming sections, cost and latency measurements, the Assistant page
+entry). The iPhone app could add a "Context for this" item to its native menu later.

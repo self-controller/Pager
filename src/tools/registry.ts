@@ -43,3 +43,29 @@ export function useSelectionActions(): { tool: PagerTool; action: SelectionActio
   const all = useTools();
   return all.flatMap((tool) => (tool.selectionActions ?? []).map((action) => ({ tool, action })));
 }
+
+// ---- Opening the tool panel from a tool (an Overlay's "Open in Context") ----
+
+let requested: { toolId: string; nonce: number } | null = null;
+const panelListeners = new Set<() => void>();
+
+/** Opens the reader's tool panel on this tool. The reader opens the panel; the panel selects the tool. */
+export function openToolPanel(toolId: string): void {
+  requested = { toolId, nonce: (requested?.nonce ?? 0) + 1 };
+  panelListeners.forEach((l) => l());
+}
+
+/** The last tool asked for (each request is a new object), or null. */
+export function getRequestedTool(): { toolId: string; nonce: number } | null {
+  return requested;
+}
+
+/** Calls `listener` on each `openToolPanel`; returns the unsubscribe. */
+export function onToolPanelRequest(listener: () => void): () => void {
+  panelListeners.add(listener);
+  return () => panelListeners.delete(listener);
+}
+
+export function useRequestedTool(): { toolId: string; nonce: number } | null {
+  return useSyncExternalStore(onToolPanelRequest, getRequestedTool, getRequestedTool);
+}

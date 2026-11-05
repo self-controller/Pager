@@ -1,0 +1,448 @@
+{
+  "version": 2,
+  "docId": "01m6q0h6vdjavtmtnff5",
+  "level": "general",
+  "focus": "Wagner",
+  "contentHash": "ddc83cf56810dab6d58e98bddbcaf705e217f944d496b976e932e088979bd76f",
+  "generatedAt": "2026-11-05T23:26:03.827Z",
+  "model": "draft (Claude Code agent)",
+  "littleKnown": false,
+  "sections": [
+    {
+      "kind": "overview",
+      "items": [
+        {
+          "heading": "Wagner",
+          "entity": "focus",
+          "spoiler": false,
+          "claims": [
+            {
+              "text": "Richard Wagner (1813-1883) was a German composer who moved to Bayreuth in 1872 to oversee the building of a festival theatre for his operas. Nietzsche was for some years his friend and admirer.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {
+                  "kind": "record",
+                  "url": "https://www.wikidata.org/wiki/Q1511",
+                  "title": "Richard Wagner",
+                  "author": null,
+                  "year": null,
+                  "quote": null,
+                  "record": {
+                    "kind": "wikidata",
+                    "value": "Q1511"
+                  },
+                  "check": "record"
+                },
+                {
+                  "kind": "page",
+                  "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/Bayreuth.htm",
+                  "title": "Richard Wagner in Bayreuth (course notes)",
+                  "author": null,
+                  "year": null,
+                  "quote": "the Wagners moved to distant Bayreuth to oversee the building of the Festspielhaus in April 1872.",
+                  "record": null,
+                  "check": "quoted"
+                }
+              ]
+            },
+            {
+              "text": "Nietzsche last saw the Wagners in November 1876, after which he turned against him.",
+              "inferred": true,
+              "spoiler": false,
+              "citations": [
+                {
+                  "kind": "page",
+                  "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/Bayreuth.htm",
+                  "title": "Richard Wagner in Bayreuth (course notes)",
+                  "author": null,
+                  "year": null,
+                  "quote": "In November of 1876, Nietzsche saw the Wagners for the last time.",
+                  "record": null,
+                  "check": "quoted"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "situation",
+      "items": [
+        {
+          "heading": "Wagner died as Zarathustra was begun",
+          "entity": "focus",
+          "spoiler": false,
+          "claims": [
+            {
+              "text": "Nietzsche wrote Part I in about ten days in January 1883, and Wagner died the following month. The course notes call his death another blow to Nietzsche, coming after the quarrel over Lou Salomé.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {
+                  "kind": "page",
+                  "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+                  "title": "Thus Spoke Zarathustra (course notes)",
+                  "author": null,
+                  "year": null,
+                  "quote": "Part I was written in only about ten days, in January 1883. In February, Wagner died, yielding yet another blow to Nietzsche.",
+                  "record": null,
+                  "check": "quoted"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "conversation",
+      "items": [
+        {
+          "heading": "From devotion to disillusion",
+          "entity": "focus",
+          "relation": "turned away from",
+          "spoiler": false,
+          "claims": [
+            {
+              "text": "Nietzsche went to the laying of the foundation stone at Bayreuth in 1872, and he wrote the essay Wagner in Bayreuth to honour the festival opening in 1876.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {
+                  "kind": "page",
+                  "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/Bayreuth.htm",
+                  "title": "Richard Wagner in Bayreuth (course notes)",
+                  "author": null,
+                  "year": null,
+                  "quote": "Nietzsche attended the ceremonial cornerstone laying, at Bayreuth, in May of 1872.",
+                  "record": null,
+                  "check": "quoted"
+                }
+              ]
+            },
+            {
+              "text": "The festival itself disappointed him, and by the time of Human, All Too Human Wagner was remodelling the Parsifal myth into a story of Christian redemption to attract Christian money to Bayreuth.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {
+                  "kind": "page",
+                  "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/Bayreuth.htm",
+                  "title": "Richard Wagner in Bayreuth (course notes)",
+                  "author": null,
+                  "year": null,
+                  "quote": "Wagner was hard at work attracting bourgeois Christian money to Bayreuth by remodeling the Parsifal myth into a story of Christian redemption.",
+                  "record": null,
+                  "check": "quoted"
+                },
+                {
+                  "kind": "page",
+                  "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/Bayreuth.htm",
+                  "title": "Richard Wagner in Bayreuth (course notes)",
+                  "author": null,
+                  "year": null,
+                  "quote": "I made the mistake of going to Bayreuth with an ideal in my breast, and was, therefore, doomed to suffer the most bitter disappointment.",
+                  "record": null,
+                  "check": "quoted"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "heading": "The Magician in Part Four",
+          "entity": "focus",
+          "relation": "caricatures",
+          "spoiler": false,
+          "claims": [
+            {
+              "text": "Readers commonly take the Magician, a false-seeming sorcerer whom Zarathustra meets in Part Four, to represent Wagner, Nietzsche's former friend.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {
+                  "kind": "page",
+                  "url": "https://www.litcharts.com/lit/thus-spoke-zarathustra/the-sorcerer",
+                  "title": "Thus Spoke Zarathustra: The Sorcerer (LitCharts)",
+                  "author": null,
+                  "year": null,
+                  "quote": "The sorcerer symbolizes Nietzsche’s former friend, operatic composer Richard Wagner, with whom he’d had a falling-out.",
+                  "record": null,
+                  "check": "quoted"
+                }
+              ]
+            },
+            {
+              "text": "His wailing song is read as a parody of Wagner's poetic style.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {
+                  "kind": "page",
+                  "url": "https://www.litcharts.com/lit/thus-spoke-zarathustra/the-sorcerer",
+                  "title": "Thus Spoke Zarathustra: The Sorcerer (LitCharts)",
+                  "author": null,
+                  "year": null,
+                  "quote": "The sorcerer’s wailings are intended as a parody of Wagner’s poetic style.",
+                  "record": null,
+                  "check": "quoted"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "id": "book",
+      "kind": "work",
+      "name": "Thus Spoke Zarathustra",
+      "wikidata": null,
+      "record": {
+        "kind": "olid",
+        "value": "OL26442780W"
+      },
+      "resolvedUrl": "https://openlibrary.org/works/OL26442780W"
+    },
+    {
+      "id": "author",
+      "kind": "person",
+      "name": "Friedrich Nietzsche",
+      "wikidata": "Q9358",
+      "record": null,
+      "facts": {
+        "description": "German philosopher (1844-1900)",
+        "start": "1844",
+        "end": "1900",
+        "source": "https://www.wikidata.org/wiki/Q9358"
+      }
+    },
+    {
+      "id": "focus",
+      "kind": "person",
+      "name": "Richard Wagner",
+      "wikidata": "Q1511",
+      "record": null,
+      "facts": {
+        "description": "German composer (1813–1883)",
+        "start": "1813",
+        "end": "1883",
+        "source": "https://www.wikidata.org/wiki/Q1511"
+      }
+    },
+    {
+      "id": "bayreuth",
+      "kind": "institution",
+      "name": "Bayreuth Festival",
+      "wikidata": "Q157596",
+      "record": null,
+      "facts": {
+        "description": "annual music festival of Wagner operas",
+        "start": "1876",
+        "source": "https://www.wikidata.org/wiki/Q157596"
+      }
+    },
+    {
+      "id": "hath",
+      "kind": "work",
+      "name": "Human, All Too Human",
+      "wikidata": "Q1364539",
+      "record": null,
+      "facts": {
+        "description": "work by Friedrich Nietzsche",
+        "start": "1878",
+        "source": "https://www.wikidata.org/wiki/Q1364539"
+      }
+    },
+    {
+      "id": "bot",
+      "kind": "work",
+      "name": "The Birth of Tragedy",
+      "wikidata": "Q1053359",
+      "record": null,
+      "facts": {
+        "description": "1872 essay by Friedrich Nietzsche",
+        "start": "1872",
+        "source": "https://www.wikidata.org/wiki/Q1053359"
+      }
+    }
+  ],
+  "links": [
+    {
+      "from": "author",
+      "to": "focus",
+      "relation": "last saw",
+      "claim": {
+        "text": "Nietzsche saw the Wagners for the last time in November 1876.",
+        "inferred": false,
+        "spoiler": false,
+        "citations": [
+          {
+            "kind": "page",
+            "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/Bayreuth.htm",
+            "title": "Richard Wagner in Bayreuth (course notes)",
+            "author": null,
+            "year": null,
+            "quote": "In November of 1876, Nietzsche saw the Wagners for the last time.",
+            "record": null,
+            "check": "quoted"
+          }
+        ]
+      }
+    },
+    {
+      "from": "author",
+      "to": "bayreuth",
+      "relation": "attended the founding of",
+      "claim": {
+        "text": "Nietzsche attended the cornerstone laying at Bayreuth in May 1872.",
+        "inferred": false,
+        "spoiler": false,
+        "citations": [
+          {
+            "kind": "page",
+            "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/Bayreuth.htm",
+            "title": "Richard Wagner in Bayreuth (course notes)",
+            "author": null,
+            "year": null,
+            "quote": "Nietzsche attended the ceremonial cornerstone laying, at Bayreuth, in May of 1872.",
+            "record": null,
+            "check": "quoted"
+          }
+        ]
+      }
+    },
+    {
+      "from": "focus",
+      "to": "bayreuth",
+      "relation": "moved to",
+      "claim": {
+        "text": "The Wagners moved to Bayreuth in April 1872 to oversee the building of the festival theatre.",
+        "inferred": false,
+        "spoiler": false,
+        "citations": [
+          {
+            "kind": "page",
+            "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/Bayreuth.htm",
+            "title": "Richard Wagner in Bayreuth (course notes)",
+            "author": null,
+            "year": null,
+            "quote": "the Wagners moved to distant Bayreuth to oversee the building of the Festspielhaus in April 1872.",
+            "record": null,
+            "check": "quoted"
+          }
+        ]
+      }
+    },
+    {
+      "from": "author",
+      "to": "hath",
+      "relation": "broke free in",
+      "claim": {
+        "text": "Nietzsche's mind had broken free from Wagner in his preliminary work on Human, All Too Human.",
+        "inferred": false,
+        "spoiler": false,
+        "citations": [
+          {
+            "kind": "page",
+            "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/Bayreuth.htm",
+            "title": "Richard Wagner in Bayreuth (course notes)",
+            "author": null,
+            "year": null,
+            "quote": "Nietzsche's mind had broken free in his preliminary work on Human, All-to-Human;",
+            "record": null,
+            "check": "quoted"
+          }
+        ]
+      }
+    },
+    {
+      "from": "book",
+      "to": "focus",
+      "relation": "caricatures Wagner in Part Four",
+      "claim": {
+        "text": "The sorcerer in the book is read as a figure for Wagner.",
+        "inferred": false,
+        "spoiler": false,
+        "citations": [
+          {
+            "kind": "page",
+            "url": "https://www.litcharts.com/lit/thus-spoke-zarathustra/the-sorcerer",
+            "title": "Thus Spoke Zarathustra: The Sorcerer (LitCharts)",
+            "author": null,
+            "year": null,
+            "quote": "The sorcerer symbolizes Nietzsche’s former friend, operatic composer Richard Wagner, with whom he’d had a falling-out.",
+            "record": null,
+            "check": "quoted"
+          }
+        ]
+      }
+    },
+    {
+      "from": "book",
+      "to": "focus",
+      "relation": "begun as he died",
+      "claim": {
+        "text": "Part I was written in January 1883, and Wagner died the next month.",
+        "inferred": false,
+        "spoiler": false,
+        "citations": [
+          {
+            "kind": "page",
+            "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+            "title": "Thus Spoke Zarathustra (course notes)",
+            "author": null,
+            "year": null,
+            "quote": "Part I was written in only about ten days, in January 1883. In February, Wagner died, yielding yet another blow to Nietzsche.",
+            "record": null,
+            "check": "quoted"
+          }
+        ]
+      }
+    },
+    {
+      "from": "author",
+      "to": "bot",
+      "relation": "wrote before the Wagner essay",
+      "claim": {
+        "text": "Nietzsche published The Birth of Tragedy and then began the essay series that included Wagner in Bayreuth.",
+        "inferred": false,
+        "spoiler": false,
+        "citations": [
+          {
+            "kind": "page",
+            "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/Bayreuth.htm",
+            "title": "Richard Wagner in Bayreuth (course notes)",
+            "author": null,
+            "year": null,
+            "quote": "After Nietzsche had published his Birth of Tragedy, he began work on a series of long essays which came to be called",
+            "record": null,
+            "check": "quoted"
+          }
+        ]
+      }
+    }
+  ],
+  "stats": {
+    "claimsKept": 14,
+    "claimsDropped": 0,
+    "worksKept": 0,
+    "worksDropped": 0,
+    "linksKept": 7,
+    "linksDropped": 0,
+    "apiCalls": 0,
+    "searches": 0,
+    "fetches": 0,
+    "lookups": 7,
+    "inputTokens": 0,
+    "cacheReadTokens": 0,
+    "cacheWriteTokens": 0,
+    "outputTokens": 0,
+    "costUsd": 0.0,
+    "durationMs": 1635
+  }
+}

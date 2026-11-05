@@ -4,6 +4,7 @@ import {
   crossPath,
   KIND_LABELS,
   labelPlacement,
+  mapRoot,
   radialLayout,
   usableLinks,
   labelChars,
@@ -35,7 +36,10 @@ export function ConnectionMap({ briefing, focus, onFocus, maxHeight }: Props) {
   const size = Math.max(240, Math.min(width, maxHeight ?? width));
   const margin = size < 420 ? 76 : 110;
   const radius = Math.max(40, size / 2 - margin);
-  const layout = useMemo(() => radialLayout(briefing.entities, usableLinks(briefing), radius), [briefing, radius]);
+  const layout = useMemo(
+    () => radialLayout(briefing.entities, usableLinks(briefing), radius, mapRoot(briefing)),
+    [briefing, radius],
+  );
   const at = useMemo(() => new Map(layout.nodes.map((n) => [n.entity.id, n])), [layout]);
   const touching = (e: MapEdge) => focus !== null && (e.from === focus || e.to === focus);
   const kinds = [...new Set(briefing.entities.map((e) => e.kind))];

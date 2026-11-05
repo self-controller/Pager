@@ -35,6 +35,7 @@ import { cx } from "@/lib/cx";
 import { isNativeApp } from "@/lib/native";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { updateSettings, useSettings } from "@/state/settings";
+import { onToolPanelRequest, useTools } from "@/tools/registry";
 import { useSelection } from "@/tools/useSelection";
 import type { ToolContext } from "@/tools/types";
 
@@ -93,6 +94,9 @@ export function ReaderPage() {
     (open: boolean) => (wide ? updateSettings({ toolPanelOpen: open }) : setSheetOpen(open)),
     [wide],
   );
+  // A tool's overlay asked for its panel ("Open in Context").
+  useEffect(() => onToolPanelRequest(() => setToolsOpen(true)), [setToolsOpen]);
+  const overlays = useTools().filter((t) => t.Overlay);
 
   // Arriving from "Couldn't find these" → Reattach: the next selection moves that highlight.
   const [reattach, setReattach] = useState<Reattach | null>(() => navState?.reattach ?? null);
@@ -547,6 +551,11 @@ export function ReaderPage() {
           onTags={notes.popover.onTags}
         />
       )}
+      {/* Tools' cards over the text ("Context for this"): each renders nothing until it has something to show. */}
+      {overlays.map((t) => {
+        const Overlay = t.Overlay!;
+        return <Overlay key={t.id} context={context} />;
+      })}
       {footnotes.note && (
         <FootnotePopover
           note={footnotes.note}

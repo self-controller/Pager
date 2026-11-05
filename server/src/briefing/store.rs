@@ -46,7 +46,7 @@ impl Core {
     /// Store a briefing; a refresh of the same version replaces the old one.
     pub fn briefing_save(&self, b: &Briefing, usage: &Value) -> Result<String> {
         let id = self.new_id();
-        let focus = b.focus.clone().unwrap_or_default();
+        let focus = b.focus.as_deref().map(super::focus::focus_key).unwrap_or_default();
         self.exec(
             "INSERT INTO context_briefings (id, document_id, content_hash, level, focus, briefing, model, usage, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
              ON CONFLICT(document_id, level, focus, content_hash) DO UPDATE SET id = excluded.id, briefing = excluded.briefing, model = excluded.model, usage = excluded.usage, created_at = excluded.created_at",

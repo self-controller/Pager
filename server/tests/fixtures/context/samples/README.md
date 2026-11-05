@@ -15,3 +15,9 @@ the real verifier with live lookups (`context-live --draft`). See prompts/book-c
 | darwin-scholar | Origin of Species, Scholar | 19 (2 disagreements) | 9 nodes, 7 links |
 | austen-general | Pride and Prejudice, General | 21 | 10 nodes (2 places), 10 links |
 | nietzsche-general | Thus Spoke Zarathustra, General | 16 | 10 nodes, 8 links |
+| darwin-malthus-general | Origin of Species, General, focus “Malthus” | 9 | 6 nodes, 6 links |
+| austen-burney-general | Pride and Prejudice, General, focus “Fanny Burney” | 7 | 7 nodes, 7 links |
+| nietzsche-wagner-general | Thus Spoke Zarathustra, General, focus “Wagner” | 7 | 6 nodes, 7 links |
+
+The last three are focused briefings ("Context for this", Phase 3): `focus` is set, the map is centred
+on the entity `focus`, and there is no pre-reading. Made with `context-live --focus TEXT`.

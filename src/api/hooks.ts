@@ -35,7 +35,9 @@ export const queryKeys = {
   devices: ["devices"] as const,
   pairing: ["pairing"] as const,
   contextStatus: ["context", "status"] as const,
-  contextBriefing: (docId: string, level: ContextLevel) => ["context", "briefing", docId, level] as const,
+  /** `focus`: a "Context for this" briefing ("" for the whole book), compared without case as the server does. */
+  contextBriefing: (docId: string, level: ContextLevel, focus?: string | null) =>
+    ["context", "briefing", docId, level, (focus ?? "").toLowerCase()] as const,
   contextRun: (runId: string) => ["context", "run", runId] as const,
 };
 
@@ -463,11 +465,11 @@ export function useContextStatus(enabled = true) {
   return useQuery({ queryKey: queryKeys.contextStatus, queryFn: () => api.getContextStatus(), enabled, staleTime: 10_000 });
 }
 
-/** The stored briefing for a document and level, and any run going for it. */
-export function useContextBriefing(docId: string | undefined, level: ContextLevel, enabled = true) {
+/** The stored briefing for a document, level and focus (none: the whole book), and any run going for it. */
+export function useContextBriefing(docId: string | undefined, level: ContextLevel, focus?: string | null, enabled = true) {
   return useQuery({
-    queryKey: queryKeys.contextBriefing(docId ?? "", level),
-    queryFn: () => api.getContextBriefing(docId!, level),
+    queryKey: queryKeys.contextBriefing(docId ?? "", level, focus),
+    queryFn: () => api.getContextBriefing(docId!, level, focus || undefined),
     enabled: enabled && Boolean(docId),
     staleTime: 60_000,
   });
@@ -500,9 +502,10 @@ export function useContextRun(runId: string | undefined) {
 export function useStartContext(docId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ level, refresh }: StartContextInput & { level: ContextLevel }) => api.startContextBriefing(docId!, { level, refresh }),
-    onSuccess: (result, { level }) => {
-      qc.setQueryData<ContextState>(queryKeys.contextBriefing(docId!, level), (state) => {
+    mutationFn: ({ level, refresh, focus }: StartContextInput & { level: ContextLevel }) =>
+      api.startContextBriefing(docId!, focus ? { level, refresh, focus } : { level, refresh }),
+    onSuccess: (result, { level, focus }) => {
+      qc.setQueryData<ContextState>(queryKeys.contextBriefing(docId!, level, focus), (state) => {
         const base: ContextState = state ?? { briefing: null, stale: false, run: null, cachedLevels: [] };
         if (result.briefing) return { ...base, briefing: result.briefing, stale: false, run: null };
         return { ...base, run: result.run };

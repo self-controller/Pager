@@ -8,6 +8,11 @@
  * map; entities' dates and coordinates (`facts`) come from Wikidata, never from the model, for a
  * timeline and a map.
  *
+ * "Context for this" (Phase 3): a briefing can also be focused on one name or work the reader
+ * selected in the book (`focus`). It is short (5–10 claims, at most 12), about how that bears on this
+ * book and its author, with no pre-reading and no terms; its map has the focus as entity `focus`. It
+ * is cached per document, level and focus (the focus compared without case).
+ *
  * Type-only module: cross-file imports in shared/ must be `import type`.
  */
 
@@ -100,7 +105,7 @@ export interface ContextFacts {
   source: string;
 }
 
-/** A node of the connection map. The book is `book`, its author `author`. */
+/** A node of the connection map. The book is `book`, its author `author`, a focused briefing's subject `focus`. */
 export interface ContextEntity {
   id: string;
   kind: ContextEntityKind;
@@ -144,6 +149,7 @@ export interface ContextBriefing {
   version: number;
   docId: string;
   level: ContextLevel;
+  /** The name or work a focused briefing is about, as cleaned by the server ("Malthus"); null for the whole book. */
   focus: string | null;
   /** The file version (sha256) it was made for. */
   contentHash: string;
@@ -188,13 +194,14 @@ export interface ContextStatus {
   phone: ContextPhoneRuns | null;
 }
 
-/** GET /api/tools/context/briefings/:docId?level= */
+/** GET /api/tools/context/briefings/:docId?level=&focus= (no focus: the whole book) */
 export interface ContextState {
   briefing: ContextBriefing | null;
   /** The briefing was made for an earlier version of the file (shown with just its date). */
   stale: boolean;
-  /** A run in progress for this book and level. */
+  /** A run in progress for this book, level and focus. */
   run: ContextRun | null;
+  /** Levels with a briefing stored, for this focus (or the whole book). */
   cachedLevels: ContextLevel[];
 }
 
@@ -203,6 +210,12 @@ export interface StartContextInput {
   level?: ContextLevel;
   /** Make a new briefing even when one is cached. */
   refresh?: boolean;
+  /**
+   * "Context for this": a name or work selected in the book, at most 120 characters with at least one
+   * letter, else 400 `invalid_request`. The server cleans it (spaces, clinging quotes and punctuation, a
+   * possessive ’s). Absent or null: the whole book.
+   */
+  focus?: string;
 }
 
 /** POST answer: 200 with `briefing` (from the cache), or 202 with `run`. */

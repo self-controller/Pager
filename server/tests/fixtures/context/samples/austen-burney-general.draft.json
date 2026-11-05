@@ -1,0 +1,413 @@
+{
+ "littleKnown": false,
+ "sections": [
+  {
+   "kind": "overview",
+   "items": [
+    {
+     "heading": "Fanny Burney",
+     "entity": "focus",
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Frances (Fanny) Burney (1752-1840) was an English novelist and diarist, a leading writer of the generation just before Austen.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://www.britannica.com/biography/Fanny-Burney",
+         "title": "Frances Burney | Britannica",
+         "author": null,
+         "year": null,
+         "quote": "Frances Burney (born June 13, 1752, King’s Lynn, Norfolk, England—died January 6, 1840, London) was an English novelist and letter writer",
+         "record": null
+        }
+       ]
+      },
+      {
+       "text": "Her first novel, Evelina (1778), appeared anonymously and made her famous at 26; it was a novel of manners built on a young woman's mistakes in society, a pattern that pointed the way to Austen.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://www.britannica.com/biography/Fanny-Burney",
+         "title": "Frances Burney | Britannica",
+         "author": null,
+         "year": null,
+         "quote": "Published anonymously in 1778, Evelina took London by storm. No one guessed it was by shy Fanny Burney, then 26.",
+         "record": null
+        },
+        {
+         "kind": "page",
+         "url": "https://www.britannica.com/biography/Fanny-Burney",
+         "title": "Frances Burney | Britannica",
+         "author": null,
+         "year": null,
+         "quote": "was an innovation that pointed the way for the novels of Jane Austen.",
+         "record": null
+        }
+       ]
+      },
+      {
+       "text": "Her next two novels were Cecilia (1782) and Camilla (1796), both of which matter for Pride and Prejudice.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://www.britannica.com/biography/Fanny-Burney",
+         "title": "Frances Burney | Britannica",
+         "author": null,
+         "year": null,
+         "quote": "Her next novel, Cecilia; or, Memoirs of an Heiress, 5 vol. (1782), incorporated morally didactic themes",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    }
+   ]
+  },
+  {
+   "kind": "conversation",
+   "items": [
+    {
+     "heading": "The title may come from Cecilia",
+     "entity": "focus",
+     "relation": "borrows from",
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Some critics suggest that Austen took the title from the last pages of Cecilia, where the phrase 'pride and prejudice' is printed in capitals three times in one paragraph.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://jasna.org/persuasions/printed/number11/halperin.htm",
+         "title": "Inside Pride and Prejudice (Persuasions 11)",
+         "author": "Halperin",
+         "year": "1989",
+         "quote": "printed in capital letters three times in a single perorational paragraph",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    },
+    {
+     "heading": "A Burney novel in realist terms",
+     "entity": "focus",
+     "relation": "answers",
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "One critic argues that Pride and Prejudice began as a burlesque, mainly of Cecilia, and that Elizabeth Bennet is in effect an anti-Cecilia (Cecilia's heroine being an heiress in a very different plot).",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://jasna.org/persuasions/printed/number11/halperin.htm",
+         "title": "Inside Pride and Prejudice (Persuasions 11)",
+         "author": "Halperin",
+         "year": "1989",
+         "quote": "Probably Pride and Prejudice began as a burlesque, principally of Cecilia.",
+         "record": null
+        },
+        {
+         "kind": "page",
+         "url": "https://jasna.org/persuasions/printed/number11/halperin.htm",
+         "title": "Inside Pride and Prejudice (Persuasions 11)",
+         "author": "Halperin",
+         "year": "1989",
+         "quote": "Elizabeth, as several critics have noted, is patently anti-Cecilia",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    },
+    {
+     "heading": "A reader and public admirer",
+     "entity": "focus",
+     "relation": "read and praised",
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Austen's name is in the subscription list to Burney's Camilla, one of only two times she let her name be printed, and in Northanger Abbey she praised Cecilia and Camilla by name.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://www.cambridge.org/core/services/aop-cambridge-core/content/view/5AF8C8048BA3032F2DC7DED82AF2E41C",
+         "title": "Burney and gender, The Cambridge Companion to Frances Burney",
+         "author": null,
+         "year": null,
+         "quote": "The first of only two occasions on which Jane Austen sanctioned the appearance of her name in print was in the subscription list to Burney's Camilla",
+         "record": null
+        }
+       ]
+      },
+      {
+       "text": "Burney's success helped make Austen's own claim for the novel possible.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://www.cambridge.org/core/services/aop-cambridge-core/content/view/5AF8C8048BA3032F2DC7DED82AF2E41C",
+         "title": "Burney and gender, The Cambridge Companion to Frances Burney",
+         "author": null,
+         "year": null,
+         "quote": "Austen's assertive celebration of fiction not only as displaying 'the greatest powers of the mind'",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    }
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "id": "book",
+   "kind": "work",
+   "name": "Pride and Prejudice",
+   "wikidata": null,
+   "record": {
+    "kind": "olid",
+    "value": "OL66554W"
+   }
+  },
+  {
+   "id": "author",
+   "kind": "person",
+   "name": "Jane Austen",
+   "wikidata": "Q36322",
+   "record": null
+  },
+  {
+   "id": "focus",
+   "kind": "person",
+   "name": "Fanny Burney",
+   "wikidata": "Q259530",
+   "record": null
+  },
+  {
+   "id": "cecilia",
+   "kind": "work",
+   "name": "Cecilia",
+   "wikidata": null,
+   "record": {
+    "kind": "olid",
+    "value": "OL2252005W"
+   }
+  },
+  {
+   "id": "camilla",
+   "kind": "work",
+   "name": "Camilla",
+   "wikidata": null,
+   "record": {
+    "kind": "olid",
+    "value": "OL2252001W"
+   }
+  },
+  {
+   "id": "evelina",
+   "kind": "work",
+   "name": "Evelina",
+   "wikidata": null,
+   "record": null
+  },
+  {
+   "id": "nabbey",
+   "kind": "work",
+   "name": "Northanger Abbey",
+   "wikidata": null,
+   "record": {
+    "kind": "olid",
+    "value": "OL66534W"
+   }
+  }
+ ],
+ "links": [
+  {
+   "from": "book",
+   "to": "cecilia",
+   "relation": "title possibly taken from",
+   "claim": {
+    "text": "Some critics think the title was suggested by the last pages of Cecilia.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://jasna.org/persuasions/printed/number11/halperin.htm",
+      "title": "Inside Pride and Prejudice (Persuasions 11)",
+      "author": "Halperin",
+      "year": "1989",
+      "quote": "printed in capital letters three times in a single perorational paragraph",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "book",
+   "to": "cecilia",
+   "relation": "began as a burlesque of",
+   "claim": {
+    "text": "One critic thinks Pride and Prejudice began as a burlesque, principally of Cecilia.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://jasna.org/persuasions/printed/number11/halperin.htm",
+      "title": "Inside Pride and Prejudice (Persuasions 11)",
+      "author": "Halperin",
+      "year": "1989",
+      "quote": "Probably Pride and Prejudice began as a burlesque, principally of Cecilia.",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "author",
+   "to": "focus",
+   "relation": "admired",
+   "claim": {
+    "text": "Austen subscribed to Burney's Camilla and named her in print.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://www.cambridge.org/core/services/aop-cambridge-core/content/view/5AF8C8048BA3032F2DC7DED82AF2E41C",
+      "title": "Burney and gender, The Cambridge Companion to Frances Burney",
+      "author": null,
+      "year": null,
+      "quote": "The first of only two occasions on which Jane Austen sanctioned the appearance of her name in print was in the subscription list to Burney's Camilla",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "focus",
+   "to": "cecilia",
+   "relation": "wrote",
+   "claim": {
+    "text": "Cecilia (1782) was Burney's second novel.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://www.britannica.com/biography/Fanny-Burney",
+      "title": "Frances Burney | Britannica",
+      "author": null,
+      "year": null,
+      "quote": "incorporated morally didactic themes along with the social satire of Burney",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "focus",
+   "to": "evelina",
+   "relation": "wrote",
+   "claim": {
+    "text": "Evelina was published anonymously in 1778.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://www.britannica.com/biography/Fanny-Burney",
+      "title": "Frances Burney | Britannica",
+      "author": null,
+      "year": null,
+      "quote": "Published anonymously in 1778, Evelina took London by storm. No one guessed it was by shy Fanny Burney, then 26.",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "author",
+   "to": "camilla",
+   "relation": "subscribed to",
+   "claim": {
+    "text": "Austen's name is in the subscription list to Camilla.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://www.cambridge.org/core/services/aop-cambridge-core/content/view/5AF8C8048BA3032F2DC7DED82AF2E41C",
+      "title": "Burney and gender, The Cambridge Companion to Frances Burney",
+      "author": null,
+      "year": null,
+      "quote": "The first of only two occasions on which Jane Austen sanctioned the appearance of her name in print was in the subscription list to Burney's Camilla",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "nabbey",
+   "to": "focus",
+   "relation": "praises",
+   "claim": {
+    "text": "Northanger Abbey names Cecilia and Camilla as works showing the greatest powers of the mind.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://www.cambridge.org/core/services/aop-cambridge-core/content/view/5AF8C8048BA3032F2DC7DED82AF2E41C",
+      "title": "Burney and gender, The Cambridge Companion to Frances Burney",
+      "author": null,
+      "year": null,
+      "quote": "she named Cecilia and Camilla, together with Maria Edgeworth's Belinda (1801), as examples of works",
+      "record": null
+     }
+    ]
+   }
+  }
+ ]
+}

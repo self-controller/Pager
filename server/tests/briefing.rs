@@ -1,4 +1,4 @@
-//! Context briefings (Phase 1): the pipeline against a fake transport. No test touches the network
+//! Context briefings (Phases 1–3): the pipeline against a fake transport. No test touches the network
 //! or needs a key: the model's answers and the catalogues' are fixtures (tests/fixtures/context).
 
 mod common;
@@ -11,7 +11,7 @@ use pager_server::briefing::run::{first_request, Limits};
 use pager_server::briefing::schema::*;
 use pager_server::briefing::secrets::{load_api_key, ApiKey, KeySource};
 use pager_server::briefing::transport::{OutError, OutRequest, OutResponse, Transport};
-use pager_server::briefing::verify::{verify, Evidence};
+use pager_server::briefing::verify::{verify, verify_shaped, Evidence, Shape};
 use pager_server::briefing::API_URL;
 use pager_server::clock::Clock;
 use pager_server::ingest::versions::Format;
@@ -675,7 +675,7 @@ fn extraction_sends_lists_and_front_matter_never_chapters() {
     }
     assert!(!names.iter().any(|n| n.starts_with("But ") || *n == "I"), "{names:?}");
     assert!(input.names.len() <= 60 && input.works.len() <= 40 && input.terms.len() <= 30);
-    let body = first_request(Level::General, &input, &json!({})).to_string();
+    let body = first_request(Level::General, &input, &json!({}), None).to_string();
     assert!(!body.contains("In vain have I struggled"), "no chapter text");
     assert!(body.len() < 60_000, "{} bytes", body.len());
     assert!(input.front_matter.iter().map(|f| f.text.chars().count()).sum::<usize>() <= 12_000);
@@ -727,4 +727,155 @@ async fn the_books_own_front_matter_can_be_cited() {
     assert_eq!(claims[0].citations[0].check, Some(Check::Quoted));
     assert!(v.report.dropped.iter().any(|d| d.reason.contains("isn't in the book's front matter")));
     assert!(fake.seen().is_empty(), "the book is checked on the computer");
+}
+
+/// The submission fixture, edited into a focused briefing on Malthus: a `focus` node, and an
+/// `author → focus` link that reuses a claim that verifies.
+fn focused_submit() -> Value {
+    let mut v = fxj("api-3-submit.json");
+    let input = v["content"].as_array_mut().unwrap().iter_mut().find(|b| b["name"] == "submit_briefing").unwrap()["input"].as_object_mut().unwrap();
+    input["entities"].as_array_mut().unwrap().push(json!({ "id": "focus", "kind": "person", "name": "Thomas Robert Malthus", "wikidata": null, "record": null }));
+    let claim = input["links"][0]["claim"].clone();
+    input["links"].as_array_mut().unwrap().push(json!({ "from": "author", "to": "focus", "relation": "read", "claim": claim }));
+    v
+}
+
+fn script_focused(fake: &Fake) {
+    fake.answer(fxj("api-1-research.json"));
+    fake.answer(fxj("api-2-pause.json"));
+    fake.answer(focused_submit());
+}
+
+#[tokio::test]
+async fn context_for_this_makes_a_short_briefing_cached_per_item() {
+    let fake = Fake::new();
+    fake.catalogue();
+    script_focused(&fake);
+    let t = app_with(&fake, true, limits());
+    let doc = add_book(&t).await;
+
+    let started = start(&t, &doc, json!({ "focus": "Malthus" })).await;
+    assert_eq!(started.status, 202, "{}", started.text);
+    let run = wait_run(&t, started.body["run"]["id"].as_str().unwrap()).await;
+    assert_eq!(run["status"], "done", "{run}");
+
+    // The model was told what the reader selected, as data.
+    let first = fake.api_bodies()[0]["messages"][0]["content"].as_str().unwrap().to_string();
+    assert!(first.starts_with("A focused briefing"), "{}", &first[..200]);
+    assert!(first.contains("<focus>Malthus</focus>"));
+    assert!(fake.api_bodies()[0]["system"].to_string().contains("# A focused briefing"), "one system prompt for both kinds of run");
+
+    let got = t.get(&format!("/api/tools/context/briefings/{doc}?focus=malthus")).await;
+    assert_eq!(got.status, 200, "{}", got.text);
+    assert_eq!(got.body["cachedLevels"], json!(["general"]));
+    let b: Briefing = serde_json::from_value(got.body["briefing"].clone()).unwrap();
+    assert_eq!(b.focus.as_deref(), Some("Malthus"));
+    let kinds: Vec<SectionKind> = b.sections.iter().map(|s| s.kind).collect();
+    assert_eq!(kinds, vec![SectionKind::Overview, SectionKind::Moment, SectionKind::Situation, SectionKind::Conversation, SectionKind::FurtherReading], "no pre-reading in a focused briefing");
+    let ids: Vec<&str> = b.entities.iter().map(|e| e.id.as_str()).collect();
+    assert!(ids.contains(&"focus") && ids.contains(&"book") && ids.contains(&"author"), "{ids:?}");
+    assert!(b.links.iter().any(|l| l.from == "author" && l.to == "focus"));
+    assert!(b.stats.claims_kept <= 12);
+
+    // Its own cache: the whole book has nothing yet, and the same name written differently hits it.
+    let whole = t.get(&format!("/api/tools/context/briefings/{doc}")).await;
+    assert!(whole.body["briefing"].is_null(), "{}", whole.text);
+    assert_eq!(whole.body["cachedLevels"], json!([]));
+    let calls = fake.api_bodies().len();
+    for spelling in ["“Malthus’s”", "  malthus. "] {
+        let again = start(&t, &doc, json!({ "focus": spelling })).await;
+        assert_eq!(again.status, 200, "{spelling}: {}", again.text);
+        assert_eq!(again.body["briefing"]["focus"], "Malthus");
+    }
+    let curly = t.get(&format!("/api/tools/context/briefings/{doc}?focus=%E2%80%9CMalthus%E2%80%99s%E2%80%9D")).await;
+    assert_eq!(curly.body["briefing"]["focus"], "Malthus");
+    assert_eq!(fake.api_bodies().len(), calls, "a cache hit makes no call");
+    assert!(t.get(&format!("/api/tools/context/briefings/{doc}?focus=Lyell")).await.body["briefing"].is_null());
+    let stored: Vec<String> = t.app.lock().all("SELECT focus FROM context_briefings", &[], |r| r.get(0)).unwrap();
+    assert_eq!(stored, vec!["malthus".to_string()]);
+
+    // What isn't a name or a title is refused before anything runs.
+    for bad in [json!("x".repeat(121)), json!(5), json!(["Malthus"]), json!("1859")] {
+        let r = start(&t, &doc, json!({ "focus": bad })).await;
+        assert_eq!(r.status, 400, "{bad}: {}", r.text);
+        assert_eq!(r.body["error"]["code"], "invalid_request");
+        assert!(r.body["error"]["message"].as_str().unwrap().contains("Select a name or a title"), "{}", r.text);
+    }
+    let long = t.get(&format!("/api/tools/context/briefings/{doc}?focus={}", "x".repeat(121))).await;
+    assert_eq!(long.status, 400, "{}", long.text);
+    assert!(t.get(&format!("/api/tools/context/briefings/{doc}?focus={}", "x".repeat(120))).await.status == 200);
+    assert_eq!(fake.api_bodies().len(), calls);
+    assert_eq!(t.db_count("SELECT COUNT(*) FROM context_runs"), 1);
+}
+
+#[tokio::test]
+async fn a_focused_briefing_keeps_its_focus_and_at_most_twelve_claims() {
+    let sep = "https://plato.stanford.edu/entries/darwinism/";
+    let text = "Charles Darwin published On the Origin of Species in November 1859, presenting a theory of descent with modification by means of natural selection.";
+    let mut evidence = Evidence::default();
+    evidence.fetched.insert(pager_server::briefing::verify::norm_url(sep), text.to_string());
+    let claim = json!({ "text": "A sourced claim.", "inferred": false, "spoiler": false, "citations": [
+        { "kind": "page", "url": sep, "title": "Darwinism", "quote": "published On the Origin of Species in November 1859" }] });
+    let items = |n: usize, claims: usize| -> Value { json!((0..n).map(|i| json!({ "heading": format!("Item {i}"), "spoiler": false, "claims": vec![claim.clone(); claims] })).collect::<Vec<_>>()) };
+    let essay = json!({ "title": "An Essay on the Principle of Population", "authors": ["Thomas Robert Malthus"], "year": "1798", "record": { "kind": "olid", "value": "OL1179009W" } });
+    let draft = json!({ "littleKnown": false, "sections": [
+        { "kind": "overview", "items": items(1, 2) },
+        { "kind": "readFirst", "items": [{ "heading": "Malthus's Essay", "work": essay, "spoiler": false, "claims": [claim.clone()] }] },
+        { "kind": "moment", "items": items(3, 2) },
+        { "kind": "situation", "items": items(2, 2) },
+        { "kind": "conversation", "items": items(4, 1) },
+        { "kind": "terms", "items": items(2, 1) },
+    ], "entities": [
+        { "id": "book", "kind": "work", "name": "On the Origin of Species", "wikidata": null, "record": null },
+        { "id": "author", "kind": "person", "name": "Charles Darwin", "wikidata": null, "record": null },
+        { "id": "focus", "kind": "person", "name": "Thomas Robert Malthus", "wikidata": null, "record": null },
+    ], "links": [] });
+    let fake = Fake::new();
+    fake.catalogue();
+    let lookups = Lookups::new(fake.clone(), 20);
+
+    let v = verify_shaped(serde_json::from_value(draft.clone()).unwrap(), &evidence, &lookups, Shape::Focus).await;
+    let shape: Vec<(SectionKind, usize)> = v.sections.iter().map(|s| (s.kind, s.items.len())).collect();
+    // 19 claims verify. The section limits drop the pre-reading (1), the third moment (2) and the
+    // fourth conversation item (1); the length cap then takes a term and two conversation items (3).
+    assert_eq!(shape, vec![(SectionKind::Overview, 1), (SectionKind::Moment, 2), (SectionKind::Situation, 2), (SectionKind::Conversation, 1), (SectionKind::Terms, 1)]);
+    assert_eq!((v.report.claims_kept, v.report.claims_dropped), (12, 7));
+    assert!(v.report.dropped.iter().any(|d| d.reason == "a focused briefing has no pre-reading"), "{:?}", v.report.dropped);
+    assert!(v.report.dropped.iter().any(|d| d.reason.contains("length of 12 claims")));
+    let ids: Vec<&str> = v.entities.iter().map(|e| e.id.as_str()).collect();
+    assert_eq!(ids, vec!["book", "author", "focus"], "the focus stays even with no link to it");
+
+    // The same draft as a whole-book briefing: pre-reading allowed, and a node nothing points at goes.
+    let whole = verify(serde_json::from_value(draft).unwrap(), &evidence, &lookups).await;
+    assert!(whole.sections.iter().any(|s| s.kind == SectionKind::ReadFirst));
+    assert!(!whole.entities.iter().any(|e| e.id == "focus"));
+}
+
+#[tokio::test]
+async fn a_focused_run_from_a_phone_counts_toward_its_limit() {
+    let fake = Fake::new();
+    fake.catalogue();
+    let t = app_with(&fake, true, limits());
+    let doc = add_book(&t).await;
+    let token = pair_phone(&t).await;
+
+    script_focused(&fake);
+    let r = phone_start(&t, &token, &doc, json!({ "focus": "Malthus" })).await;
+    assert_eq!(r.status, 202, "{}", r.text);
+    assert_eq!(phone_wait(&t, &token, r.body["run"]["id"].as_str().unwrap()).await["status"], "done");
+    assert_eq!(phone_status(&t, &token).await.body["phone"]["used"], 1);
+    let got = t.remote_call(Call::get(&format!("/api/tools/context/briefings/{doc}?focus=Malthus")).token(&token)).await;
+    assert_eq!(got.status, 200, "{}", got.text);
+    assert_eq!(got.body["briefing"]["focus"], "Malthus");
+    // Opening it again is free.
+    assert_eq!(phone_start(&t, &token, &doc, json!({ "focus": "malthus" })).await.status, 200);
+    assert_eq!(phone_status(&t, &token).await.body["phone"]["used"], 1);
+
+    // At the limit, a focused run is refused like any other.
+    let zero = t.json("PATCH", "/api/settings/app", Some(json!({ "context": { "phoneDailyLimit": 1 } }))).await;
+    assert_eq!(zero.status, 200, "{}", zero.text);
+    let over = phone_start(&t, &token, &doc, json!({ "focus": "Lyell" })).await;
+    assert_eq!(over.status, 429, "{}", over.text);
+    assert_eq!(over.body["error"]["code"], "limit_reached");
+    assert_eq!(fake.api_bodies().len(), 3);
 }

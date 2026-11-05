@@ -465,11 +465,23 @@ works, ideas, places, events) for a connection map; entities' dates and coordina
 Wikidata, for a timeline and a map.
 The shapes are `shared/src/context.ts`; the build prompt is `prompts/book-context.md`.
 
+**"Context for this" (Phase 3):** a briefing can be focused on one name or work the reader selected in
+the book, with `focus`. It is short (about 5–10 claims; the verifier keeps at most 12), about how that
+person, work, idea or place bears on this book and its author: who or what it is, the connection, a
+disagreement if scholars have one, at most 2 further readings. No pre-reading and no terms. Its map
+has the selection as the entity `focus` (kept even when no link reaches it) and is centred there. The
+research budget is smaller (5 searches, 4 fetches, told to the model; the hard caps are the same). The
+server cleans the selection first (spaces collapsed; clinging quotes, punctuation and unbalanced
+brackets dropped; a possessive ’s removed: "“Malthus’s”" → "Malthus"), and caches per document, level,
+file version and focus, comparing the focus without case. `briefing.focus` is the cleaned text. A focus
+over 120 characters, with no letter, or not a string is refused with 400 `invalid_request` ("Select a
+name or a title …"). A focused run from a phone counts toward its daily limit like any other.
+
 | Route | |
 |---|---|
 | `GET /tools/context/status` | `ContextStatus { ready, model, keyFile, keyVariable, phone }`. `ready` is false when no API key is set on the computer. `phone` is `{ used, limit, left }` on a paired phone (its paid runs in the last 24 hours) and null on the computer. |
-| `GET /tools/context/briefings/:docId?level=general\|student\|scholar` | `ContextState { briefing, stale, run, cachedLevels }`. With no briefing for the file as it is now, `briefing` is the newest one for an earlier version and `stale` is true. `run` is a run in progress for this book and level. |
-| `POST /tools/context/briefings/:docId` | `{ level?, refresh? }`. A cached briefing (and no `refresh`): 200 `{ briefing, run: null }`. Otherwise 202 `{ briefing: null, run }`: a new run, or the one already running for this book, level and file version. No key: 503 `not_configured`, and nothing is sent anywhere. A phone past its daily limit: 429 `limit_reached` (below). |
+| `GET /tools/context/briefings/:docId?level=general\|student\|scholar&focus=` | `ContextState { briefing, stale, run, cachedLevels }`. With no briefing for the file as it is now, `briefing` is the newest one for an earlier version and `stale` is true. `run` is a run in progress for this book, level and focus. `focus` (optional): a focused briefing (above); `cachedLevels` then lists that focus's levels. A bad focus: 400 `invalid_request`. |
+| `POST /tools/context/briefings/:docId` | `{ level?, refresh?, focus? }`. A cached briefing (and no `refresh`): 200 `{ briefing, run: null }`. Otherwise 202 `{ briefing: null, run }`: a new run, or the one already running for this book, level, focus and file version. No key: 503 `not_configured`, and nothing is sent anywhere. A bad focus: 400 `invalid_request`. A phone past its daily limit: 429 `limit_reached` (below). |
 | `GET /tools/context/runs/:runId` | `ContextRun { id, docId, level, status: running\|done\|failed, stage, error?, startedAt, finishedAt? }`. Poll it every 2 s; `error` is a calm sentence to show as is. |
 
 - **When it runs:** only when asked. A run lives on the server: it continues if the client goes away,
@@ -480,7 +492,8 @@ The shapes are `shared/src/context.ts`; the build prompt is `prompts/book-contex
   verifier's fetches of the pages it checks. All with the User-Agent `Pager/0.1 (personal reading app)`.
 - **Cost:** capped per run (constants in `server/src/briefing/mod.rs`), and each run's tokens,
   searches, fetches and estimated cost are logged and stored with it (`stats` on the briefing).
-- **Cache:** one briefing per document, level and file version (`content_hash`); Refresh replaces it.
+- **Cache:** one briefing per document, level, focus (none for the whole book) and file version
+  (`content_hash`); Refresh replaces it.
   Briefings are a cache: they are not in the export.
 - **Phones:** all four routes are open to paired phones (`REMOTE_ALLOW`). A new run spends the
   computer's API key, so each phone may start `context.phoneDailyLimit` of them (an app setting,

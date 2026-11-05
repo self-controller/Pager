@@ -1,7 +1,9 @@
 //! A Context briefing for one book, by hand: the real pipeline, the real API, the user's key.
 //!
 //!   cargo run --release --example context-live -- <book.epub> [--level general|student|scholar]
-//!       [--out FILE] [--record DIR] [--dry-run]
+//!       [--focus "Malthus"] [--out FILE] [--record DIR] [--dry-run]
+//!
+//! --focus TEXT narrows the briefing to one name or work in the book ("Context for this").
 //!
 //! It reads the book into a temporary library, runs the pipeline, prints the counts and the
 //! estimated cost, what was kept and dropped and why, and a plain-text rendering, and writes the
@@ -30,6 +32,7 @@
 use futures::future::BoxFuture;
 use pager_server::app::{App, AppOptions};
 use pager_server::config::default_reads_dir;
+use pager_server::briefing::focus::parse_focus;
 use pager_server::briefing::lookup::Lookups;
 use pager_server::briefing::prompt::{system_prompt, tools, user_message};
 use pager_server::briefing::run::{finish, first_request, generate, seed, Limits, Research, Stage, Usage};
@@ -52,16 +55,17 @@ struct Args {
     draft: Option<PathBuf>,
     briefing: Option<PathBuf>,
     store: Option<PathBuf>,
+    focus: Option<String>,
 }
 
 fn usage() -> ! {
-    eprintln!("usage: context-live <book.epub> [--level general|student|scholar] [--out FILE] [--record DIR] [--dry-run | --prompt-dir DIR | --draft FILE | --briefing FILE] [--store DATA_DIR]");
+    eprintln!("usage: context-live <book.epub> [--level general|student|scholar] [--out FILE] [--record DIR] [--focus TEXT] [--dry-run | --prompt-dir DIR | --draft FILE | --briefing FILE] [--store DATA_DIR]");
     std::process::exit(2);
 }
 
 fn parse_args() -> Args {
     let mut it = std::env::args().skip(1);
-    let mut a = Args { book: PathBuf::new(), level: Level::General, out: None, record: None, dry_run: false, prompt_dir: None, draft: None, briefing: None, store: None };
+    let mut a = Args { book: PathBuf::new(), level: Level::General, out: None, record: None, dry_run: false, prompt_dir: None, draft: None, briefing: None, store: None, focus: None };
     while let Some(x) = it.next() {
         match x.as_str() {
             "--level" => a.level = it.next().and_then(|l| Level::parse(&l)).unwrap_or_else(|| usage()),
@@ -72,6 +76,17 @@ fn parse_args() -> Args {
             "--draft" => a.draft = Some(it.next().map(PathBuf::from).unwrap_or_else(|| usage())),
             "--briefing" => a.briefing = Some(it.next().map(PathBuf::from).unwrap_or_else(|| usage())),
             "--store" => a.store = Some(it.next().map(PathBuf::from).unwrap_or_else(|| usage())),
+            "--focus" => {
+                let raw = it.next().unwrap_or_else(|| usage());
+                match parse_focus(Some(&raw)) {
+                    Ok(Some(f)) => a.focus = Some(f.text),
+                    Ok(None) => {}
+                    Err(m) => {
+                        eprintln!("{m}");
+                        std::process::exit(2);
+                    }
+                }
+            }
             "-h" | "--help" => usage(),
             _ if a.book.as_os_str().is_empty() => a.book = PathBuf::from(x),
             _ => usage(),
@@ -290,7 +305,7 @@ async fn main() {
         let d = doc_id.clone();
         let ex = app.run(move |c| c.briefing_extract(&d)).await.expect("extract");
         let seed = json!({ "note": "Looked up from Open Library and Wikidata when a run starts; a dry run makes no network calls." });
-        let body = first_request(args.level, &ex.input, &seed);
+        let body = first_request(args.level, &ex.input, &seed, args.focus.as_deref());
         let user = body["messages"][0]["content"].as_str().unwrap_or("");
         println!("{}", serde_json::to_string_pretty(&body).unwrap());
         eprintln!(
@@ -314,7 +329,7 @@ async fn main() {
         let lookups = Lookups::new(app.briefing.transport.clone(), 20);
         let seed_records = seed(&lookups, &ex.input).await;
         std::fs::write(dir.join("system.md"), system_prompt()).unwrap();
-        std::fs::write(dir.join("user.md"), user_message(args.level, &ex.input, &seed_records)).unwrap();
+        std::fs::write(dir.join("user.md"), user_message(args.level, &ex.input, &seed_records, args.focus.as_deref())).unwrap();
         std::fs::write(dir.join("schema.json"), serde_json::to_vec_pretty(&draft_schema()).unwrap()).unwrap();
         let tool_list: Vec<String> = tools().as_array().unwrap().iter().map(|t| format!("- {}: {}", t["name"].as_str().unwrap_or(""), t["description"].as_str().unwrap_or("(Anthropic's server tool)"))).collect();
         std::fs::write(dir.join("tools.md"), tool_list.join("\n")).unwrap();
@@ -336,9 +351,9 @@ async fn main() {
             let ex = app.run(move |c| c.briefing_extract(&d)).await.expect("extract");
             progress(Stage::Checking);
             let research = Research { draft, evidence: Evidence::default(), model: "draft (Claude Code agent)".into() };
-            Ok(finish(&app, ex, args.level, research, Usage::default(), 0, &Limits::default(), std::time::Instant::now()).await)
+            Ok(finish(&app, ex, args.level, args.focus.clone(), research, Usage::default(), 0, &Limits::default(), std::time::Instant::now()).await)
         }
-        None => generate(&app, &doc_id, args.level, &Limits::default(), &progress).await,
+        None => generate(&app, &doc_id, args.level, args.focus.as_deref(), &Limits::default(), &progress).await,
     };
     match result {
         Ok(g) => {
@@ -355,7 +370,8 @@ async fn main() {
                 }
             }
             println!("\nModel: {}. Usage: {}. Lookups: {}. Time: {} s.", b.model, g.usage.summary(), b.stats.lookups, b.stats.duration_ms / 1000);
-            let out = args.out.clone().unwrap_or_else(|| PathBuf::from(format!("context-{}-{}.json", slug(&book), args.level.as_str())));
+            let focus_part = args.focus.as_deref().map(|f| format!("-{}", slug(Path::new(f)))).unwrap_or_default();
+            let out = args.out.clone().unwrap_or_else(|| PathBuf::from(format!("context-{}{focus_part}-{}.json", slug(&book), args.level.as_str())));
             std::fs::write(&out, serde_json::to_vec_pretty(&json!({ "briefing": b, "dropped": g.report.dropped, "usage": g.usage.to_json() })).unwrap()).expect("write the JSON");
             println!("Wrote {}.", out.display());
             if let Some(store) = &args.store {

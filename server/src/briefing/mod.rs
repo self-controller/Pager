@@ -7,6 +7,7 @@
 //! Every constant that bounds cost is here.
 
 pub mod extract;
+pub mod focus;
 pub mod lookup;
 pub mod prompt;
 pub mod run;
@@ -20,6 +21,7 @@ pub mod verify;
 use crate::app::App;
 use crate::errors::{not_found, AppError};
 use crate::Result;
+use focus::Focus;
 use run::{generate, Failure, Limits, Stage};
 use schema::{Briefing, Level};
 use secrets::ApiKey;
@@ -53,6 +55,10 @@ pub const FETCH_BUDGET: u32 = 8;
 pub const SEARCH_HARD_CAP: u32 = 16;
 pub const FETCH_HARD_CAP: u32 = 14;
 pub const FETCH_MAX_CONTENT_TOKENS: u32 = 8_000;
+/// A focused briefing ("Context for this", on one name or work) is short: a smaller budget, told to
+/// the model. The hard caps and the tool list stay the same.
+pub const FOCUS_SEARCH_BUDGET: u32 = 5;
+pub const FOCUS_FETCH_BUDGET: u32 = 4;
 /// Catalogue requests: the seed and the model's find_book / find_article; then the verifier's.
 pub const MODEL_LOOKUPS: u32 = 60;
 pub const VERIFY_LOOKUPS: u32 = 150;
@@ -175,18 +181,21 @@ pub fn not_configured() -> AppError {
     AppError::new(503, "not_configured", format!("Context needs an API key on the computer. Put {} in {SECRETS_HINT} (chmod 600) and restart Pager.", secrets::KEY_VAR))
 }
 
-/// The stored briefing for a document and level, and any run in progress for it.
-pub async fn state(app: &Arc<App>, doc_id: &str, level: Level) -> Result<BriefingState> {
+/// The stored briefing for a document, level and focus (None: the whole book), and any run in
+/// progress for it.
+pub async fn state(app: &Arc<App>, doc_id: &str, level: Level, focus: Option<&Focus>) -> Result<BriefingState> {
     let doc = doc_id.to_string();
+    let fkey = focus.map(|f| f.key.clone()).unwrap_or_default();
+    let fk = fkey.clone();
     let (hash, current, latest, levels) = app
         .run(move |c| {
             let hash = c.briefing_content_hash(&doc)?;
-            let current = c.briefing_get(&doc, level, "", &hash)?;
-            let latest = if current.is_none() { c.briefing_latest(&doc, level, "")? } else { None };
-            Ok((hash, current, latest, c.briefing_levels(&doc, "")?))
+            let current = c.briefing_get(&doc, level, &fk, &hash)?;
+            let latest = if current.is_none() { c.briefing_latest(&doc, level, &fk)? } else { None };
+            Ok((hash, current, latest, c.briefing_levels(&doc, &fk)?))
         })
         .await?;
-    let key = RunKey { doc_id: doc_id.to_string(), level, focus: String::new(), content_hash: hash };
+    let key = RunKey { doc_id: doc_id.to_string(), level, focus: fkey, content_hash: hash };
     let run = {
         let active = app.briefing.active.lock().unwrap();
         active.get(&key).and_then(|id| app.briefing.live.lock().unwrap().get(id).cloned())
@@ -203,15 +212,17 @@ pub enum Started {
 /// Answer from the cache, join a run in progress, or start one. `device_id` is the paired phone
 /// that asked (None on the computer): a new run from a phone counts toward its daily limit, checked
 /// in the same step that records the run, so two requests at once can't both slip past it.
-pub async fn start(app: &Arc<App>, doc_id: &str, level: Level, refresh: bool, device_id: Option<String>) -> Result<Started> {
+pub async fn start(app: &Arc<App>, doc_id: &str, level: Level, refresh: bool, device_id: Option<String>, focus: Option<Focus>) -> Result<Started> {
     if !app.briefing.ready() {
         return Err(not_configured());
     }
     let doc = doc_id.to_string();
+    let fkey = focus.as_ref().map(|f| f.key.clone()).unwrap_or_default();
+    let fk = fkey.clone();
     let (hash, cached) = app
         .run(move |c| {
             let hash = c.briefing_content_hash(&doc)?;
-            let cached = c.briefing_get(&doc, level, "", &hash)?;
+            let cached = c.briefing_get(&doc, level, &fk, &hash)?;
             Ok((hash, cached))
         })
         .await?;
@@ -220,7 +231,7 @@ pub async fn start(app: &Arc<App>, doc_id: &str, level: Level, refresh: bool, de
             return Ok(Started::Cached(Box::new(b)));
         }
     }
-    let key = RunKey { doc_id: doc_id.to_string(), level, focus: String::new(), content_hash: hash.clone() };
+    let key = RunKey { doc_id: doc_id.to_string(), level, focus: fkey.clone(), content_hash: hash.clone() };
     let view = {
         let mut active = app.briefing.active.lock().unwrap();
         if let Some(id) = active.get(&key) {
@@ -250,7 +261,7 @@ pub async fn start(app: &Arc<App>, doc_id: &str, level: Level, refresh: bool, de
             if let Some(d) = device.as_deref() {
                 c.briefing_phone_allowance(d, now)?.check()?;
             }
-            c.briefing_run_insert(&row, &hash, "", device.as_deref())
+            c.briefing_run_insert(&row, &hash, &fkey, device.as_deref())
         })
         .await;
     if let Err(e) = recorded {
@@ -260,7 +271,7 @@ pub async fn start(app: &Arc<App>, doc_id: &str, level: Level, refresh: bool, de
     }
     let task_app = app.clone();
     let run_id = view.id.clone();
-    tokio::spawn(async move { run_task(task_app, key, run_id).await });
+    tokio::spawn(async move { run_task(task_app, key, run_id, focus).await });
     Ok(Started::Run(view))
 }
 
@@ -272,13 +283,13 @@ pub async fn run_view(app: &Arc<App>, run_id: &str) -> Result<RunView> {
     app.run(move |c| c.briefing_run_get(&id)).await?.ok_or_else(|| not_found("That briefing run"))
 }
 
-async fn run_task(app: Arc<App>, key: RunKey, run_id: String) {
+async fn run_task(app: Arc<App>, key: RunKey, run_id: String, focus: Option<Focus>) {
     let _slot = app.briefing.slots.clone().acquire_owned().await;
     let limits = app.briefing.limits.clone();
     let progress_app = app.clone();
     let progress_id = run_id.clone();
     let progress = move |s: Stage| progress_app.briefing.set_stage(&progress_id, s);
-    let outcome = match tokio::time::timeout(limits.run_timeout + Duration::from_secs(60), generate(&app, &key.doc_id, key.level, &limits, &progress)).await {
+    let outcome = match tokio::time::timeout(limits.run_timeout + Duration::from_secs(60), generate(&app, &key.doc_id, key.level, focus.as_ref().map(|f| f.text.as_str()), &limits, &progress)).await {
         Ok(r) => r,
         Err(_) => Err((Failure::Timeout, run::Usage::default())),
     };
@@ -298,10 +309,11 @@ async fn run_task(app: Arc<App>, key: RunKey, run_id: String) {
             let usage = g.usage.to_json();
             let b = g.briefing;
             let summary = format!(
-                "context: run {} doc {} level {}: done in {} s; {}; kept {} claims and {} works, dropped {} claims and {} works{}{}",
+                "context: run {} doc {} level {}{}: done in {} s; {}; kept {} claims and {} works, dropped {} claims and {} works{}{}",
                 run_id,
                 key.doc_id,
                 key.level.as_str(),
+                if key.focus.is_empty() { String::new() } else { " (focused)".to_string() },
                 b.stats.duration_ms / 1000,
                 g.usage.summary(),
                 b.stats.claims_kept,

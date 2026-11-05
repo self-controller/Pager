@@ -1,10 +1,12 @@
 import type {
   ContextBriefing,
   ContextCitation,
+  ContextClaim,
   ContextEntity,
   ContextEntityKind,
   ContextItem,
   ContextLink,
+  ContextPhoneRuns,
   ContextRecord,
   ContextRun,
   ContextSection,
@@ -39,11 +41,42 @@ export const SECTION_TITLES: Record<ContextSectionKind, string> = {
   furtherReading: "Further reading",
 };
 
-/** These sit behind a fold so the reader isn't overwhelmed; the others are open. */
+/** These sit behind a fold so the reader isn't overwhelmed; the others are open. A focused briefing is short: nothing is folded. */
 const FOLDED: ReadonlySet<ContextSectionKind> = new Set(["conversation", "terms", "furtherReading"]);
 
-export function isFolded(kind: ContextSectionKind): boolean {
-  return FOLDED.has(kind);
+export function isFolded(kind: ContextSectionKind, focused = false): boolean {
+  return !focused && FOLDED.has(kind);
+}
+
+/**
+ * A section's title. In a focused briefing ("Context for this") the overview is the focus itself and
+ * the author's conversation is how it bears on this book.
+ */
+export function sectionTitle(kind: ContextSectionKind, b: Pick<ContextBriefing, "focus" | "sections" | "entities">): string {
+  if (!b.focus) return SECTION_TITLES[kind];
+  if (kind === "overview") return focusName(b);
+  if (kind === "conversation") return "And this book";
+  return SECTION_TITLES[kind];
+}
+
+/**
+ * The relation above a conversation item: "Jane Austen took her title from" (its heading names the
+ * other side). In a focused briefing the other side is always the focus, and the heading describes
+ * the connection, so the phrase ends with the focus: "Charles Darwin read Malthus".
+ */
+export function relationLine(
+  b: Pick<ContextBriefing, "focus" | "sections" | "entities">,
+  item: Pick<ContextItem, "relation">,
+  author: string,
+): string | null {
+  if (!item.relation) return null;
+  return b.focus ? `${author} ${item.relation} ${focusName(b)}` : `${author} ${item.relation}`;
+}
+
+/** What a focused briefing is about, as the briefing names it: the overview's heading, else its `focus` node, else the selection. */
+export function focusName(b: Pick<ContextBriefing, "focus" | "sections" | "entities">): string {
+  const overview = b.sections.find((s) => s.kind === "overview")?.items[0]?.heading.trim();
+  return overview || b.entities.find((e) => e.id === "focus")?.name || b.focus || "";
 }
 
 /** The briefing's sections in display order, whatever order they came in; empty and unknown ones left out. */
@@ -202,10 +235,16 @@ export interface RadialLayout {
  * sits in the middle of its children's share, so the drawing is the same every time. Links left over
  * after the tree are cross links; entities no link reaches hang loose from the book.
  */
-export function radialLayout(entities: ContextEntity[], links: ContextLink[], radius: number): RadialLayout {
+export function radialLayout(
+  entities: ContextEntity[],
+  links: ContextLink[],
+  radius: number,
+  /** The centre: the book by default; a focused briefing's `focus` node. */
+  rootId?: string,
+): RadialLayout {
   if (entities.length === 0) return { nodes: [], edges: [], rings: [] };
   const byId = new Map(entities.map((e) => [e.id, e]));
-  const root = byId.has("book") ? "book" : entities[0]!.id;
+  const root = rootId && byId.has(rootId) ? rootId : byId.has("book") ? "book" : entities[0]!.id;
   const usable = links.filter((l) => byId.has(l.from) && byId.has(l.to) && l.from !== l.to);
 
   const adjacent = new Map<string, { other: string; link: ContextLink | null }[]>();
@@ -213,10 +252,11 @@ export function radialLayout(entities: ContextEntity[], links: ContextLink[], ra
     if (!adjacent.has(a)) adjacent.set(a, []);
     adjacent.get(a)!.push({ other: b, link });
   };
-  const authorLinked = usable.some((l) => (l.from === root && l.to === "author") || (l.from === "author" && l.to === root));
-  if (root === "book" && byId.has("author") && !authorLinked) {
-    connect(root, "author", null);
-    connect("author", root, null);
+  // The book and its author always hang together, whatever the centre.
+  const authorLinked = usable.some((l) => (l.from === "book" && l.to === "author") || (l.from === "author" && l.to === "book"));
+  if (byId.has("book") && byId.has("author") && !authorLinked) {
+    connect("book", "author", null);
+    connect("author", "book", null);
   }
   for (const l of usable) {
     connect(l.from, l.to, l);
@@ -306,6 +346,11 @@ export function radialLayout(entities: ContextEntity[], links: ContextLink[], ra
 
 function round(n: number): number {
   return Math.round(n * 100) / 100 || 0;
+}
+
+/** The map's centre: a focused briefing's `focus` node, else the book. */
+export function mapRoot(b: Pick<ContextBriefing, "focus" | "entities">): string | undefined {
+  return b.focus && b.entities.some((e) => e.id === "focus") ? "focus" : undefined;
 }
 
 /** A cross link's curve: a quadratic bend toward the centre, so it doesn't run along the tree's spokes. */
@@ -604,3 +649,233 @@ export function generatedLabel(iso: string, locale?: string): string {
 }
 
 export const LEVEL_LABELS = { general: "General", student: "Student", scholar: "Scholar" } as const;
+
+/** What a briefing usually costs (prompts/book-context.md, Decision 6 and Phase 3). */
+export const BOOK_COST = "$0.20–0.70";
+export const FOCUS_COST = "$0.10–0.30";
+
+/** On a phone, its paid runs left today; null on the computer, which has no limit. */
+export function phoneRunsLine(phone: ContextPhoneRuns | null | undefined): string | null {
+  if (!phone) return null;
+  return phone.left <= 0
+    ? `This phone has started its ${phone.limit} for today; the computer can make one any time.`
+    : `This phone can start ${phone.left} more today.`;
+}
+
+// ---- "Context for this": a name or work selected in the book ----
+
+/** Longer selections are refused, as the server does (server/src/briefing/focus.rs). */
+export const FOCUS_MAX_CHARS = 120;
+export const FOCUS_REFUSED = "Select a name or a title";
+
+export interface FocusText {
+  /** As shown and sent: "Malthus". */
+  text: string;
+  /** The cache key: "malthus". */
+  key: string;
+}
+
+/** Quotes and punctuation that may cling to a selection's ends. */
+const CLINGING = new Set([..."\"'“”‘’«»„‚`.,;:!?…—–-*_"]);
+
+function trimClinging(s: string): string {
+  const cs = [...s];
+  let a = 0;
+  let b = cs.length;
+  while (a < b && CLINGING.has(cs[a]!)) a++;
+  while (b > a && CLINGING.has(cs[b - 1]!)) b--;
+  return cs.slice(a, b).join("").trim();
+}
+
+function stripUnbalanced(input: string): string {
+  let s = input;
+  for (;;) {
+    const before = s;
+    s = trimClinging(s);
+    for (const [open, close] of [
+      ["(", ")"],
+      ["[", "]"],
+    ] as const) {
+      if (s.startsWith(open) && !s.includes(close)) s = s.slice(1).trim();
+      if (s.endsWith(close) && !s.includes(open)) s = s.slice(0, -1).trim();
+      if (s.startsWith(open) && s.endsWith(close) && s.split(open).length === 2) s = s.slice(1, -1).trim();
+    }
+    if (s === before) return s;
+  }
+}
+
+/** The cache key for a focus as shown: lower case, curly apostrophes straightened. */
+export function focusKey(text: string): string {
+  return text.toLowerCase().replace(/[’‘]/g, "'");
+}
+
+/**
+ * Cleans a selection the way the server does before it becomes a focus: spaces collapsed, clinging
+ * quotes and punctuation and unbalanced brackets dropped, a possessive ’s removed ("“Malthus’s”" →
+ * "Malthus"). Null when it can't be a name or a title: empty, over 120 characters, or no letter.
+ */
+export function normalizeFocus(raw: string): FocusText | null {
+  const collapsed = raw.split(/\s+/).filter(Boolean).join(" ");
+  if (!collapsed || [...collapsed].length > FOCUS_MAX_CHARS) return null;
+  let text = stripUnbalanced(collapsed);
+  // A possessive leaves at least three letters ("Ross's" → "Ross"; "It's" stays).
+  if ([...text].length >= 5 && /['’][sS]$/.test(text)) text = stripUnbalanced(text.slice(0, -2));
+  if (!/\p{L}/u.test(text)) return null;
+  return { text, key: focusKey(text) };
+}
+
+/** Words that never name anything on their own. */
+const STOPWORDS = new Set(
+  (
+    "the and but for nor not yet with from into onto upon this that these those his her hers its their them they she him " +
+    "you your our who whom whose which what when where why how was were are has had have been being all any some one " +
+    "very such than then there here shall will would could should may might must said says also only even more most " +
+    "much many other into over under after before about"
+  ).split(" "),
+);
+
+const HONORIFIC = /^(mr|mrs|miss|ms|dr|sir|lady|lord|st|saint) /;
+
+/** For comparing names: no accents, case or punctuation, no leading article or title. */
+function matchForm(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/['’]s\b/g, "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .replace(/^(the|a|an) /, "")
+    .replace(HONORIFIC, "");
+}
+
+const BRACKETED = /\([^)]*\)|\[[^\]]*\]/g;
+
+/** How well an entity's name answers a selection: 3 the name, 2 without its brackets or the bracketed part, 1 a surname. */
+function nameScore(e: ContextEntity, s: string): number {
+  if (matchForm(e.name) === s) return 3;
+  const bare = matchForm(e.name.replace(BRACKETED, " "));
+  if (bare === s) return 2;
+  if ([...e.name.matchAll(/\(([^)]*)\)/g)].some((m) => matchForm(m[1]!) === s)) return 2;
+  // "Malthus" or "Robert Malthus" for "Thomas Robert Malthus": people only ("selection" isn't "Natural selection").
+  if (e.kind === "person") {
+    const words = bare.split(" ");
+    const want = s.split(" ");
+    if (want.length < words.length && words.slice(-want.length).join(" ") === s) return 1;
+  }
+  return 0;
+}
+
+/**
+ * An item heading that is the selection, or names it as a capitalised word: past the first word ("…, then
+ * Wallace"), or the first when another capitalised name follows ("Whewell and Bacon"), since a heading's
+ * first word is capitalised anyway ("Species were thought…").
+ */
+function headingMatches(heading: string, s: string): boolean {
+  if (matchForm(heading) === s || matchForm(heading.replace(BRACKETED, " ")) === s) return true;
+  if ([...heading.matchAll(/\(([^)]*)\)/g)].some((m) => matchForm(m[1]!) === s)) return true;
+  const tokens = heading
+    .split(/[^\p{L}\p{N}'’]+/u)
+    .map((t) => t.replace(/['’]s$/i, ""))
+    .filter(Boolean);
+  const forms = tokens.map((t) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/['’]/g, ""));
+  const want = s.split(" ");
+  const capital = (t: string | undefined) => Boolean(t && /^\p{Lu}/u.test(t));
+  const namesLater = tokens.slice(want.length).some(capital);
+  for (let i = namesLater ? 0 : 1; i + want.length <= forms.length; i++) {
+    if (forms.slice(i, i + want.length).join(" ") === s && capital(tokens[i])) return true;
+  }
+  return false;
+}
+
+export interface BriefingMatch {
+  /** The map node the selection names, if any. */
+  entity?: ContextEntity;
+  /** What the briefing says about it, in display order. */
+  items: ItemRef[];
+}
+
+/**
+ * Whether a whole-book briefing already covers a selected name or term: a map node by its name, a
+ * surname ("Malthus" for "Thomas Robert Malthus"), the name without its brackets ("Entail" for
+ * "Entail (fee tail)"), or an item's heading. Null for nothing found, and for one or two letters or
+ * words that name nothing ("the").
+ */
+export function findInBriefing(b: ContextBriefing, text: string): BriefingMatch | null {
+  const focus = normalizeFocus(text);
+  if (!focus) return null;
+  const s = matchForm(focus.text);
+  if ((s.match(/\p{L}/gu) ?? []).length < 3) return null;
+  if (s.split(" ").every((w) => STOPWORDS.has(w))) return null;
+  const found = matchIn(b, s);
+  if (found || s.includes(" ") || s.length < 6) return found;
+  // One word, inflected: "entailed" for "Entail", "Bennets" for "Bennet".
+  for (const stem of [s.replace(/(ed|es|ing)$/, ""), s.replace(/s$/, "")]) {
+    if (stem !== s && stem.length >= 4 && !STOPWORDS.has(stem)) {
+      const m = matchIn(b, stem);
+      if (m) return m;
+    }
+  }
+  return null;
+}
+
+function matchIn(b: ContextBriefing, s: string): BriefingMatch | null {
+  let entity: ContextEntity | undefined;
+  let best = 0;
+  for (const e of b.entities) {
+    const score = nameScore(e, s);
+    // Ties go to the author (selecting "Darwin" in the Origin), then to the first named.
+    if (score > best || (score === best && score > 0 && e.id === "author")) {
+      best = score;
+      entity = e;
+    }
+  }
+  const seen = new Set<string>();
+  const items: ItemRef[] = [];
+  for (const ref of orderedSections(b).flatMap((sec) => sec.items.map((item, index) => ({ kind: sec.kind, index, item })))) {
+    const about = entity && ref.item.entity === entity.id;
+    if (!about && !headingMatches(ref.item.heading, s)) continue;
+    const key = `${ref.kind}:${ref.index}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      items.push(ref);
+    }
+  }
+  if (!entity && items.length === 0) return null;
+  return entity ? { entity, items } : { items };
+}
+
+export interface MatchClaim {
+  claim: ContextClaim;
+  /** The map link it backs, when it came from one ("Charles Darwin received an essay from Alfred Russel Wallace"). */
+  link?: ContextLink;
+  /** It sits in an item marked as a spoiler. */
+  spoiler: boolean;
+}
+
+/**
+ * The one claim the card shows for a match: the first about the item that names the selection, else
+ * the node's first sourced link, else the first claim of the first item. An item's first claim is
+ * often about something else ("Twenty years of delay, then Wallace" opens on the 1844 sketch).
+ */
+export function matchClaim(b: ContextBriefing, m: BriefingMatch, text: string): MatchClaim | null {
+  const s = matchForm(normalizeFocus(text)?.text ?? text);
+  const names = (t: string) => ` ${matchForm(t)} `.includes(` ${s} `) || (m.entity ? nameIn(m.entity.name, t) : false);
+  for (const r of m.items) {
+    const c = r.item.claims.find((c) => names(c.text));
+    if (c) return { claim: c, spoiler: r.item.spoiler };
+  }
+  const link = m.entity ? linksOf(b, m.entity.id)[0] : undefined;
+  if (link) return { claim: link.claim, link, spoiler: false };
+  const first = m.items.find((r) => r.item.claims.length > 0);
+  return first ? { claim: first.item.claims[0]!, spoiler: first.item.spoiler } : null;
+}
+
+/** Whether a sentence names an entity: its full name or, for a person, the surname. */
+function nameIn(name: string, sentence: string): boolean {
+  const t = ` ${matchForm(sentence)} `;
+  const bare = matchForm(name.replace(BRACKETED, " "));
+  if (t.includes(` ${bare} `)) return true;
+  const last = bare.split(" ").pop();
+  return Boolean(last && last.length >= 4 && t.includes(` ${last} `));
+}

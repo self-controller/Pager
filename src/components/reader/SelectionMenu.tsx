@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { Highlighter, Link2, MessageSquareText } from "lucide-react";
 import type { HighlightColor } from "@/api/types";
 import { useSelectionActions } from "@/tools/registry";
@@ -12,7 +13,18 @@ const DOT: Record<HighlightColor, string> = {
 };
 
 const item =
-  "flex h-8 items-center gap-1.5 rounded-xs px-2 text-[13px] font-semibold transition-hover hover:bg-[var(--tooltip-hover)]";
+  "flex h-8 items-center gap-1.5 rounded-xs px-2 text-[13px] font-semibold whitespace-nowrap transition-hover hover:bg-[var(--tooltip-hover)]";
+
+/** The menu's centre, moved in so the whole menu stays 8px inside the viewport (a phone is narrow). */
+function useClampedCenter(ref: RefObject<HTMLElement | null>, center: number): number {
+  const [at, setAt] = useState(center);
+  useLayoutEffect(() => {
+    const half = (ref.current?.offsetWidth ?? 0) / 2;
+    const width = document.documentElement.clientWidth;
+    setAt(half ? Math.max(8 + half, Math.min(center, width - 8 - half)) : center);
+  });
+  return at;
+}
 
 /**
  * Floating bar over selected text: Highlight and Note, then any actions registered by tools.
@@ -35,15 +47,19 @@ export function SelectionMenu({
   onReattach?: (selection: TextSelection) => void;
 }) {
   const actions = useSelectionActions();
+  const ref = useRef<HTMLDivElement>(null);
+  const rect = selection?.rect;
+  const center = useClampedCenter(ref, rect ? rect.left + rect.width / 2 : 0);
   if (!selection?.rect) return null;
   if (onReattach) {
     return (
       <div
+        ref={ref}
         role="toolbar"
         data-reader-overlay
         aria-label="Selection actions"
         className="fixed z-30 flex -translate-x-1/2 -translate-y-full rounded-sm bg-[var(--tooltip-bg)] p-1 text-[var(--tooltip-fg)] shadow-lg"
-        style={{ top: Math.max(8, selection.rect.top - 8), left: selection.rect.left + selection.rect.width / 2 }}
+        style={{ top: Math.max(8, selection.rect.top - 8), left: center }}
         onMouseDown={(e) => e.preventDefault()}
       >
         <button type="button" className={item} onClick={() => onReattach(selection)}>
@@ -54,14 +70,15 @@ export function SelectionMenu({
     );
   }
   if (!onHighlight && !onNote && actions.length === 0) return null;
-  const { top, left, width } = selection.rect;
+  const { top } = selection.rect;
   return (
     <div
+      ref={ref}
       role="toolbar"
       data-reader-overlay
       aria-label="Selection actions"
       className="fixed z-30 flex -translate-x-1/2 -translate-y-full items-center gap-0.5 rounded-sm bg-[var(--tooltip-bg)] p-1 text-[var(--tooltip-fg)] shadow-lg"
-      style={{ top: Math.max(8, top - 8), left: left + width / 2 }}
+      style={{ top: Math.max(8, top - 8), left: center }}
       onMouseDown={(e) => e.preventDefault() /* keep the selection */}
     >
       {onHighlight && (

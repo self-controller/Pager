@@ -241,7 +241,10 @@ export function createHttpApi(base = "/api", fetchImpl: typeof fetch = fetch.bin
     requestPairing: (code, name) => request<PairRequestResult>(`/pair`, json("POST", { code, name })),
     pollPairing: (r) => request<PairPollResult>(`/pair/poll`, json("POST", { requestId: r.requestId, pollSecret: r.pollSecret })),
     getContextStatus: () => request<ContextStatus>(`/tools/context/status`),
-    getContextBriefing: (docId, level) => request<ContextState>(`/tools/context/briefings/${enc(docId)}?level=${enc(level)}`),
+    getContextBriefing: (docId, level, focus) =>
+      request<ContextState>(
+        `/tools/context/briefings/${enc(docId)}?level=${enc(level)}${focus ? `&focus=${enc(focus)}` : ""}`,
+      ),
     startContextBriefing: (docId, input) => request<StartContextResult>(`/tools/context/briefings/${enc(docId)}`, json("POST", input)),
     getContextRun: (runId) => request<ContextRun>(`/tools/context/runs/${enc(runId)}`),
   };

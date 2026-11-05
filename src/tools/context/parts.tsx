@@ -11,7 +11,7 @@ import {
   KIND_LABELS,
   linksOf,
   safeHref,
-  SECTION_TITLES,
+  sectionTitle,
   type ItemRef,
 } from "./model";
 
@@ -179,7 +179,7 @@ export function EntityDetail({
               className="-mx-2 flex items-center gap-2 rounded-sm px-2 py-1.5 text-left font-sans text-[13.5px] leading-5 transition-hover hover:bg-surface-hover"
             >
               <span className="min-w-0 flex-1">
-                <span className="text-fg-2">{SECTION_TITLES[ref.kind]}: </span>
+                <span className="text-fg-2">{sectionTitle(ref.kind, briefing)}: </span>
                 <span className="font-medium text-accent">{ref.item.heading}</span>
               </span>
               <ChevronRight size={16} className="shrink-0 text-fg-3" aria-hidden />

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { queryKeys } from "@/api/hooks";
 import { createHttpApi } from "@/api/http";
 import { createMockApi } from "@/api/mock";
 import { ApiError, ErrorCodes, type ContextBriefing, type ContextEntity, type ContextLink } from "@/api/types";
@@ -10,6 +11,9 @@ import {
   crossPath,
   distinctCitations,
   entityDates,
+  findInBriefing,
+  focusKey,
+  focusName,
   formatYear,
   generatedLabel,
   isFolded,
@@ -17,19 +21,26 @@ import {
   labelChars,
   labelPlacement,
   linksOf,
+  mapRoot,
+  matchClaim,
   MIN_PLACE_SPAN,
+  normalizeFocus,
   orderedSections,
   outlineTransform,
   parseYear,
+  phoneRunsLine,
   placeLabels,
   placePoints,
   placesView,
   projectPoint,
   radialLayout,
   recordHref,
+  relationLine,
   safeHref,
   scaleAt,
   SECTION_ORDER,
+  sectionTitle,
+  SECTION_TITLES,
   timelineRows,
   timelineScale,
   usableLinks,
@@ -48,6 +59,10 @@ const darwin = sample("darwin-general");
 const scholar = sample("darwin-scholar");
 const austen = sample("austen-general");
 const nietzsche = sample("nietzsche-general");
+// Focused briefings ("Context for this", Phase 3).
+const malthus = sample("darwin-malthus-general");
+const burney = sample("austen-burney-general");
+const wagner = sample("nietzsche-wagner-general");
 
 function jsonResponse(status: number, body?: unknown): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -73,6 +88,24 @@ describe("context api: http adapter", () => {
     ]);
     expect(JSON.parse(fetchMock.mock.calls[2]![1]!.body as string)).toEqual({ level: "student", refresh: true });
     expect((fetchMock.mock.calls[2]![1]!.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
+  });
+
+  it("asks for a focused briefing with ?focus= and a focus in the body", async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => jsonResponse(200, {}));
+    const api = createHttpApi("/api", fetchMock as unknown as typeof fetch);
+    await api.getContextBriefing("d", "general", "Malthus’s Essay");
+    await api.getContextBriefing("d", "general", null);
+    await api.getContextBriefing("d", "general", "");
+    await api.startContextBriefing("d", { level: "general", focus: "Malthus" });
+    expect(fetchMock.mock.calls.map(([url]) => url).slice(0, 3)).toEqual([
+      "/api/tools/context/briefings/d?level=general&focus=Malthus%E2%80%99s%20Essay",
+      "/api/tools/context/briefings/d?level=general",
+      "/api/tools/context/briefings/d?level=general",
+    ]);
+    expect(JSON.parse(fetchMock.mock.calls[3]![1]!.body as string)).toEqual({ level: "general", focus: "Malthus" });
+    // The client's cache key compares the focus without case, as the server does.
+    expect(queryKeys.contextBriefing("d", "general", "Malthus")).toEqual(queryKeys.contextBriefing("d", "general", "malthus"));
+    expect(queryKeys.contextBriefing("d", "general")).toEqual(["context", "briefing", "d", "general", ""]);
   });
 
   it("passes a 202 run through and keeps the server's error codes", async () => {
@@ -122,7 +155,7 @@ describe("context api: mock", () => {
 describe("context: sections and folds", () => {
   it("puts context first and folds the rest", () => {
     expect(SECTION_ORDER).toEqual(["overview", "readFirst", "moment", "situation", "conversation", "terms", "furtherReading"]);
-    expect(SECTION_ORDER.filter(isFolded)).toEqual(["conversation", "terms", "furtherReading"]);
+    expect(SECTION_ORDER.filter((k) => isFolded(k))).toEqual(["conversation", "terms", "furtherReading"]);
     expect(orderedSections(darwin).map((s) => s.kind)).toEqual([
       "overview",
       "moment",
@@ -474,5 +507,166 @@ describe("context: citations and labels", () => {
     expect(costLabel(0.004)).toBe("less than a cent");
     expect(costLabel(0.2345)).toBe("$0.23");
     expect(generatedLabel("2026-11-05T21:51:06.293Z", "en-GB")).toBe("Generated 5 November 2026");
+  });
+});
+
+describe("context for this: the selection", () => {
+  const text = (s: string) => normalizeFocus(s)?.text ?? null;
+
+  it("cleans a selection as the server does (server/src/briefing/focus.rs)", () => {
+    expect(text("  Malthus  ")).toBe("Malthus");
+    expect(text("“Malthus’s”")).toBe("Malthus");
+    expect(text("Mr. Darcy,")).toBe("Mr. Darcy");
+    expect(text("Entail (fee tail)")).toBe("Entail (fee tail)");
+    expect(text("(Lyell)")).toBe("Lyell");
+    expect(text("Principles of\n  Geology.")).toBe("Principles of Geology");
+    expect(text("—Zarathustra—")).toBe("Zarathustra");
+    expect(text("Ross's")).toBe("Ross");
+    expect(text("It's")).toBe("It's");
+    expect(normalizeFocus("Malthus")!.key).toBe("malthus");
+    expect(normalizeFocus("D’Arcy")!.key).toBe("d'arcy");
+    expect(focusKey("D‘Arcy")).toBe("d'arcy");
+  });
+
+  it("refuses what isn't a name or a title: nothing, no letter, or over 120 characters", () => {
+    expect(normalizeFocus("   ")).toBeNull();
+    expect(normalizeFocus("…")).toBeNull();
+    expect(normalizeFocus("1859")).toBeNull();
+    expect(normalizeFocus("word ".repeat(30))).toBeNull();
+    expect(normalizeFocus("a".repeat(120))).not.toBeNull();
+    expect(normalizeFocus("a".repeat(121))).toBeNull();
+  });
+});
+
+describe("context for this: what the book's briefing already says", () => {
+  it("finds a person by surname, with the items about them", () => {
+    const m = findInBriefing(darwin, "Malthus")!;
+    expect(m.entity?.id).toBe("malthus");
+    expect(m.items.map((r) => `${r.kind}: ${r.item.heading}`)).toEqual([
+      "situation: From the Beagle to the theory",
+      "conversation: Thomas Malthus",
+    ]);
+    expect(findInBriefing(darwin, "Malthus’s")!.entity?.id).toBe("malthus");
+    expect(findInBriefing(darwin, "Robert Malthus")!.entity?.id).toBe("malthus");
+    const w = findInBriefing(darwin, "Wallace")!;
+    expect(w.entity?.id).toBe("wallace");
+    expect(w.items.map((r) => r.item.heading)).toEqual(["Twenty years of delay, then Wallace"]);
+    // The author, by surname; a publisher whose name carries a bracket.
+    expect(findInBriefing(darwin, "Darwin")!.entity?.id).toBe("author");
+    expect(findInBriefing(darwin, "Murray")!.entity?.id).toBe("murray");
+  });
+
+  it("matches a name without its brackets, the bracketed name, and accents", () => {
+    const entail = findInBriefing(austen, "entail")!;
+    expect(entail.entity?.id).toBe("entail");
+    expect(entail.items.map((r) => `${r.kind}: ${r.item.heading}`)).toEqual([
+      "moment: Entailed estates and eldest sons",
+      "terms: Entail",
+    ]);
+    expect(findInBriefing(austen, "the entail")!.entity?.id).toBe("entail");
+    expect(findInBriefing(nietzsche, "Übermensch")!.entity?.id).toBe("ubermensch");
+    expect(findInBriefing(nietzsche, "Rée")!.entity?.id).toBe("ree");
+    expect(findInBriefing(nietzsche, "Ree")!.entity?.id).toBe("ree");
+  });
+
+  it("matches item headings with no node: the term itself, or a name inside the heading", () => {
+    const pin = findInBriefing(austen, "pin-money")!;
+    expect(pin.entity).toBeUndefined();
+    expect(pin.items.map((r) => r.item.heading)).toEqual(["Pin-money"]);
+    expect(findInBriefing(darwin, "Whewell")!.items.map((r) => r.item.heading)).toEqual(["Whewell and Bacon (the epigraphs)"]);
+    expect(findInBriefing(darwin, "Bacon")!.items.map((r) => r.item.heading)).toEqual(["Whewell and Bacon (the epigraphs)"]);
+    expect(findInBriefing(austen, "war")!.items.map((r) => r.item.heading)).toEqual(["War with France and the militia"]);
+  });
+
+  it("tries one inflected word once more without its ending", () => {
+    expect(findInBriefing(austen, "entailed")!.entity?.id).toBe("entail");
+    expect(findInBriefing(darwin, "Wallaces")!.entity?.id).toBe("wallace");
+    expect(findInBriefing(darwin, "theories")).toBeNull();
+  });
+
+  it("shows the claim that names the selection, else the node's link, else the item's first claim", () => {
+    // The Wallace item opens on the 1844 sketch; the claim about Wallace's essay comes later.
+    const w = matchClaim(darwin, findInBriefing(darwin, "Wallace")!, "Wallace")!;
+    expect(w.claim.text).toMatch(/Wallace/);
+    expect(w.link).toBeUndefined();
+    // With no item that names him, Murray's first sourced link.
+    const murray = findInBriefing(darwin, "Murray")!;
+    const m = matchClaim(darwin, { ...murray, items: [] }, "Murray")!;
+    expect([m.link?.from, m.link?.to]).toContain("murray");
+    // A heading match with no node: the item's first claim.
+    const pin = findInBriefing(austen, "pin-money")!;
+    expect(matchClaim(austen, pin, "pin-money")!.claim).toBe(pin.items[0]!.item.claims[0]);
+  });
+
+  it("matches nothing for short words, words that name nothing, or names it doesn't hold", () => {
+    for (const t of ["the", "of", "Mr", "and the", "it", "1859", "x".repeat(121)]) expect(findInBriefing(darwin, t)).toBeNull();
+    expect(findInBriefing(darwin, "Lamarck")).toBeNull();
+    // A sentence-case heading's first word isn't a name; "selection" isn't the idea of natural selection.
+    expect(findInBriefing(darwin, "species")).toBeNull();
+    expect(findInBriefing(nietzsche, "power")).toBeNull();
+  });
+});
+
+describe("context for this: the focused briefing", () => {
+  it("is short, about the link, with no pre-reading and a focus node", () => {
+    for (const b of [malthus, burney, wagner]) {
+      expect(b.focus).toBeTruthy();
+      expect(b.sections.some((s) => s.kind === "readFirst" || s.kind === "terms")).toBe(false);
+      const claims = b.sections.flatMap((s) => s.items).reduce((n, i) => n + i.claims.length, 0);
+      expect(claims).toBeGreaterThanOrEqual(5);
+      expect(claims).toBeLessThanOrEqual(12);
+      expect(b.entities.some((e) => e.id === "focus")).toBe(true);
+    }
+  });
+
+  it("titles its sections for the focus and folds nothing", () => {
+    expect(focusName(malthus)).toBe("Malthus");
+    expect(sectionTitle("overview", malthus)).toBe("Malthus");
+    expect(sectionTitle("conversation", burney)).toBe("And this book");
+    expect(sectionTitle("moment", malthus)).toBe(SECTION_TITLES.moment);
+    expect(sectionTitle("overview", darwin)).toBe("The book");
+    expect(sectionTitle("conversation", darwin)).toBe("The author's conversation");
+    expect(SECTION_ORDER.filter((k) => isFolded(k, true))).toEqual([]);
+    // Without an overview, the focus node's name, then the selection.
+    const bare = { ...wagner, sections: wagner.sections.filter((s) => s.kind !== "overview") };
+    expect(focusName(bare)).toBe("Richard Wagner");
+    expect(focusName({ ...bare, entities: [] })).toBe("Wagner");
+  });
+
+  it("ends a conversation item's relation with the focus", () => {
+    const item = malthus.sections.find((s) => s.kind === "conversation")!.items[0]!;
+    expect(relationLine(malthus, item, "Charles Darwin")).toBe(`Charles Darwin ${item.relation} Malthus`);
+    const whole = austen.sections.find((s) => s.kind === "conversation")!.items[0]!;
+    expect(relationLine(austen, whole, "Jane Austen")).toBe(`Jane Austen ${whole.relation}`);
+    expect(relationLine(malthus, { relation: undefined }, "Charles Darwin")).toBeNull();
+  });
+
+  it("centres the map on the focus, with the book and its author still joined", () => {
+    expect(mapRoot(malthus)).toBe("focus");
+    expect(mapRoot(darwin)).toBeUndefined();
+    const layout = radialLayout(malthus.entities, usableLinks(malthus), 100, mapRoot(malthus));
+    const node = (id: string) => layout.nodes.find((n) => n.entity.id === id)!;
+    expect(node("focus")).toMatchObject({ depth: 0, x: 0, y: 0, parent: null });
+    expect(node("book").depth).toBe(1);
+    expect(node("author").depth).toBe(1);
+    expect(layout.nodes.length).toBe(malthus.entities.length);
+    expect(layout.edges.filter((e) => e.link).length).toBe(usableLinks(malthus).length);
+    // Wagner: the book and its author each hang from the focus by a sourced link.
+    const w = radialLayout(wagner.entities, usableLinks(wagner), 100, "focus");
+    expect(w.nodes.find((n) => n.entity.id === "focus")!.depth).toBe(0);
+    expect(w.nodes.filter((n) => n.entity.id === "book" || n.entity.id === "author").map((n) => n.parent)).toEqual([
+      "focus",
+      "focus",
+    ]);
+    // An unknown root falls back to the book.
+    expect(radialLayout(darwin.entities, usableLinks(darwin), 100, "nope").nodes.find((n) => n.depth === 0)!.entity.id).toBe(
+      "book",
+    );
+  });
+
+  it("says how many runs a phone has left", () => {
+    expect(phoneRunsLine(null)).toBeNull();
+    expect(phoneRunsLine({ used: 3, limit: 10, left: 7 })).toBe("This phone can start 7 more today.");
+    expect(phoneRunsLine({ used: 10, limit: 10, left: 0 })).toMatch(/started its 10 for today/);
   });
 });

@@ -21,6 +21,8 @@ use std::collections::{HashMap, HashSet};
 pub const MAX_CITATIONS: usize = 3;
 /// Most claims across the sections (links aside): about three minutes' reading.
 pub const MAX_CLAIMS: u32 = 24;
+/// A focused briefing ("Context for this") is short: 5–10 claims asked for, at most this many kept.
+pub const MAX_FOCUS_CLAIMS: u32 = 12;
 /// Fewer kept claims than this outside the overview means "not much is known".
 pub const LITTLE_KNOWN_BELOW: u32 = 3;
 const CONCURRENCY: usize = 6;
@@ -390,8 +392,42 @@ fn item_claims(i: &Item) -> u32 {
     i.claims.len() as u32 + i.disagreement.as_ref().map(|d| d.sides.iter().map(|s| s.claims.len() as u32).sum()).unwrap_or(0)
 }
 
-/// Check a draft against its evidence. Lookups run up to six at a time.
+/// What kind of briefing is being checked: the whole book, or one name or work in it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Shape {
+    Book,
+    Focus,
+}
+
+impl Shape {
+    /// Most items kept in a section. A focused briefing has no pre-reading and few items.
+    pub fn max_items(self, kind: SectionKind) -> usize {
+        match self {
+            Shape::Book => kind.max_items(),
+            Shape::Focus => match kind {
+                SectionKind::Overview => 1,
+                SectionKind::ReadFirst => 0,
+                SectionKind::Moment | SectionKind::Situation | SectionKind::Terms | SectionKind::FurtherReading => 2,
+                SectionKind::Conversation => 3,
+            },
+        }
+    }
+
+    pub fn max_claims(self) -> u32 {
+        match self {
+            Shape::Book => MAX_CLAIMS,
+            Shape::Focus => MAX_FOCUS_CLAIMS,
+        }
+    }
+}
+
+/// Check a whole-book draft against its evidence. Lookups run up to six at a time.
 pub async fn verify(draft: Draft, evidence: &Evidence, lookups: &Lookups) -> Verified {
+    verify_shaped(draft, evidence, lookups, Shape::Book).await
+}
+
+/// A briefing of either shape. A focused one keeps its `focus` node, like the book and the author.
+pub async fn verify_shaped(draft: Draft, evidence: &Evidence, lookups: &Lookups, shape: Shape) -> Verified {
     // What needs looking up: every record, every Wikidata ID, and the pages whose quotes the run
     // didn't already read.
     let mut records: HashSet<Record> = HashSet::new();
@@ -461,11 +497,13 @@ pub async fn verify(draft: Draft, evidence: &Evidence, lookups: &Lookups) -> Ver
     let mut sections = Vec::new();
     for kind in SectionKind::ORDER {
         if let Some(mut items) = by_kind.remove(&kind) {
-            for extra in items.drain(kind.max_items().min(items.len())..) {
+            let max = shape.max_items(kind);
+            for extra in items.drain(max.min(items.len())..) {
                 let n = item_claims(&extra);
                 ctx.report.claims_kept -= n;
                 ctx.report.claims_dropped += n;
-                ctx.drop(format!("{} › {}", kind.as_str(), short(&extra.heading, 50)), format!("past the section's limit of {}", kind.max_items()));
+                let why = if max == 0 { "a focused briefing has no pre-reading".to_string() } else { format!("past the section's limit of {max}") };
+                ctx.drop(format!("{} › {}", kind.as_str(), short(&extra.heading, 50)), why);
             }
             sections.push(Section { kind, items });
         }
@@ -475,13 +513,13 @@ pub async fn verify(draft: Draft, evidence: &Evidence, lookups: &Lookups) -> Ver
     let mut total: u32 = sections.iter().flat_map(|s| s.items.iter()).map(item_claims).sum();
     for kind in [SectionKind::Terms, SectionKind::Conversation, SectionKind::Situation, SectionKind::Moment] {
         let Some(sec) = sections.iter_mut().find(|s| s.kind == kind) else { continue };
-        while total > MAX_CLAIMS && sec.items.len() > 1 {
+        while total > shape.max_claims() && sec.items.len() > 1 {
             let extra = sec.items.pop().unwrap();
             let n = item_claims(&extra);
             total -= n;
             ctx.report.claims_kept -= n;
             ctx.report.claims_dropped += n;
-            ctx.drop(format!("{} › {}", kind.as_str(), short(&extra.heading, 50)), format!("past the briefing's length of {MAX_CLAIMS} claims"));
+            ctx.drop(format!("{} › {}", kind.as_str(), short(&extra.heading, 50)), format!("past the briefing's length of {} claims", shape.max_claims()));
         }
     }
     sections.retain(|s| !s.items.is_empty());
@@ -560,8 +598,11 @@ pub async fn verify(draft: Draft, evidence: &Evidence, lookups: &Lookups) -> Ver
         }
     }
 
-    // Keep the entities something still points at, plus the book and its author.
+    // Keep the entities something still points at, plus the book, its author and (focused) the focus.
     let mut used: HashSet<String> = ["book".to_string(), "author".to_string()].into_iter().collect();
+    if shape == Shape::Focus {
+        used.insert("focus".to_string());
+    }
     for l in &links {
         used.insert(l.from.clone());
         used.insert(l.to.clone());
