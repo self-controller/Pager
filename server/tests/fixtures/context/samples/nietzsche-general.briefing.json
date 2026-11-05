@@ -1,0 +1,718 @@
+{
+ "version": 2,
+ "docId": "01m6pv3gfqwvng391gva",
+ "level": "general",
+ "focus": null,
+ "contentHash": "ddc83cf56810dab6d58e98bddbcaf705e217f944d496b976e932e088979bd76f",
+ "generatedAt": "2026-11-05T21:51:11.310Z",
+ "model": "draft (Claude Code agent)",
+ "littleKnown": false,
+ "sections": [
+  {
+   "kind": "overview",
+   "items": [
+    {
+     "heading": "The book in one paragraph",
+     "entity": "book",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Thus Spoke Zarathustra (this edition spells it Spake) is a philosophical book by Friedrich Nietzsche, in the form of speeches and parables by an invented prophet, Zarathustra, who comes down from the mountains to teach people.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "record",
+         "url": "https://www.wikidata.org/wiki/Q199774",
+         "title": "Thus Spoke Zarathustra",
+         "author": "Friedrich Nietzsche",
+         "year": null,
+         "quote": null,
+         "record": {
+          "kind": "wikidata",
+          "value": "Q199774"
+         },
+         "check": "record"
+        },
+        {
+         "kind": "page",
+         "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+         "title": "Reading Notes for Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "In the Prologue, we see Zarathustra coming down to teach the people the message that god is dead and that man is to be overcome.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      },
+      {
+       "text": "It was written in bursts in 1883 and early 1884: Part I took about ten days in January 1883, Part II came in June and Part III in November.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+         "title": "Reading Notes for Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "Part I was written in only about ten days, in January 1883. In February, Wagner died, yielding yet another blow to Nietzsche. Part II was written in June 1883 and Part III, in November.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      },
+      {
+       "text": "The fourth part was written in January 1884 and shown only to a small group. It was thought too blasphemous to publish in Nietzsche's lifetime, so the four parts first appeared together in 1892.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+         "title": "Reading Notes for Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "Part IV, written in January 1884, was circulated to only a small group and not published during Nietzsche's lifetime. It was viewed as too blasphemous.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "moment",
+   "items": [
+    {
+     "heading": "A world in which belief in God is fading",
+     "entity": "god-dead",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "The book assumes that the traditional Christian picture of the world has lost its hold on educated Europeans. Zarathustra's first message to the crowd is that God is dead and that humanity must be overcome, and the crowd does not understand him.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+         "title": "Reading Notes for Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "In the Prologue, we see Zarathustra coming down to teach the people the message that god is dead and that man is to be overcome.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      },
+      {
+       "text": "In the Second Part, Zarathustra says that where people once looked to God, they should now look to the overman, a figure standing for human destiny.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+         "title": "Reading Notes for Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "When we look into the sea (nature), we should see overman (human destiny) and not god.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "situation",
+   "items": [
+    {
+     "heading": "A year of heartbreak and isolation",
+     "entity": "lou",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "In spring 1882 Nietzsche met Lou Salomé, a young Russian woman, in Rome. His hope of spending the summer with her and his friend Paul Rée, a philosopher, was ended by interference from his mother and sister Elisabeth.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+         "title": "Reading Notes for Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "Nietzsche's hopes of spending an extended period of time (the summer of 1882) with Lou and Paul Ree were crushed by the manipulations of his mother and sister, Elizabeth.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      },
+      {
+       "text": "Nietzsche wrote bitter letters to both friends and felt regret and guilt afterwards. He was alienated from almost everyone he knew, and friends in Basel feared he might be suicidal.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+         "title": "Reading Notes for Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "Nietzsche allowed his jealousy to pour forth and wrote some terrible letters to his two formerly-best friends, also slandering them to other friends.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      },
+      {
+       "text": "The writing of Zarathustra is described as the healing process that brought him out of this dark period.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+         "title": "Reading Notes for Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "In many respects, the writing of Zarathustra was the healing process that brought Nietzsche out of this darkness.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "heading": "A wandering writer in the Alps and Italy",
+     "entity": "sils",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "From 1881 to 1888 Nietzsche spent his summers in Sils Maria, a high Swiss Alpine village, except in 1882. The second part of Zarathustra and a draft of the third were written there in summer 1883.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://www.cocoa.foundation/features/zeiger-splendid-isolation",
+         "title": "Splendid Isolation: Nietzsche At Sils Maria",
+         "author": null,
+         "year": null,
+         "quote": "Nietzsche spent summers in Sils Maria, a village in the 2000-metre high Engadine Valley, surrounded by the Swiss Alps.",
+         "record": null,
+         "check": "quoted"
+        },
+        {
+         "kind": "page",
+         "url": "https://nietzschehaus.ch/friedrich-nietzsche-in-sils-maria-en/the-following-summers-1884-1888/",
+         "title": "The following summers: 1884-1888",
+         "author": null,
+         "year": null,
+         "quote": "the 2nd and the draft for the 3rd book of “Thus spoke Zarathustra” in the summer of 1883",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      },
+      {
+       "text": "He wrote for readers who did not yet exist: he is described as ahead of his time and writing for people who do not yet live. That helps explain why the book was shown to so few people at first.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+         "title": "Reading Notes for Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "He is, after all, ahead of his time and writes for people who do not yet live.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "conversation",
+   "items": [
+    {
+     "heading": "Richard Wagner",
+     "entity": "wagner",
+     "relation": "mourned the death of",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Wagner, the composer who had been Nietzsche's early idol, died in February 1883, between the writing of Parts I and II. It was another blow to Nietzsche at the time.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+         "title": "Reading Notes for Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "In February, Wagner died, yielding yet another blow to Nietzsche.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "heading": "Lou Salomé and Paul Rée",
+     "entity": "lou",
+     "relation": "was wounded by",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Lou sought intellectual companionship rather than love, and went off with Rée instead, living with him for several years. Nietzsche's disappointment is the personal backdrop to the book.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+         "title": "Reading Notes for Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "Lou went off with Ree alone and wound up living with him for several years.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "heading": "The Gay Science",
+     "entity": "gay-science",
+     "relation": "builds on",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "The book picks up themes from Nietzsche's previous book, The Gay Science (1882), including its talk of God's death. Part II returns to and amplifies those themes.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+         "title": "Reading Notes for Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "An entire year stands between the publication of The Gay Science and the writing of Part I, Thus Spoke Zarathustra.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "terms",
+   "items": [
+    {
+     "heading": "Overman (Superman, Übermensch)",
+     "entity": "ubermensch",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "The overman is Zarathustra's name for the human destiny that should replace God as the thing people look toward. Some translators render it Superman, as this edition does.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+         "title": "Reading Notes for Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "When we look into the sea (nature), we should see overman (human destiny) and not god.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "heading": "Eternal recurrence",
+     "entity": "recurrence",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "The idea that all events return again and again came to Nietzsche in his first summer at Sils Maria in 1881, and it runs through every book he wrote afterwards.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://www.cocoa.foundation/features/zeiger-splendid-isolation",
+         "title": "Splendid Isolation: Nietzsche At Sils Maria",
+         "author": null,
+         "year": null,
+         "quote": "the insight that would permeate every book that followed: that of the Eternal Return.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "heading": "Will to power",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "In Part I, the speech \"On the Thousand and One Goals\" introduces the will to power as the creative drive behind people's tables of good and evil, tied to self-overcoming. It is not simply about dominating others.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+         "title": "Reading Notes for Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "Nietzsche introduces his concept of the will to power in the context of self-overcoming as the creative activity behind our \"tablets\" of our good.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "id": "book",
+   "kind": "work",
+   "name": "Thus Spoke Zarathustra",
+   "wikidata": "Q199774",
+   "record": {
+    "kind": "olid",
+    "value": "OL26442780W"
+   },
+   "facts": {
+    "description": "philosophical novel by Friedrich Nietzsche",
+    "start": "1885",
+    "source": "https://www.wikidata.org/wiki/Q199774"
+   },
+   "resolvedUrl": "https://openlibrary.org/works/OL26442780W"
+  },
+  {
+   "id": "author",
+   "kind": "person",
+   "name": "Friedrich Nietzsche",
+   "wikidata": "Q9358",
+   "record": null,
+   "facts": {
+    "description": "German philosopher (1844-1900)",
+    "start": "1844",
+    "end": "1900",
+    "source": "https://www.wikidata.org/wiki/Q9358"
+   }
+  },
+  {
+   "id": "wagner",
+   "kind": "person",
+   "name": "Richard Wagner",
+   "wikidata": "Q1511",
+   "record": null,
+   "facts": {
+    "description": "German composer (1813–1883)",
+    "start": "1813",
+    "end": "1883",
+    "source": "https://www.wikidata.org/wiki/Q1511"
+   }
+  },
+  {
+   "id": "lou",
+   "kind": "person",
+   "name": "Lou Salomé",
+   "wikidata": "Q38873",
+   "record": null,
+   "facts": {
+    "description": "German-Russian essayist, philosopher, and psychoanalyst (1861–1937)",
+    "start": "1861",
+    "end": "1937",
+    "source": "https://www.wikidata.org/wiki/Q38873"
+   }
+  },
+  {
+   "id": "ree",
+   "kind": "person",
+   "name": "Paul Rée",
+   "wikidata": "Q62596",
+   "record": null,
+   "facts": {
+    "description": "Prussian Doctor (1849–1901)",
+    "start": "1849",
+    "end": "1901",
+    "source": "https://www.wikidata.org/wiki/Q62596"
+   }
+  },
+  {
+   "id": "gay-science",
+   "kind": "work",
+   "name": "The Gay Science",
+   "wikidata": "Q1061693",
+   "record": null,
+   "facts": {
+    "description": "book by Friedrich Nietzsche",
+    "start": "1882",
+    "source": "https://www.wikidata.org/wiki/Q1061693"
+   }
+  },
+  {
+   "id": "ubermensch",
+   "kind": "idea",
+   "name": "Overman (Übermensch)",
+   "wikidata": "Q43484",
+   "record": null,
+   "facts": {
+    "description": "concept in the philosophy of Friedrich Nietzsche",
+    "source": "https://www.wikidata.org/wiki/Q43484"
+   }
+  },
+  {
+   "id": "god-dead",
+   "kind": "idea",
+   "name": "God is dead",
+   "wikidata": "Q192614",
+   "record": null,
+   "facts": {
+    "description": "statement by German philosopher Friedrich Nietzsche",
+    "source": "https://www.wikidata.org/wiki/Q192614"
+   }
+  },
+  {
+   "id": "recurrence",
+   "kind": "idea",
+   "name": "Eternal recurrence",
+   "wikidata": null,
+   "record": null
+  },
+  {
+   "id": "sils",
+   "kind": "place",
+   "name": "Sils Maria",
+   "wikidata": null,
+   "record": null
+  }
+ ],
+ "links": [
+  {
+   "from": "author",
+   "to": "book",
+   "relation": "wrote",
+   "claim": {
+    "text": "Nietzsche wrote Part I in about ten days in January 1883.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+      "title": "Reading Notes for Nietzsche",
+      "author": null,
+      "year": null,
+      "quote": "Part I was written in only about ten days, in January 1883.",
+      "record": null,
+      "check": "quoted"
+     }
+    ]
+   }
+  },
+  {
+   "from": "author",
+   "to": "lou",
+   "relation": "fell in love with",
+   "claim": {
+    "text": "Nietzsche met Lou Salomé in Rome in April 1882.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+      "title": "Reading Notes for Nietzsche",
+      "author": null,
+      "year": null,
+      "quote": "Nietzsche first met Lou in Rome in April of 1882 and greeted her with his most gallant manners.",
+      "record": null,
+      "check": "quoted"
+     }
+    ]
+   }
+  },
+  {
+   "from": "lou",
+   "to": "ree",
+   "relation": "lived with",
+   "claim": {
+    "text": "Lou went off with Rée and lived with him for several years.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+      "title": "Reading Notes for Nietzsche",
+      "author": null,
+      "year": null,
+      "quote": "Lou went off with Ree alone and wound up living with him for several years.",
+      "record": null,
+      "check": "quoted"
+     }
+    ]
+   }
+  },
+  {
+   "from": "wagner",
+   "to": "author",
+   "relation": "death was a blow to",
+   "claim": {
+    "text": "Wagner's death in February 1883 was another blow to Nietzsche.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+      "title": "Reading Notes for Nietzsche",
+      "author": null,
+      "year": null,
+      "quote": "In February, Wagner died, yielding yet another blow to Nietzsche.",
+      "record": null,
+      "check": "quoted"
+     }
+    ]
+   }
+  },
+  {
+   "from": "book",
+   "to": "sils",
+   "relation": "was partly written in",
+   "claim": {
+    "text": "The second part and a draft of the third were written at Sils Maria in summer 1883.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://nietzschehaus.ch/friedrich-nietzsche-in-sils-maria-en/the-following-summers-1884-1888/",
+      "title": "The following summers: 1884-1888",
+      "author": null,
+      "year": null,
+      "quote": "the 2nd and the draft for the 3rd book of “Thus spoke Zarathustra” in the summer of 1883",
+      "record": null,
+      "check": "quoted"
+     }
+    ]
+   }
+  },
+  {
+   "from": "author",
+   "to": "recurrence",
+   "relation": "conceived",
+   "claim": {
+    "text": "The insight of eternal return came to Nietzsche in his first summer at Sils Maria.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://www.cocoa.foundation/features/zeiger-splendid-isolation",
+      "title": "Splendid Isolation: Nietzsche At Sils Maria",
+      "author": null,
+      "year": null,
+      "quote": "the insight that would permeate every book that followed: that of the Eternal Return.",
+      "record": null,
+      "check": "quoted"
+     }
+    ]
+   }
+  },
+  {
+   "from": "book",
+   "to": "ubermensch",
+   "relation": "teaches",
+   "claim": {
+    "text": "Zarathustra tells the crowd in the Prologue that humanity is to be overcome.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+      "title": "Reading Notes for Nietzsche",
+      "author": null,
+      "year": null,
+      "quote": "In the Prologue, we see Zarathustra coming down to teach the people the message that god is dead and that man is to be overcome.",
+      "record": null,
+      "check": "quoted"
+     }
+    ]
+   }
+  },
+  {
+   "from": "book",
+   "to": "gay-science",
+   "relation": "builds on",
+   "claim": {
+    "text": "Part II returns to and amplifies themes of The Gay Science.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://pages.hmc.edu/beckman/philosophy/Nietzsche/reading/Also.html",
+      "title": "Reading Notes for Nietzsche",
+      "author": null,
+      "year": null,
+      "quote": "Nietzsche powerfully returns to and amplifies the themes of The Gay Science.",
+      "record": null,
+      "check": "quoted"
+     }
+    ]
+   }
+  }
+ ],
+ "stats": {
+  "claimsKept": 24,
+  "claimsDropped": 0,
+  "worksKept": 0,
+  "worksDropped": 0,
+  "linksKept": 8,
+  "linksDropped": 0,
+  "apiCalls": 0,
+  "searches": 0,
+  "fetches": 0,
+  "lookups": 7,
+  "inputTokens": 0,
+  "cacheReadTokens": 0,
+  "cacheWriteTokens": 0,
+  "outputTokens": 0,
+  "costUsd": 0.0,
+  "durationMs": 909
+ }
+}

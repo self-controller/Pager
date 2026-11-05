@@ -1,0 +1,498 @@
+{
+  "littleKnown": false,
+  "sections": [
+    {
+      "kind": "overview",
+      "items": [
+        {
+          "heading": "The book in one paragraph",
+          "entity": "book",
+          "relation": null,
+          "work": null,
+          "readScope": null,
+          "readNote": null,
+          "timeEstimate": null,
+          "suits": null,
+          "spoiler": false,
+          "claims": [
+            {
+              "text": "This is the first edition (John Murray, London). The title page is dated 1859 and the preface is signed from Down on 1 October 1859, but the book was not published until 24 November 1859.",
+              "inferred": true,
+              "spoiler": false,
+              "citations": [
+                {"kind": "page", "url": "https://darwinproject.ac.uk/origin-later-editions", "title": "Origin: later editions", "author": "Darwin Correspondence Project", "year": null, "quote": "Darwin heard that a new edition was already needed on 24 November 1859, the same day that the first edition was published.", "record": null},
+                {"kind": "record", "url": null, "title": "On the origin of species by means of natural selection", "author": "Charles Darwin", "year": "1859", "quote": null, "record": {"kind": "olid", "value": "OL515051W"}}
+              ]
+            },
+            {
+              "text": "Darwin conceived it as an abstract of a much larger species book, begun in May 1856, whose manuscript was more than half finished when he stopped to write the abstract in 1858-59.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {"kind": "page", "url": "https://www.darwinproject.ac.uk/writing-origin", "title": "The writing of Origin", "author": "Darwin Correspondence Project", "year": null, "quote": "Begun in May 1856 at the urging of Lyell, the manuscript was already more than half finished.", "record": null},
+                {"kind": "page", "url": "https://www.darwinproject.ac.uk/writing-origin", "title": "The writing of Origin", "author": "Darwin Correspondence Project", "year": null, "quote": "the writing of this 'abstract' continued until March 1859; the resulting volume was published in November.", "record": null}
+              ]
+            },
+            {
+              "text": "Darwin did not expect further editions, since he assumed the unpublished 'Natural Selection' would displace it. The text was in fact revised in five more British editions, so the 1859 text is only the first state of a moving target.",
+              "inferred": true,
+              "spoiler": false,
+              "citations": [
+                {"kind": "page", "url": "https://darwinproject.ac.uk/origin-later-editions", "title": "Origin: later editions", "author": "Darwin Correspondence Project", "year": null, "quote": "He still intended to resume work on his 'big book' (never published, but which he had intended to call 'Natural Selection'), and assumed that that would displace Origin", "record": null}
+              ]
+            }
+          ],
+          "disagreement": null
+        }
+      ]
+    },
+    {
+      "kind": "moment",
+      "items": [
+        {
+          "heading": "Separate creation as the default assumption",
+          "entity": null,
+          "relation": null,
+          "work": null,
+          "readScope": null,
+          "readNote": null,
+          "timeEstimate": null,
+          "suits": null,
+          "spoiler": false,
+          "claims": [
+            {
+              "text": "When the Origin appeared, naturalists generally took each species to have been separately created. Darwin said so himself in 1872, when he kept in the text sentences that implied this belief.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {"kind": "page", "url": "https://darwin-online.org.uk/EditorialIntroductions/Chancellor_Origin6th.html", "title": "Darwin's Origin of species, sixth edition (1872)", "author": "Gordon Chancellor", "year": null, "quote": "But undoubtedly this was the general belief when the first edition of the present work appeared.", "record": null}
+              ]
+            }
+          ],
+          "disagreement": null
+        },
+        {
+          "heading": "Vestiges and the 1840s freeze on evolution",
+          "entity": "vestiges",
+          "relation": null,
+          "work": null,
+          "readScope": null,
+          "readNote": null,
+          "timeEstimate": null,
+          "suits": null,
+          "spoiler": false,
+          "claims": [
+            {
+              "text": "Robert Chambers's anonymous Vestiges (1844) proposed a developmental law for species and was savaged by men of science Darwin respected. The main charge was that the author lacked the qualifications to speak on the origin of species.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {"kind": "page", "url": "https://lindahall.org/experience/digital-exhibitions/the-grandeur-of-life/section-viii/51-chambers-robert-1802-1871", "title": "Chambers, Robert (1802-1871)", "author": "Linda Hall Library", "year": null, "quote": "The public was excited and titillated by the Vestiges, but the scientific community was appalled, and a number of critical and often vitriolic reviews were published in literary journals", "record": null}
+              ]
+            },
+            {
+              "text": "The exhibit's reading is that this reception led Darwin to resolve that his own book could not be dismissed as unqualified, and to stay silent until his qualifications were impeccable. This explains the Origin's accumulation of facts and its caution.",
+              "inferred": true,
+              "spoiler": false,
+              "citations": [
+                {"kind": "page", "url": "https://lindahall.org/experience/digital-exhibitions/the-grandeur-of-life/section-viii/51-chambers-robert-1802-1871", "title": "Chambers, Robert (1802-1871)", "author": "Linda Hall Library", "year": null, "quote": "Darwin, surprised by the icy reception met with by the Vestiges, seems to have promised himself that when his book appeared, no one could accuse him of a lack of qualifications.", "record": null}
+              ]
+            }
+          ],
+          "disagreement": null
+        }
+      ]
+    },
+    {
+      "kind": "situation",
+      "items": [
+        {
+          "heading": "The big book, Wallace's essay and the joint reading",
+          "entity": "wallace",
+          "relation": null,
+          "work": null,
+          "readScope": null,
+          "readNote": null,
+          "timeEstimate": null,
+          "suits": null,
+          "spoiler": false,
+          "claims": [
+            {
+              "text": "Wallace wrote his essay at Ternate in February 1858 and sent it to Darwin to forward to Lyell. Hooker and Lyell then had Darwin's 1844-era extracts and Wallace's essay read together at the Linnean Society on 1 July 1858.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {"kind": "page", "url": "https://www.darwinproject.ac.uk/entry-2299", "title": "From J. D. Hooker and Charles Lyell to the Linnean Society 30 June 1858", "author": "Darwin Correspondence Project", "year": null, "quote": "This was written at Ternate in February 1858, for the perusal of his friend and correspondent Mr. Darwin", "record": null},
+                {"kind": "page", "url": "https://www.darwinproject.ac.uk/entry-2299", "title": "From J. D. Hooker and Charles Lyell to the Linnean Society 30 June 1858", "author": "Darwin Correspondence Project", "year": null, "quote": "the council decided to prolong the session of 1857–8 by holding an extra meeting on Thursday, 1 July.", "record": null}
+              ]
+            },
+            {
+              "text": "The date of 1839 given for Darwin's first sketch in the joint communication is wrong. The pages once taken as an 1839 draft were shown to have been written in 1842.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {"kind": "page", "url": "https://www.darwinproject.ac.uk/entry-2299", "title": "From J. D. Hooker and Charles Lyell to the Linnean Society 30 June 1858", "author": "Darwin Correspondence Project", "year": null, "quote": "it was subsequently shown that these were written in 1842 (Kohn, Smith, and Stauffer 1982)", "record": null}
+              ]
+            }
+          ],
+          "disagreement": {
+            "summary": "When did Wallace's essay reach Darwin, and did Darwin delay forwarding it? The Darwin Correspondence Project editors accept 18 June 1858; Brooks and McKinney argue for an earlier arrival.",
+            "sides": [
+              {
+                "position": "Darwin received the essay on 18 June 1858, as his letter to Lyell says (the editors' dating, following Francis Darwin and Lyell's endorsement).",
+                "claims": [
+                  {
+                    "text": "The editors date Darwin's letter to Lyell 18 June 1858, relying on Francis Darwin and on Lyell's endorsement of the letter.",
+                    "inferred": false,
+                    "spoiler": false,
+                    "citations": [
+                      {"kind": "page", "url": "https://www.darwinproject.ac.uk/writing-origin", "title": "The writing of Origin", "author": "Darwin Correspondence Project", "year": null, "quote": "Following Francis Darwin (LL2:116-17) and relying on Charles Lyell's endorsement, the editors have dated the letter 18 [June 1858].", "record": null}
+                    ]
+                  }
+                ]
+              },
+              {
+                "position": "The letter arrived earlier (McKinney: 3 June; Brooks: possibly mid-May), so Darwin may have held it back and used Wallace's divergence idea in the interval.",
+                "claims": [
+                  {
+                    "text": "Brooks holds that Darwin may have received the letter as early as 14 May, and that he kept it for a month while revising his own manuscript.",
+                    "inferred": false,
+                    "spoiler": false,
+                    "citations": [
+                      {"kind": "page", "url": "https://www.darwinproject.ac.uk/writing-origin", "title": "The writing of Origin", "author": "Darwin Correspondence Project", "year": null, "quote": "Brooks maintains that Darwin received Wallace's letter even earlier, perhaps as early as 14 May.", "record": null}
+                    ]
+                  },
+                  {
+                    "text": "The editors judge that, without Wallace's letter or firm evidence of its arrival date, whether Darwin delayed it is essentially unresolvable.",
+                    "inferred": false,
+                    "spoiler": false,
+                    "citations": [
+                      {"kind": "page", "url": "https://www.darwinproject.ac.uk/writing-origin", "title": "The writing of Origin", "author": "Darwin Correspondence Project", "year": null, "quote": "the question of whether Darwin held the letter up for any reason is, as one scholar has recently concluded, 'essentially unresolvable'", "record": null}
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "heading": "Writing, publisher and health, 1858-59",
+          "entity": "author",
+          "relation": null,
+          "work": null,
+          "readScope": null,
+          "readNote": null,
+          "timeEstimate": null,
+          "suits": null,
+          "spoiler": false,
+          "claims": [
+            {
+              "text": "Darwin planned a paper-length abstract for the Linnean Society's journal. Once he began writing he found it would need a small volume.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {"kind": "page", "url": "https://www.darwinproject.ac.uk/writing-origin", "title": "The writing of Origin", "author": "Darwin Correspondence Project", "year": null, "quote": "But once he had commenced writing, he soon realised that even an abstract of his material would require a 'small volume'", "record": null}
+              ]
+            },
+            {
+              "text": "On Lyell's advice Darwin went to John Murray, who agreed to publish without seeing the manuscript. Murray also published the conservative Quarterly Review and had reservations; he sent the manuscript to its editor Whitwell Elwin.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {"kind": "page", "url": "https://www.darwinproject.ac.uk/writing-origin", "title": "The writing of Origin", "author": "Darwin Correspondence Project", "year": null, "quote": "Murray agreed to publish Darwin's book without even seeing the manuscript, although he subsequently had reservations: Murray was, after all, also the publisher of the conservative Quarterly Review.", "record": null}
+              ]
+            },
+            {
+              "text": "Following Murray's advice, Darwin dropped 'an abstract' from the title. He was away at the Ilkley water-cure when the book appeared, sending presentation copies from there.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {"kind": "page", "url": "https://www.darwinproject.ac.uk/writing-origin", "title": "The writing of Origin", "author": "Darwin Correspondence Project", "year": null, "quote": "Darwin took Murray's advice and omitted the words 'an abstract' from the title of the forthcoming book", "record": null},
+                {"kind": "page", "url": "https://www.darwinproject.ac.uk/writing-origin", "title": "The writing of Origin", "author": "Darwin Correspondence Project", "year": null, "quote": "It was during his stay at Ilkley Wells that Origin was published; from there Darwin wrote 'multitudes of letters' to recipients of presentation copies", "record": null}
+              ]
+            }
+          ],
+          "disagreement": null
+        },
+        {
+          "heading": "Reception: more than science against religion",
+          "entity": null,
+          "relation": null,
+          "work": null,
+          "readScope": null,
+          "readNote": null,
+          "timeEstimate": null,
+          "suits": null,
+          "spoiler": false,
+          "claims": [
+            {
+              "text": "Darwin expected little sympathy from the leading men of science.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {"kind": "page", "url": "https://www.darwinproject.ac.uk/writing-origin", "title": "The writing of Origin", "author": "Darwin Correspondence Project", "year": null, "quote": "Darwin was well aware that most of the leading figures in the scientific community would not be sympathetic to his heterodox views.", "record": null}
+              ]
+            },
+            {
+              "text": "Van Wyhe's survey of some 1,800 reviews argues that the usual story of science against religion is a large oversimplification of how the book was received.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {"kind": "page", "url": "https://darwin-online.org.uk/EditorialIntroductions/vanWyhe_Reviews_of_Darwin.html", "title": "The Reviews of Charles Darwin", "author": "John van Wyhe", "year": null, "quote": "Nowadays, most think it was a just case of science versus religion. The reviews here show this is a vast over simplification.", "record": null}
+              ]
+            }
+          ],
+          "disagreement": null
+        },
+        {
+          "heading": "Editions and textual history",
+          "entity": "book",
+          "relation": null,
+          "work": null,
+          "readScope": null,
+          "readNote": null,
+          "timeEstimate": null,
+          "suits": null,
+          "spoiler": false,
+          "claims": [
+            {
+              "text": "A second edition was already needed on the day the first was published. Darwin added a 'Historical Sketch' for the US and third editions in response to charges that he had not acknowledged predecessors.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {"kind": "page", "url": "https://darwinproject.ac.uk/origin-later-editions", "title": "Origin: later editions", "author": "Darwin Correspondence Project", "year": null, "quote": "Darwin heard that a new edition was already needed on 24 November 1859, the same day that the first edition was published.", "record": null},
+                {"kind": "page", "url": "https://darwinproject.ac.uk/origin-later-editions", "title": "Origin: later editions", "author": "Darwin Correspondence Project", "year": null, "quote": "The first version was apparently written in response to criticism from Baden Powell, among others, that he hadn't sufficiently acknowledged earlier work.", "record": null}
+              ]
+            },
+            {
+              "text": "By Peckham's count, about 75 per cent of the first edition's 3,878 sentences were rewritten in later editions, from one to five times each. The sixth edition (1872) dropped 'On' from the title and added a new chapter answering Mivart.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {"kind": "page", "url": "https://darwin-online.org.uk/Variorum/Introduction.html", "title": "Introduction to the Online Variorum of Darwin's Origin of Species", "author": "Barbara Bordalejo", "year": null, "quote": "Of the 3,878 sentences in the first edition, nearly 3000, about 75 per cent, were rewritten from one to five times each.", "record": null},
+                {"kind": "page", "url": "https://darwin-online.org.uk/EditorialIntroductions/Chancellor_Origin6th.html", "title": "Darwin's Origin of species, sixth edition (1872)", "author": "Gordon Chancellor", "year": null, "quote": "having decided that responding to the criticisms of Mivart (1872) required a whole new chapter.", "record": null}
+              ]
+            }
+          ],
+          "disagreement": {
+            "summary": "Were the first five British editions reset, or printed from largely standing type? Peckham (1959) said the latter; Shillingsburg's bibliographical analysis says each was reset.",
+            "sides": [
+              {
+                "position": "Peckham: the text was not reset between editions; the printers corrected and reset only lines and paragraphs when necessary.",
+                "claims": [
+                  {
+                    "text": "Peckham stated that the printers treated Darwin's corrected copy of the first edition as another revise and reset only lines and paragraphs as needed.",
+                    "inferred": false,
+                    "spoiler": false,
+                    "citations": [
+                      {"kind": "page", "url": "https://darwin-online.org.uk/Variorum/Introduction.html", "title": "Introduction to the Online Variorum of Darwin's Origin of Species", "author": "Barbara Bordalejo", "year": null, "quote": "The text, however, was not reset. The printers simply regarded Darwin's corrected copy of the first edition as still another revise.", "record": null}
+                    ]
+                  }
+                ]
+              },
+              {
+                "position": "Shillingsburg: with minor exceptions each edition from 1860 to 1869 was completely reset, albeit line for line, so the 'standing type' account is impractical.",
+                "claims": [
+                  {
+                    "text": "Shillingsburg concludes that, apart from small exceptions in 1860, each new edition from 1860 to 1869 was completely reset.",
+                    "inferred": false,
+                    "spoiler": false,
+                    "citations": [
+                      {"kind": "page", "url": "https://darwin-online.org.uk/Variorum/Introduction.html", "title": "Introduction to the Online Variorum of Darwin's Origin of Species", "author": "Barbara Bordalejo", "year": null, "quote": "each new edition of Darwin's Origin from 1860 to 1869 was a completely reset new edition even though many of the lines begin and end with the same word and have no textual variants.", "record": null}
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "conversation",
+      "items": [
+        {
+          "heading": "Charles Lyell",
+          "entity": "lyell",
+          "relation": "was urged by",
+          "work": null,
+          "readScope": null,
+          "readNote": null,
+          "timeEstimate": null,
+          "suits": null,
+          "spoiler": false,
+          "claims": [
+            {
+              "text": "Lyell urged Darwin to begin the big species book in 1856 and recommended Murray as publisher of the Origin.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {"kind": "page", "url": "https://www.darwinproject.ac.uk/writing-origin", "title": "The writing of Origin", "author": "Darwin Correspondence Project", "year": null, "quote": "Lyell suggested the firm of John Murray, publishers of the second edition of Darwin's Journal of researches and of Lyell's works, and well-known for its scientific list.", "record": null}
+                ,{"kind": "page", "url": "https://www.darwinproject.ac.uk/writing-origin", "title": "The writing of Origin", "author": "Darwin Correspondence Project", "year": null, "quote": "Begun in May 1856 at the urging of Lyell, the manuscript was already more than half finished.", "record": null}
+              ]
+            }
+          ],
+          "disagreement": null
+        },
+        {
+          "heading": "Thomas Malthus",
+          "entity": "malthus",
+          "relation": "builds on",
+          "work": null,
+          "readScope": null,
+          "readNote": null,
+          "timeEstimate": null,
+          "suits": null,
+          "spoiler": false,
+          "claims": [
+            {
+              "text": "Darwin dated the decisive insight to his reading of Malthus's Essay on Population in October 1838. He later recalled that his observation of animals and plants prepared him to see the struggle for existence in it.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {"kind": "page", "url": "https://www.otago.ac.nz/library/exhibitions/darwin/cabinet7.html", "title": "Cabinet 7: Malthus & Wallace", "author": "University of Otago Library", "year": null, "quote": "In October 1838, Darwin began 'for amusement' Malthus’s Essay on the Principle of Population.", "record": null}
+              ]
+            }
+          ],
+          "disagreement": null
+        },
+        {
+          "heading": "Alfred Russel Wallace",
+          "entity": "wallace",
+          "relation": "was anticipated by",
+          "work": null,
+          "readScope": null,
+          "readNote": null,
+          "timeEstimate": null,
+          "suits": null,
+          "spoiler": false,
+          "claims": [
+            {
+              "text": "Wallace had read much the same books as Darwin: Lyell's Principles, Vestiges, Malthus, Humboldt and Darwin's own Journal of Researches. His essay prompted the Origin's early appearance.",
+              "inferred": false,
+              "spoiler": false,
+              "citations": [
+                {"kind": "page", "url": "https://www.otago.ac.nz/library/exhibitions/darwin/cabinet7.html", "title": "Cabinet 7: Malthus & Wallace", "author": "University of Otago Library", "year": null, "quote": "read much the same books as Darwin: Lyell’s Principles, Chambers’ Vestiges, Malthus’s Essay, Humboldt’s Personal Narrative, and Darwin’s own Journal of Researches.", "record": null}
+              ]
+            }
+          ],
+          "disagreement": null
+        },
+        {
+          "heading": "J. D. Hooker and the 1844 sketch",
+          "entity": "hooker",
+          "relation": "shared his 1844 sketch with",
+          "work": null,
+          "readScope": null,
+          "readNote": null,
+          "timeEstimate": null,
+          "suits": null,
+          "spoiler": false,
+          "claims": [
+            {
+              "text": "Hooker had read Darwin's 1844 copy of the species sketch and Lyell learned its contents. This is why both could vouch for Darwin's priority in 1858.",
+              "inferred": true,
+              "spoiler": false,
+              "citations": [
+                {"kind": "page", "url": "https://www.darwinproject.ac.uk/entry-2299", "title": "From J. D. Hooker and Charles Lyell to the Linnean Society 30 June 1858", "author": "Darwin Correspondence Project", "year": null, "quote": "by Mr. Darwin, which was sketched in 1839, and copied in 1844, when the copy was read by Dr. Hooker", "record": null}
+              ]
+            }
+          ],
+          "disagreement": null
+        }
+      ]
+    },
+    {
+      "kind": "furtherReading",
+      "items": [
+        {
+          "heading": "The first five English editions",
+          "entity": null,
+          "relation": null,
+          "work": {"title": "The First Five English Editions of Charles Darwin's On the Origin of Species", "authors": ["Peter L. Shillingsburg"], "year": "2006", "record": {"kind": "doi", "value": "10.1163/9789401205429_015"}},
+          "readScope": null,
+          "readNote": null,
+          "timeEstimate": null,
+          "suits": "For the bibliographical case against Peckham's account of the printing.",
+          "spoiler": false,
+          "claims": [],
+          "disagreement": null
+        },
+        {
+          "heading": "A further look at the 1858 Wallace-Darwin mail delivery question",
+          "entity": null,
+          "relation": null,
+          "work": {"title": "A further look at the 1858 Wallace-Darwin mail delivery question", "authors": ["Charles H. Smith"], "year": "2012", "record": {"kind": "doi", "value": "10.1111/j.1095-8312.2012.02030.x"}},
+          "readScope": null,
+          "readNote": null,
+          "timeEstimate": null,
+          "suits": "For the evidence in the Brooks/McKinney dispute over the arrival of Wallace's letter.",
+          "spoiler": false,
+          "claims": [],
+          "disagreement": null
+        },
+        {
+          "heading": "Victorian Sensation",
+          "entity": null,
+          "relation": null,
+          "work": {"title": "Victorian Sensation", "authors": ["James A. Secord"], "year": "2001", "record": {"kind": "olid", "value": "OL5114764W"}},
+          "readScope": null,
+          "readNote": null,
+          "timeEstimate": null,
+          "suits": "For the Vestiges controversy that formed the climate the Origin entered.",
+          "spoiler": false,
+          "claims": [],
+          "disagreement": null
+        }
+      ]
+    }
+  ],
+  "entities": [
+    {"id": "book", "kind": "work", "name": "On the Origin of Species (1859)", "wikidata": null, "record": {"kind": "olid", "value": "OL515051W"}},
+    {"id": "author", "kind": "person", "name": "Charles Darwin", "wikidata": "Q1035", "record": null},
+    {"id": "wallace", "kind": "person", "name": "Alfred Russel Wallace", "wikidata": "Q160627", "record": null},
+    {"id": "lyell", "kind": "person", "name": "Charles Lyell", "wikidata": "Q5333", "record": null},
+    {"id": "hooker", "kind": "person", "name": "Joseph Dalton Hooker", "wikidata": "Q157501", "record": null},
+    {"id": "malthus", "kind": "person", "name": "Thomas Robert Malthus", "wikidata": "Q13526", "record": null},
+    {"id": "vestiges", "kind": "work", "name": "Vestiges of the Natural History of Creation", "wikidata": "Q1814215", "record": null},
+    {"id": "linnean", "kind": "institution", "name": "Linnean Society of London", "wikidata": "Q867447", "record": null},
+    {"id": "foundations", "kind": "work", "name": "The Foundations of the Origin of Species (1842 and 1844 essays)", "wikidata": null, "record": {"kind": "olid", "value": "OL515338W"}}
+  ],
+  "links": [
+    {
+      "from": "author", "to": "lyell", "relation": "was urged to write by",
+      "claim": {"text": "Lyell urged Darwin to begin the big species book in 1856.", "inferred": false, "spoiler": false, "citations": [
+        {"kind": "page", "url": "https://www.darwinproject.ac.uk/writing-origin", "title": "The writing of Origin", "author": "Darwin Correspondence Project", "year": null, "quote": "Begun in May 1856 at the urging of Lyell, the manuscript was already more than half finished.", "record": null}]}
+    },
+    {
+      "from": "author", "to": "malthus", "relation": "read",
+      "claim": {"text": "Darwin began reading Malthus's Essay in October 1838, according to his Autobiography.", "inferred": false, "spoiler": false, "citations": [
+        {"kind": "page", "url": "https://www.otago.ac.nz/library/exhibitions/darwin/cabinet7.html", "title": "Cabinet 7: Malthus & Wallace", "author": "University of Otago Library", "year": null, "quote": "In October 1838, Darwin began 'for amusement' Malthus’s Essay on the Principle of Population.", "record": null}]}
+    },
+    {
+      "from": "wallace", "to": "author", "relation": "sent his essay to",
+      "claim": {"text": "Wallace wrote his essay at Ternate in February 1858 for Darwin to read and forward to Lyell.", "inferred": false, "spoiler": false, "citations": [
+        {"kind": "page", "url": "https://www.darwinproject.ac.uk/entry-2299", "title": "From J. D. Hooker and Charles Lyell to the Linnean Society 30 June 1858", "author": "Darwin Correspondence Project", "year": null, "quote": "This was written at Ternate in February 1858, for the perusal of his friend and correspondent Mr. Darwin", "record": null}]}
+    },
+    {
+      "from": "wallace", "to": "linnean", "relation": "paper read at",
+      "claim": {"text": "Wallace's and Darwin's papers were read at the Linnean Society's extra meeting on 1 July 1858.", "inferred": false, "spoiler": false, "citations": [
+        {"kind": "page", "url": "https://www.darwinproject.ac.uk/entry-2299", "title": "From J. D. Hooker and Charles Lyell to the Linnean Society 30 June 1858", "author": "Darwin Correspondence Project", "year": null, "quote": "the council decided to prolong the session of 1857–8 by holding an extra meeting on Thursday, 1 July.", "record": null}]}
+    },
+    {
+      "from": "author", "to": "hooker", "relation": "shared his 1844 sketch with",
+      "claim": {"text": "Hooker read the 1844 copy of Darwin's species sketch.", "inferred": false, "spoiler": false, "citations": [
+        {"kind": "page", "url": "https://www.darwinproject.ac.uk/entry-2299", "title": "From J. D. Hooker and Charles Lyell to the Linnean Society 30 June 1858", "author": "Darwin Correspondence Project", "year": null, "quote": "by Mr. Darwin, which was sketched in 1839, and copied in 1844, when the copy was read by Dr. Hooker", "record": null}]}
+    },
+    {
+      "from": "book", "to": "foundations", "relation": "developed from",
+      "claim": {"text": "Darwin finished a manuscript outlining his theory in 1844, which the Origin's abstract later condensed and extended.", "inferred": true, "spoiler": false, "citations": [
+        {"kind": "page", "url": "https://lindahall.org/experience/digital-exhibitions/the-grandeur-of-life/section-viii/51-chambers-robert-1802-1871", "title": "Chambers, Robert (1802-1871)", "author": "Linda Hall Library", "year": null, "quote": "In 1844, just after he completed a 230 page manuscript (usually called “The Essay”) outlining his theory of the transformation of species", "record": null}]}
+    },
+    {
+      "from": "author", "to": "vestiges", "relation": "wrote in the wake of",
+      "claim": {"text": "The scientific hostility to Vestiges shaped Darwin's resolve to publish only once fully qualified.", "inferred": true, "spoiler": false, "citations": [
+        {"kind": "page", "url": "https://lindahall.org/experience/digital-exhibitions/the-grandeur-of-life/section-viii/51-chambers-robert-1802-1871", "title": "Chambers, Robert (1802-1871)", "author": "Linda Hall Library", "year": null, "quote": "Darwin, surprised by the icy reception met with by the Vestiges, seems to have promised himself that when his book appeared, no one could accuse him of a lack of qualifications.", "record": null}]}
+    }
+  ]
+}

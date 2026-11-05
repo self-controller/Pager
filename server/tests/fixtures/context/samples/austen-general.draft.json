@@ -1,0 +1,897 @@
+{
+ "littleKnown": false,
+ "sections": [
+  {
+   "kind": "overview",
+   "items": [
+    {
+     "heading": "Pride and Prejudice",
+     "entity": "book",
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Pride and Prejudice is a comic novel of manners by Jane Austen, published in three volumes in London in January 1813. It was her second published novel.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://janeaustens.house/object/pride-and-prejudice-first-edition/",
+         "title": "First edition: Pride and Prejudice",
+         "author": "Jane Austen's House",
+         "year": null,
+         "quote": "Pride and Prejudice was Jane Austen’s second published novel.",
+         "record": null
+        },
+        {
+         "kind": "record",
+         "url": null,
+         "title": "Pride and Prejudice",
+         "author": "Jane Austen",
+         "year": "1813",
+         "quote": null,
+         "record": {
+          "kind": "olid",
+          "value": "OL66554W"
+         }
+        }
+       ]
+      },
+      {
+       "text": "She first drafted it in 1796 at Steventon, her home village in Hampshire, under the title First Impressions, and revised it extensively in 1811-1812 at Chawton.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://janeaustens.house/object/pride-and-prejudice-first-edition/",
+         "title": "First edition: Pride and Prejudice",
+         "author": "Jane Austen's House",
+         "year": null,
+         "quote": "She first drafted it in 1796 in Steventon, at which time it was called First Impressions, however she extensively revised her manuscript from 1811-1812 in Chawton",
+         "record": null
+        }
+       ]
+      },
+      {
+       "text": "The draft does not survive, so no one knows exactly what she changed. The finished book still leans on letters: over 40 are reported or reproduced in it.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://janeaustens.house/online-exhibition/the-making-of-pride-and-prejudice/the-making-of-pride-and-prejudice-3/",
+         "title": "How 'First Impressions' became 'Pride and Prejudice'...",
+         "author": "Jane Austen's House",
+         "year": null,
+         "quote": "The novel still relies on letters for many of its plot points and dramatic moments; there are over 40 letters either reported or reproduced in the finished novel.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    }
+   ]
+  },
+  {
+   "kind": "moment",
+   "items": [
+    {
+     "heading": "Marriage as a woman's livelihood",
+     "entity": null,
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "For women of the gentry, education and paid work were extremely limited, so marriage was close to a necessity. Austen herself wrote that single women have a dreadful propensity for being poor.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://jasna.org/persuasions/on-line/vol36no1/bailey.html",
+         "title": "The Marriage Law of Jane Austen’s World",
+         "author": "Martha Bailey",
+         "year": "2015",
+         "quote": "Educational and employment opportunities for women were extremely limited. Marriage was almost a necessity.",
+         "record": null
+        }
+       ]
+      },
+      {
+       "text": "Once married, a wife lost her separate legal identity, and her husband became entitled to her property and income, unless a marriage settlement protected it.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://jasna.org/persuasions/on-line/vol36no1/bailey.html",
+         "title": "The Marriage Law of Jane Austen’s World",
+         "author": "Martha Bailey",
+         "year": "2015",
+         "quote": "One implication of coverture was that the husband became entitled to his wife’s property and income.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    },
+    {
+     "heading": "Entailed estates and eldest sons",
+     "entity": "entail",
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Families tried to keep a landed estate intact by passing it to the eldest son or the nearest male relative, often by a legal arrangement called an entail. Daughters and younger sons were left dependent on relatives.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://jasna.org/persuasions/on-line/vol36no1/bailey.html",
+         "title": "The Marriage Law of Jane Austen’s World",
+         "author": "Martha Bailey",
+         "year": "2015",
+         "quote": "The purpose of favoring the eldest son, either by application of the law of primogeniture or by wills or settlements, was to keep family estates intact and free of heavy obligations to support other family members.",
+         "record": null
+        }
+       ]
+      },
+      {
+       "text": "The novel's Bennet family is caught by this practice: the settlement of the family property prevents Mr. Bennet from providing for his wife and daughters after his death. That is why finding husbands for five daughters is so urgent.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://jasna.org/persuasions/on-line/vol36no1/bailey.html",
+         "title": "The Marriage Law of Jane Austen’s World",
+         "author": "Martha Bailey",
+         "year": "2015",
+         "quote": "The settlement of the family property prevents Mr. Bennet from providing for his wife and daughters after his death.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    },
+    {
+     "heading": "War with France and the militia",
+     "entity": "militia",
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Britain was at war with France for most of the two decades after 1793. Each county raised a militia, a part-time home-defence force officered by men of property, whose main job was to guard against French invasion.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://brightonmuseums.org.uk/discovery/history-stories/jane-austens-brother-and-the-royal-oxfordshire-militia-mutiny-of-1795/",
+         "title": "Jane Austen's brother and the Royal Oxfordshire Militia mutiny of 1795",
+         "author": "Brighton & Hove Museums",
+         "year": null,
+         "quote": "Militia were reserve military forces, a little like the present day Territorial Army.",
+         "record": null
+        },
+        {
+         "kind": "page",
+         "url": "https://brightonmuseums.org.uk/discovery/history-stories/jane-austens-brother-and-the-royal-oxfordshire-militia-mutiny-of-1795/",
+         "title": "Jane Austen's brother and the Royal Oxfordshire Militia mutiny of 1795",
+         "author": "Brighton & Hove Museums",
+         "year": null,
+         "quote": "The primary purpose of these milita was to provide protection against French invasion.",
+         "record": null
+        }
+       ]
+      },
+      {
+       "text": "Militia regiments were quartered in and around towns and in seaside camps, which is why red-coated officers are a social presence in the book's Hertfordshire neighbourhood and in the Brighton of its later chapters.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://brightonmuseums.org.uk/discovery/history-stories/jane-austens-brother-and-the-royal-oxfordshire-militia-mutiny-of-1795/",
+         "title": "Jane Austen's brother and the Royal Oxfordshire Militia mutiny of 1795",
+         "author": "Brighton & Hove Museums",
+         "year": null,
+         "quote": "Henry’s experiences almost certainly informed the descriptions of Brighton that appear in Pride & Prejudice",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    }
+   ]
+  },
+  {
+   "kind": "situation",
+   "items": [
+    {
+     "heading": "Written young, revised in middle age",
+     "entity": "author",
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Austen drafted the book in her early twenties in the Steventon rectory, then rewrote it after moving to Chawton in 1809, once she was preparing her early manuscripts for publication.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://janeaustens.house/online-exhibition/the-making-of-pride-and-prejudice/the-making-of-pride-and-prejudice-3/",
+         "title": "How 'First Impressions' became 'Pride and Prejudice'...",
+         "author": "Jane Austen's House",
+         "year": null,
+         "quote": "When Jane arrived in Chawton in 1809, she took out her early manuscripts and set to work rewriting them for publication.",
+         "record": null
+        }
+       ]
+      },
+      {
+       "text": "She changed the title partly because another novel called First Impressions, by Margaret Holford, had appeared in 1801.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://janeaustens.house/online-exhibition/the-making-of-pride-and-prejudice/the-making-of-pride-and-prejudice-3/",
+         "title": "How 'First Impressions' became 'Pride and Prejudice'...",
+         "author": "Jane Austen's House",
+         "year": null,
+         "quote": "Since drafting First Impressions, another novel with that name had appeared, by Margaret Holford, published in 1801.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    },
+    {
+     "heading": "Publication",
+     "entity": "egerton",
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Sense and Sensibility, published by Thomas Egerton in 1811 with help from her brother Henry, came first. With Henry's help she also secured Egerton as publisher for Pride and Prejudice, which came out on 28 January 1813.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://janeaustens.house/online-exhibition/the-making-of-pride-and-prejudice/the-making-of-pride-and-prejudice-3/",
+         "title": "How 'First Impressions' became 'Pride and Prejudice'...",
+         "author": "Jane Austen's House",
+         "year": null,
+         "quote": "With help from her brother Henry, Jane secured a publishing contract with Thomas Egerton and Pride and Prejudice was published on 28 January 1813.",
+         "record": null
+        }
+       ]
+      },
+      {
+       "text": "The day after publication she wrote to her sister Cassandra about receiving her 'own darling Child' from London. She also said she had 'lopt & cropt' the text so that it was shorter than Sense and Sensibility.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://janeaustens.house/online-exhibition/the-making-of-pride-and-prejudice/the-making-of-pride-and-prejudice-3/",
+         "title": "How 'First Impressions' became 'Pride and Prejudice'...",
+         "author": "Jane Austen's House",
+         "year": null,
+         "quote": "I have lopt & cropt so successfully however that I imagine it must be rather shorter than S&S. altogether.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    },
+    {
+     "heading": "Her brother in the militia",
+     "entity": "henry",
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Austen's brother Henry joined the Royal Oxfordshire Militia in 1793 and served until 1801. There is no evidence that Jane ever visited Brighton herself.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://brightonmuseums.org.uk/discovery/history-stories/jane-austens-brother-and-the-royal-oxfordshire-militia-mutiny-of-1795/",
+         "title": "Jane Austen's brother and the Royal Oxfordshire Militia mutiny of 1795",
+         "author": "Brighton & Hove Museums",
+         "year": null,
+         "quote": "After completing a Master’s degree at Oxford University, he joined the Royal Oxfordshire Militia in 1793.",
+         "record": null
+        },
+        {
+         "kind": "page",
+         "url": "https://brightonmuseums.org.uk/discovery/history-stories/jane-austens-brother-and-the-royal-oxfordshire-militia-mutiny-of-1795/",
+         "title": "Jane Austen's brother and the Royal Oxfordshire Militia mutiny of 1795",
+         "author": "Brighton & Hove Museums",
+         "year": null,
+         "quote": "While there is no evidence that she ever visited Brighton, her brother, Henry Thomas Austen, spent some time in the town while serving with the Royal Oxfordshire Militia.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    }
+   ]
+  },
+  {
+   "kind": "conversation",
+   "items": [
+    {
+     "heading": "Fanny Burney",
+     "entity": "burney",
+     "relation": "took her title from",
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "The title comes from a line in Cecilia, a novel by Fanny Burney, an author Austen greatly admired.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://janeaustens.house/online-exhibition/the-making-of-pride-and-prejudice/the-making-of-pride-and-prejudice-3/",
+         "title": "How 'First Impressions' became 'Pride and Prejudice'...",
+         "author": "Jane Austen's House",
+         "year": null,
+         "quote": "Jane’s new title, Pride and Prejudice, was drawn from a line in Cecilia, by Fanny Burney, an author Jane greatly admired.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    },
+    {
+     "heading": "Her own earlier draft",
+     "entity": "author",
+     "relation": "revises",
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "The book is a revision of her own First Impressions. Its dependence on letters hints at an earlier form, but since the draft is lost, that link is a guess from the finished text.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://janeaustens.house/online-exhibition/the-making-of-pride-and-prejudice/the-making-of-pride-and-prejudice-3/",
+         "title": "How 'First Impressions' became 'Pride and Prejudice'...",
+         "author": "Jane Austen's House",
+         "year": null,
+         "quote": "Next Jane turned her attention to First Impressions, revising the manuscript extensively in 1811-1812.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    }
+   ]
+  },
+  {
+   "kind": "terms",
+   "items": [
+    {
+     "heading": "Entail",
+     "entity": "entail",
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "A legal settlement fixing who inherits an estate, usually a male heir, so that the current owner cannot leave it to his daughters.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://jasna.org/persuasions/on-line/vol36no1/bailey.html",
+         "title": "The Marriage Law of Jane Austen’s World",
+         "author": "Martha Bailey",
+         "year": "2015",
+         "quote": "Settlements of property, often made on the occasion of a marriage, typically gave the husband a life interest in the estate, and the property would be entailed on the eldest son (or other male descendant)",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    },
+    {
+     "heading": "The militia",
+     "entity": "militia",
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "A county-raised reserve force, not required to serve overseas, officered by property owners; its regiments were stationed around England during the wars with France.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://brightonmuseums.org.uk/discovery/history-stories/jane-austens-brother-and-the-royal-oxfordshire-militia-mutiny-of-1795/",
+         "title": "Jane Austen's brother and the Royal Oxfordshire Militia mutiny of 1795",
+         "author": "Brighton & Hove Museums",
+         "year": null,
+         "quote": "The men who served in these milita were part-time soldiers, and not required to serve overseas.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    },
+    {
+     "heading": "Younger sons",
+     "entity": null,
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Younger sons of landed families inherited little and had to enter a profession such as the army, the church or the law; this made it harder for them to marry.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://jasna.org/persuasions/on-line/vol36no1/bailey.html",
+         "title": "The Marriage Law of Jane Austen’s World",
+         "author": "Martha Bailey",
+         "year": "2015",
+         "quote": "Younger sons as well as daughters suffered under the general preference for eldest sons.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    },
+    {
+     "heading": "Pin-money",
+     "entity": null,
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "A sum set aside in a marriage settlement for a wife's dress and pocket-money.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://jasna.org/persuasions/on-line/vol36no1/bailey.html",
+         "title": "The Marriage Law of Jane Austen’s World",
+         "author": "Martha Bailey",
+         "year": "2015",
+         "quote": "Pin-money was for the dress and the pocket-money of the wife.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    }
+   ]
+  },
+  {
+   "kind": "furtherReading",
+   "items": [
+    {
+     "heading": "Jane Austen: A Life",
+     "entity": null,
+     "relation": null,
+     "work": {
+      "title": "Jane Austen",
+      "authors": [
+       "Claire Tomalin"
+      ],
+      "year": "1997",
+      "record": {
+       "kind": "olid",
+       "value": "OL2719554W"
+      }
+     },
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": "A readable standard biography for general readers.",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "A full-length biography of Austen's life and work.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "record",
+         "url": null,
+         "title": "Jane Austen",
+         "author": "Claire Tomalin",
+         "year": "1997",
+         "quote": null,
+         "record": {
+          "kind": "olid",
+          "value": "OL2719554W"
+         }
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    }
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "id": "book",
+   "kind": "work",
+   "name": "Pride and Prejudice",
+   "wikidata": "Q170583",
+   "record": {
+    "kind": "olid",
+    "value": "OL66554W"
+   }
+  },
+  {
+   "id": "author",
+   "kind": "person",
+   "name": "Jane Austen",
+   "wikidata": "Q36322",
+   "record": null
+  },
+  {
+   "id": "burney",
+   "kind": "person",
+   "name": "Fanny Burney",
+   "wikidata": "Q259530",
+   "record": null
+  },
+  {
+   "id": "chawton",
+   "kind": "place",
+   "name": "Chawton",
+   "wikidata": "Q2386975",
+   "record": null
+  },
+  {
+   "id": "steventon",
+   "kind": "place",
+   "name": "Steventon",
+   "wikidata": "Q1231836",
+   "record": null
+  },
+  {
+   "id": "egerton",
+   "kind": "person",
+   "name": "Thomas Egerton",
+   "wikidata": "Q16968755",
+   "record": null
+  },
+  {
+   "id": "entail",
+   "kind": "idea",
+   "name": "Entail (fee tail)",
+   "wikidata": "Q11071039",
+   "record": null
+  },
+  {
+   "id": "militia",
+   "kind": "institution",
+   "name": "County militia",
+   "wikidata": null,
+   "record": null
+  },
+  {
+   "id": "henry",
+   "kind": "person",
+   "name": "Henry Austen",
+   "wikidata": null,
+   "record": null
+  },
+  {
+   "id": "first",
+   "kind": "work",
+   "name": "First Impressions (early draft)",
+   "wikidata": null,
+   "record": null
+  }
+ ],
+ "links": [
+  {
+   "from": "author",
+   "to": "book",
+   "relation": "wrote",
+   "claim": {
+    "text": "Austen first drafted it in 1796 and revised it in 1811-1812.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://janeaustens.house/object/pride-and-prejudice-first-edition/",
+      "title": "First edition: Pride and Prejudice",
+      "author": "Jane Austen's House",
+      "year": null,
+      "quote": "She first drafted it in 1796 in Steventon, at which time it was called First Impressions, however she extensively revised her manuscript from 1811-1812 in Chawton",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "author",
+   "to": "steventon",
+   "relation": "drafted the book at",
+   "claim": {
+    "text": "She first drafted it at Steventon.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://janeaustens.house/object/pride-and-prejudice-first-edition/",
+      "title": "First edition: Pride and Prejudice",
+      "author": "Jane Austen's House",
+      "year": null,
+      "quote": "She first drafted it in 1796 in Steventon, at which time it was called First Impressions, however she extensively revised her manuscript from 1811-1812 in Chawton",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "author",
+   "to": "chawton",
+   "relation": "revised the book at",
+   "claim": {
+    "text": "She revised it at Chawton.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://janeaustens.house/object/pride-and-prejudice-first-edition/",
+      "title": "First edition: Pride and Prejudice",
+      "author": "Jane Austen's House",
+      "year": null,
+      "quote": "She first drafted it in 1796 in Steventon, at which time it was called First Impressions, however she extensively revised her manuscript from 1811-1812 in Chawton",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "book",
+   "to": "burney",
+   "relation": "title drawn from",
+   "claim": {
+    "text": "The title comes from a line in Cecilia by Fanny Burney.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://janeaustens.house/online-exhibition/the-making-of-pride-and-prejudice/the-making-of-pride-and-prejudice-3/",
+      "title": "How 'First Impressions' became 'Pride and Prejudice'...",
+      "author": "Jane Austen's House",
+      "year": null,
+      "quote": "Jane’s new title, Pride and Prejudice, was drawn from a line in Cecilia, by Fanny Burney, an author Jane greatly admired.",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "egerton",
+   "to": "book",
+   "relation": "published",
+   "claim": {
+    "text": "Thomas Egerton published it on 28 January 1813.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://janeaustens.house/online-exhibition/the-making-of-pride-and-prejudice/the-making-of-pride-and-prejudice-3/",
+      "title": "How 'First Impressions' became 'Pride and Prejudice'...",
+      "author": "Jane Austen's House",
+      "year": null,
+      "quote": "With help from her brother Henry, Jane secured a publishing contract with Thomas Egerton and Pride and Prejudice was published on 28 January 1813.",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "henry",
+   "to": "author",
+   "relation": "helped secure publisher for",
+   "claim": {
+    "text": "Her brother Henry helped her get the contract with Egerton.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://janeaustens.house/online-exhibition/the-making-of-pride-and-prejudice/the-making-of-pride-and-prejudice-3/",
+      "title": "How 'First Impressions' became 'Pride and Prejudice'...",
+      "author": "Jane Austen's House",
+      "year": null,
+      "quote": "With help from her brother Henry, Jane secured a publishing contract with Thomas Egerton and Pride and Prejudice was published on 28 January 1813.",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "henry",
+   "to": "militia",
+   "relation": "served in",
+   "claim": {
+    "text": "Henry joined the Royal Oxfordshire Militia in 1793.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://brightonmuseums.org.uk/discovery/history-stories/jane-austens-brother-and-the-royal-oxfordshire-militia-mutiny-of-1795/",
+      "title": "Jane Austen's brother and the Royal Oxfordshire Militia mutiny of 1795",
+      "author": "Brighton & Hove Museums",
+      "year": null,
+      "quote": "After completing a Master’s degree at Oxford University, he joined the Royal Oxfordshire Militia in 1793.",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "book",
+   "to": "militia",
+   "relation": "features",
+   "claim": {
+    "text": "Brighton passages in the novel were almost certainly informed by Henry's militia experience.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://brightonmuseums.org.uk/discovery/history-stories/jane-austens-brother-and-the-royal-oxfordshire-militia-mutiny-of-1795/",
+      "title": "Jane Austen's brother and the Royal Oxfordshire Militia mutiny of 1795",
+      "author": "Brighton & Hove Museums",
+      "year": null,
+      "quote": "Henry’s experiences almost certainly informed the descriptions of Brighton that appear in Pride & Prejudice",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "book",
+   "to": "entail",
+   "relation": "turns on",
+   "claim": {
+    "text": "The settlement of the Bennet property prevents Mr. Bennet from providing for his wife and daughters.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://jasna.org/persuasions/on-line/vol36no1/bailey.html",
+      "title": "The Marriage Law of Jane Austen’s World",
+      "author": "Martha Bailey",
+      "year": "2015",
+      "quote": "The settlement of the family property prevents Mr. Bennet from providing for his wife and daughters after his death.",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "first",
+   "to": "book",
+   "relation": "revised into",
+   "claim": {
+    "text": "Austen extensively revised First Impressions in 1811-1812.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://janeaustens.house/online-exhibition/the-making-of-pride-and-prejudice/the-making-of-pride-and-prejudice-3/",
+      "title": "How 'First Impressions' became 'Pride and Prejudice'...",
+      "author": "Jane Austen's House",
+      "year": null,
+      "quote": "Next Jane turned her attention to First Impressions, revising the manuscript extensively in 1811-1812.",
+      "record": null
+     }
+    ]
+   }
+  }
+ ]
+}

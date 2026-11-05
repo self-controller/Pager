@@ -1,0 +1,111 @@
+{
+"littleKnown": false,
+"sections": [
+{"kind":"overview","items":[
+{"heading":"The book in one paragraph","entity":"book","relation":null,"work":null,"readScope":null,"readNote":null,"timeEstimate":null,"suits":null,"spoiler":false,"disagreement":null,"claims":[
+{"text":"Darwin wrote On the Origin of Species at his home in Down, Kent, in about thirteen months. He presented it as a shortened \"abstract\" of a far larger work on species that he had been preparing for years.","inferred":false,"spoiler":false,"citations":[
+{"kind":"page","url":"https://darwinproject.ac.uk/letters/darwins-works-letters/origin","title":"Origin | Darwin Correspondence Project","author":null,"year":null,"quote":"Darwin completed this work on 1 October, noting in his journal that the 'Abstract on Origin of species' had taken 13 months and 10 days","record":null},
+{"kind":"page","url":"https://www.encyclopedia.com/humanities/encyclopedias-almanacs-transcripts-and-maps/darwin-charles-robert-1809-1882","title":"Darwin, Charles Robert (1809-1882)","author":null,"year":null,"quote":"In 1842 he took up residence at Down, a secluded village in Kent.","record":null}]},
+{"text":"It is a sustained scientific argument, not a narrative. It was published by John Murray of London on 24 November 1859, in a first edition of 1,250 copies that sold out on the first day.","inferred":false,"spoiler":false,"citations":[
+{"kind":"page","url":"https://www.encyclopedia.com/humanities/encyclopedias-almanacs-transcripts-and-maps/darwin-charles-robert-1809-1882","title":"Darwin, Charles Robert (1809-1882)","author":null,"year":null,"quote":"The Origin of Species appeared on November 24 in an edition of 1,250 copies, all of which were sold on the first day.","record":null},
+{"kind":"record","url":null,"title":"On the origin of species by means of natural selection","author":"Charles Darwin","year":"1859","quote":null,"record":{"kind":"olid","value":"OL515051W"}}]}
+]}]},
+{"kind":"moment","items":[
+{"heading":"Species were thought to be fixed and specially created","entity":"paley","relation":null,"work":null,"readScope":null,"readNote":null,"timeEstimate":null,"suits":null,"spoiler":false,"disagreement":null,"claims":[
+{"text":"Educated Britons assumed that each species had been fixed and created separately, as Genesis describes. Darwin himself accepted this when he sailed on the Beagle.","inferred":false,"spoiler":false,"citations":[
+{"kind":"page","url":"https://www.encyclopedia.com/humanities/encyclopedias-almanacs-transcripts-and-maps/darwin-charles-robert-1809-1882","title":"Darwin, Charles Robert (1809-1882)","author":null,"year":null,"quote":"He accepted without question the fixity of species and their special creation as depicted in Genesis.","record":null}]},
+{"text":"Natural theology was the tradition of studying nature to know the mind of the Creator. It was also the main way educated Britons learned about new science. William Paley, an Anglican archdeacon, wrote one of its most famous works.","inferred":false,"spoiler":false,"citations":[
+{"kind":"page","url":"https://publicchristianity.org/darwin-and-the-british-natural-theology-tradition/","title":"Darwin and the British Natural Theology Tradition","author":"Larissa Aldridge","year":"2010","quote":"One of the most famous examples of British natural theology was written by William Paley, an Anglican archdeacon.","record":null},
+{"kind":"page","url":"https://publicchristianity.org/darwin-and-the-british-natural-theology-tradition/","title":"Darwin and the British Natural Theology Tradition","author":"Larissa Aldridge","year":"2010","quote":"based on the assumption that one could come to know the mind of the Creator from studying Creation.","record":null}]}
+]},
+{"heading":"A theory seen as a challenge to church and state","entity":null,"relation":null,"work":null,"readScope":null,"readNote":null,"timeEstimate":null,"suits":null,"spoiler":false,"disagreement":null,"claims":[
+{"text":"Darwin knew his geology-style argument would clash with Genesis. Before publication he told his friend Lyell that this was no worse than any geological treatise, which already ran against the biblical account.","inferred":false,"spoiler":false,"citations":[
+{"kind":"page","url":"https://darwinproject.ac.uk/letters/darwins-works-letters/origin","title":"Origin | Darwin Correspondence Project","author":null,"year":null,"quote":"had I better say nothing to Murray, & assume that he cannot object to this much unorthodoxy, which in fact is not more than any Geological Treatise, which runs slap counter to Genesis.","record":null}]},
+{"text":"Once published, the theory was seen as hostile to the Establishment. Radicals, rationalists and anticlericals backed it, while reactionaries and clergy attacked it.","inferred":false,"spoiler":false,"citations":[
+{"kind":"page","url":"https://www.encyclopedia.com/humanities/encyclopedias-almanacs-transcripts-and-maps/darwin-charles-robert-1809-1882","title":"Darwin, Charles Robert (1809-1882)","author":null,"year":null,"quote":"Hence, Darwin found himself enthusiastically supported by radicals, rationalists, and anticlericals and vehemently attacked by reactionaries, fundamentalists, and priests.","record":null}]}
+]}]},
+{"kind":"situation","items":[
+{"heading":"From the Beagle to the theory","entity":"malthus","relation":null,"work":null,"readScope":null,"readNote":null,"timeEstimate":null,"suits":null,"spoiler":false,"disagreement":null,"claims":[
+{"text":"On the Beagle voyage (1831-36), Darwin noticed small differences among the supposedly separate species of the Galapagos islands. These observations began to shake his belief in fixed species.","inferred":false,"spoiler":false,"citations":[
+{"kind":"page","url":"https://www.encyclopedia.com/humanities/encyclopedias-almanacs-transcripts-and-maps/darwin-charles-robert-1809-1882","title":"Darwin, Charles Robert (1809-1882)","author":null,"year":null,"quote":"Doubts began to arise in his mind during the ship's visit to the Galápagos Archipelago in 1835, when he noticed that very small differences were present in the so-called species inhabiting separate islands.","record":null}]},
+{"text":"In October 1838 he read Malthus's Essay on Population. He later called natural selection \"the doctrine of Malthus applied with manifold force\" to plants and animals.","inferred":false,"spoiler":false,"citations":[
+{"kind":"page","url":"https://www.encyclopedia.com/humanities/encyclopedias-almanacs-transcripts-and-maps/darwin-charles-robert-1809-1882","title":"Darwin, Charles Robert (1809-1882)","author":null,"year":null,"quote":"the doctrine of Malthus applied with manifold force to the whole animal and vegetable kingdoms.","record":null}]}
+]},
+{"heading":"Twenty years of delay, then Wallace","entity":"wallace","relation":null,"work":null,"readScope":null,"readNote":null,"timeEstimate":null,"suits":null,"spoiler":false,"disagreement":null,"claims":[
+{"text":"Darwin did not rush into print. He wrote a short sketch of the theory in 1842 and expanded it in 1844 into an essay that Lyell and Hooker read.","inferred":false,"spoiler":false,"citations":[
+{"kind":"page","url":"https://www.encyclopedia.com/humanities/encyclopedias-almanacs-transcripts-and-maps/darwin-charles-robert-1809-1882","title":"Darwin, Charles Robert (1809-1882)","author":null,"year":null,"quote":"It was first set down in a short abstract in 1842 and two years later was expanded into an essay that both Lyell and Hooker read.","record":null}]},
+{"text":"Darwin had resisted advice in 1856 to publish a short version. In June 1858 an essay by the naturalist Alfred Russel Wallace, who was working in the Malay Archipelago, arrived and halted his progress on his planned \"big book\".","inferred":false,"spoiler":false,"citations":[
+{"kind":"page","url":"https://darwinproject.ac.uk/letters/darwins-works-letters/origin","title":"Origin | Darwin Correspondence Project","author":null,"year":null,"quote":"His progress was abruptly halted when he received a manuscript essay outlining a similar theory by Alfred Russel Wallace in June 1858.","record":null}]},
+{"text":"Lyell and Hooker had Wallace's essay and extracts from Darwin's writings read together at the Linnean Society of London on 1 July 1858. Hooker then urged Darwin to write a longer abstract.","inferred":false,"spoiler":false,"citations":[
+{"kind":"page","url":"https://www.encyclopedia.com/humanities/encyclopedias-almanacs-transcripts-and-maps/darwin-charles-robert-1809-1882","title":"Darwin, Charles Robert (1809-1882)","author":null,"year":null,"quote":"The resulting crisis was resolved by having a joint communication from the two men read at a meeting of the Linnaean Society on July 1, 1858.","record":null},
+{"kind":"page","url":"https://darwinproject.ac.uk/letters/darwins-works-letters/origin","title":"Origin | Darwin Correspondence Project","author":null,"year":null,"quote":"Joseph Dalton Hooker urged Darwin to prepare a longer abstract of his species theory.","record":null}]}
+]},
+{"heading":"Writing under poor health, and finding a publisher","entity":"murray","relation":null,"work":null,"readScope":null,"readNote":null,"timeEstimate":null,"suits":null,"spoiler":false,"disagreement":null,"claims":[
+{"text":"Darwin was often ill while writing and had to take water cures. He feared the book would be dry, and the missing references and fuller evidence explain why he called it an abstract.","inferred":true,"spoiler":false,"citations":[
+{"kind":"page","url":"https://darwinproject.ac.uk/letters/darwins-works-letters/origin","title":"Origin | Darwin Correspondence Project","author":null,"year":null,"quote":"Darwin continued to write until the end of October when he took the water cure for a week because his stomach was 'horridly bad'.","record":null}]},
+{"text":"On Lyell's advice he went to the publisher John Murray, whose list conveyed respectability. Murray disliked the words \"abstract\" and \"natural selection\" in the title. Darwin dropped the first and kept the second.","inferred":false,"spoiler":false,"citations":[
+{"kind":"page","url":"https://darwinproject.ac.uk/letters/darwins-works-letters/origin","title":"Origin | Darwin Correspondence Project","author":null,"year":null,"quote":"Even before seeing Darwin's manuscript, Murray objected to the terms 'abstract' and 'natural selection' in the title;","record":null}]}
+]},
+{"heading":"How it was received","entity":"huxley","relation":null,"work":null,"readScope":null,"readNote":null,"timeEstimate":null,"suits":null,"spoiler":false,"disagreement":null,"claims":[
+{"text":"Support among scientists came at first from Darwin's friends. Others objected to the kinds of explanation and proof he used.","inferred":false,"spoiler":false,"citations":[
+{"kind":"page","url":"https://www.encyclopedia.com/humanities/encyclopedias-almanacs-transcripts-and-maps/darwin-charles-robert-1809-1882","title":"Darwin, Charles Robert (1809-1882)","author":null,"year":null,"quote":"In the scientific world support for it came from Darwin's friends, but others expressed opposition that often took the form of objections to the modes of explanation and proof employed in the work.","record":null}]},
+{"text":"Darwin shrank from public controversy. The biologist T. H. Huxley, who enjoyed arguing with theologians, took up the public fight.","inferred":false,"spoiler":false,"citations":[
+{"kind":"page","url":"https://www.encyclopedia.com/humanities/encyclopedias-almanacs-transcripts-and-maps/darwin-charles-robert-1809-1882","title":"Darwin, Charles Robert (1809-1882)","author":null,"year":null,"quote":"T. H. Huxley, who enjoyed crossing swords with theologians, took a different stand.","record":null}]}
+]}]},
+{"kind":"conversation","items":[
+{"heading":"William Paley","entity":"paley","relation":"was shaped by, then argued against","work":null,"readScope":null,"readNote":null,"timeEstimate":null,"suits":null,"spoiler":false,"disagreement":null,"claims":[
+{"text":"Darwin read Paley's Natural Theology closely as a student and admired it. He later explained apparent design by natural selection, not by divine action.","inferred":false,"spoiler":false,"citations":[
+{"kind":"page","url":"https://publicchristianity.org/darwin-and-the-british-natural-theology-tradition/","title":"Darwin and the British Natural Theology Tradition","author":"Larissa Aldridge","year":"2010","quote":"As a student, Darwin closely read Paley's Natural Theology and admired his work.","record":null}]}
+]},
+{"heading":"Thomas Malthus","entity":"malthus","relation":"borrows from","work":null,"readScope":null,"readNote":null,"timeEstimate":null,"suits":null,"spoiler":false,"disagreement":null,"claims":[
+{"text":"Malthus's Essay on Population supplied the explanatory idea from which Darwin's theory of natural selection followed.","inferred":false,"spoiler":false,"citations":[
+{"kind":"page","url":"https://www.encyclopedia.com/humanities/encyclopedias-almanacs-transcripts-and-maps/darwin-charles-robert-1809-1882","title":"Darwin, Charles Robert (1809-1882)","author":null,"year":null,"quote":"it was not until he happened to read Thomas Robert Malthus's Essay on Population in October 1838 that he found an explanatory theory","record":null}]}
+]},
+{"heading":"Charles Lyell and Joseph Hooker","entity":"lyell","relation":"confided in","work":null,"readScope":null,"readNote":null,"timeEstimate":null,"suits":null,"spoiler":false,"disagreement":null,"claims":[
+{"text":"Lyell, the leading geologist, and Hooker, the botanist, were Darwin's close friends. They read his 1844 essay, backed the joint publication with Wallace, and read drafts of the Origin.","inferred":false,"spoiler":false,"citations":[
+{"kind":"page","url":"https://darwinproject.ac.uk/letters/darwins-works-letters/origin","title":"Origin | Darwin Correspondence Project","author":null,"year":null,"quote":"As Darwin completed his chapters, he actively sought criticism from trusted readers like Hooker, Lyell, and Thomas Henry Huxley.","record":null}]}
+]},
+{"heading":"Whewell and Bacon (the epigraphs)","entity":null,"relation":"opens with quotations from","work":null,"readScope":null,"readNote":null,"timeEstimate":null,"suits":null,"spoiler":false,"disagreement":null,"claims":[
+{"text":"The two epigraphs on the title page, from Francis Bacon and William Whewell, are natural-theology statements. They present nature as God's work, governed by general laws.","inferred":false,"spoiler":false,"citations":[
+{"kind":"page","url":"https://publicchristianity.org/darwin-and-the-british-natural-theology-tradition/","title":"Darwin and the British Natural Theology Tradition","author":"Larissa Aldridge","year":"2010","quote":"an excerpt from William Whewell's Bridgewater Treatise on astronomy, which referred to God's divine power establishing general laws.","record":null}]}
+]}
+]},
+{"kind":"terms","items":[
+{"heading":"Abstract","entity":null,"relation":null,"work":null,"readScope":null,"readNote":null,"timeEstimate":null,"suits":null,"spoiler":false,"disagreement":null,"claims":[
+{"text":"Darwin calls the book an \"Abstract\" of a larger work. That is why it gives few references and only samples of the evidence.","inferred":true,"spoiler":false,"citations":[
+{"kind":"page","url":"https://darwinproject.ac.uk/letters/darwins-works-letters/origin","title":"Origin | Darwin Correspondence Project","author":null,"year":null,"quote":"Darwin gave way on the first objection (although he felt the term explained the absence of references and facts in full)","record":null}]}
+]},
+{"heading":"Transmutation","entity":null,"relation":null,"work":null,"readScope":null,"readNote":null,"timeEstimate":null,"suits":null,"spoiler":false,"disagreement":null,"claims":[
+{"text":"Transmutation of species was the period's term for the idea that species change over time into others. Darwin offered natural selection to explain how.","inferred":true,"spoiler":false,"citations":[
+{"kind":"page","url":"https://www.encyclopedia.com/humanities/encyclopedias-almanacs-transcripts-and-maps/darwin-charles-robert-1809-1882","title":"Darwin, Charles Robert (1809-1882)","author":null,"year":null,"quote":"Darwin never professed to have invented the idea of organic evolution, of the mutability of species, or even of natural selection.","record":null}]}
+]}
+]},
+{"kind":"furtherReading","items":[
+{"heading":"Charles Darwin: Voyaging","entity":null,"relation":null,"work":{"title":"Charles Darwin: Voyaging","authors":["Janet Browne"],"year":"2010","record":{"kind":"olid","value":"OL26466985W"}},"readScope":null,"readNote":null,"timeEstimate":null,"suits":"Readers who want Darwin's life and the road to the theory in a standard biography.","spoiler":false,"disagreement":null,"claims":[
+{"text":"Janet Browne's biography, first of two volumes, follows Darwin from childhood through the Beagle voyage and the early years of his theory.","inferred":true,"spoiler":false,"citations":[
+{"kind":"record","url":null,"title":"Charles Darwin : Voyaging Vol. 1","author":"Janet Browne","year":"2010","quote":null,"record":{"kind":"olid","value":"OL26466985W"}}]}
+]}
+]}
+],
+"entities":[
+{"id":"book","kind":"work","name":"On the Origin of Species","wikidata":"Q20124","record":{"kind":"olid","value":"OL515051W"}},
+{"id":"author","kind":"person","name":"Charles Darwin","wikidata":"Q1035","record":null},
+{"id":"wallace","kind":"person","name":"Alfred Russel Wallace","wikidata":"Q160627","record":null},
+{"id":"lyell","kind":"person","name":"Charles Lyell","wikidata":"Q5333","record":null},
+{"id":"hooker","kind":"person","name":"Joseph Dalton Hooker","wikidata":"Q157501","record":null},
+{"id":"malthus","kind":"person","name":"Thomas Robert Malthus","wikidata":"Q13526","record":null},
+{"id":"paley","kind":"person","name":"William Paley","wikidata":null,"record":null},
+{"id":"murray","kind":"person","name":"John Murray (publisher)","wikidata":null,"record":null},
+{"id":"huxley","kind":"person","name":"Thomas Henry Huxley","wikidata":null,"record":null},
+{"id":"down","kind":"place","name":"Down House","wikidata":"Q3038318","record":null}
+],
+"links":[
+{"from":"author","to":"wallace","relation":"received an essay from","claim":{"text":"Wallace's June 1858 essay outlining a similar theory halted Darwin's work on his big book.","inferred":false,"spoiler":false,"citations":[{"kind":"page","url":"https://darwinproject.ac.uk/letters/darwins-works-letters/origin","title":"Origin | Darwin Correspondence Project","author":null,"year":null,"quote":"His progress was abruptly halted when he received a manuscript essay outlining a similar theory by Alfred Russel Wallace in June 1858.","record":null}]}},
+{"from":"author","to":"malthus","relation":"read","claim":{"text":"Darwin read Malthus's Essay on Population in October 1838 and found his explanatory theory there.","inferred":false,"spoiler":false,"citations":[{"kind":"page","url":"https://www.encyclopedia.com/humanities/encyclopedias-almanacs-transcripts-and-maps/darwin-charles-robert-1809-1882","title":"Darwin, Charles Robert (1809-1882)","author":null,"year":null,"quote":"it was not until he happened to read Thomas Robert Malthus's Essay on Population in October 1838 that he found an explanatory theory","record":null}]}},
+{"from":"author","to":"paley","relation":"read and admired","claim":{"text":"As a student Darwin closely read Paley's Natural Theology and admired it.","inferred":false,"spoiler":false,"citations":[{"kind":"page","url":"https://publicchristianity.org/darwin-and-the-british-natural-theology-tradition/","title":"Darwin and the British Natural Theology Tradition","author":"Larissa Aldridge","year":"2010","quote":"As a student, Darwin closely read Paley's Natural Theology and admired his work.","record":null}]}},
+{"from":"hooker","to":"author","relation":"urged to write the abstract","claim":{"text":"Hooker urged Darwin to prepare a longer abstract of his species theory.","inferred":false,"spoiler":false,"citations":[{"kind":"page","url":"https://darwinproject.ac.uk/letters/darwins-works-letters/origin","title":"Origin | Darwin Correspondence Project","author":null,"year":null,"quote":"Joseph Dalton Hooker urged Darwin to prepare a longer abstract of his species theory.","record":null}]}},
+{"from":"lyell","to":"murray","relation":"introduced Darwin to","claim":{"text":"Lyell spoke to his own publisher, John Murray, about Darwin's book.","inferred":false,"spoiler":false,"citations":[{"kind":"page","url":"https://darwinproject.ac.uk/letters/darwins-works-letters/origin","title":"Origin | Darwin Correspondence Project","author":null,"year":null,"quote":"In late March, Lyell had a word with his own publisher, John Murray, who had already published the second edition of Darwin's Journal of researches.","record":null}]}},
+{"from":"book","to":"murray","relation":"was published by","claim":{"text":"Murray agreed to publish the book on the same terms as he published for Lyell.","inferred":false,"spoiler":false,"citations":[{"kind":"page","url":"https://darwinproject.ac.uk/letters/darwins-works-letters/origin","title":"Origin | Darwin Correspondence Project","author":null,"year":null,"quote":"I shall be most happy to publish it for you on the same terms as those on which I publish for Sir Charles Lyell","record":null}]}},
+{"from":"author","to":"down","relation":"lived in","claim":{"text":"Darwin settled at Down in Kent in 1842 and wrote his major works there.","inferred":false,"spoiler":false,"citations":[{"kind":"page","url":"https://www.encyclopedia.com/humanities/encyclopedias-almanacs-transcripts-and-maps/darwin-charles-robert-1809-1882","title":"Darwin, Charles Robert (1809-1882)","author":null,"year":null,"quote":"In 1842 he took up residence at Down, a secluded village in Kent.","record":null}]}}
+]
+}
