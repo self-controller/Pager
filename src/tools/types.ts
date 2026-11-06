@@ -6,7 +6,8 @@ import type { DocumentDetail, ReadingProgress, Section } from "@/api/types";
  *  - a Panel, rendered in the reader's right-hand tool panel and on the Assistant page;
  *  - selection actions, shown in a small menu above selected text in the reader;
  *  - an Overlay, rendered over the reader's text (a card beside a selection, say). It renders nothing
- *    until the tool has something to show, and can ask for its Panel with `openToolPanel` (registry.ts).
+ *    until the tool has something to show, and can ask for its Panel with `openToolPanel` (registry.ts);
+ *  - a Page, its section of the Assistant page, in place of the Panel there (which gets no document).
  * Tools get read-only context; anything they persist goes through the backend's reserved
  * /api/tools/* namespace (see CONTRACT.md).
  */
@@ -61,4 +62,6 @@ export interface PagerTool {
   selectionActions?: SelectionAction[];
   /** Floats over the reader's text; mark it `data-reader-overlay` so a tap outside only closes it. */
   Overlay?: ComponentType<{ context: ToolContext }>;
+  /** The tool's section of the Assistant page. Without one, the Panel shows there with no document. */
+  Page?: ComponentType;
 }

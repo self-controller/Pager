@@ -7,7 +7,9 @@ use common::*;
 use futures::future::BoxFuture;
 use pager_server::briefing::extract::extract_lists;
 use pager_server::briefing::lookup::Lookups;
-use pager_server::briefing::run::{first_request, Limits};
+use pager_server::briefing::run::{first_request, generate, seed_steps, steps_in, Limits, Progress, Stage};
+use pager_server::briefing::verify::draft_counts;
+use pager_server::briefing::{Checking, RunStep};
 use pager_server::briefing::schema::*;
 use pager_server::briefing::secrets::{load_api_key, ApiKey, KeySource};
 use pager_server::briefing::transport::{OutError, OutRequest, OutResponse, Transport};
@@ -45,6 +47,8 @@ struct Fake {
     routes: Mutex<Vec<(String, u16, String, Vec<u8>)>>,
     seen: Mutex<Vec<OutRequest>>,
     api_delay: Mutex<Duration>,
+    /// When set, each answer from the model waits for a permit (to watch a run mid-way).
+    gate: Mutex<Option<Arc<tokio::sync::Semaphore>>>,
 }
 
 impl Fake {
@@ -112,6 +116,10 @@ impl Transport for Fake {
             self.seen.lock().unwrap().push(req.clone());
             let respond = |status: u16, content_type: &str, body: Vec<u8>| OutResponse { status, url: req.url.clone(), content_type: content_type.to_string(), body, truncated: false };
             if req.url == API_URL {
+                let gate = self.gate.lock().unwrap().clone();
+                if let Some(g) = gate {
+                    g.acquire().await.unwrap().forget();
+                }
                 let delay = *self.api_delay.lock().unwrap();
                 if !delay.is_zero() {
                     tokio::time::sleep(delay).await;
@@ -878,4 +886,223 @@ async fn a_focused_run_from_a_phone_counts_toward_its_limit() {
     assert_eq!(over.status, 429, "{}", over.text);
     assert_eq!(over.body["error"]["code"], "limit_reached");
     assert_eq!(fake.api_bodies().len(), 3);
+}
+
+// ---- Phase 4: the research as it happens, and where the time went ----
+
+#[test]
+fn a_response_s_searches_and_reads_become_steps() {
+    let steps = steps_in(&fxj("api-1-research.json")["content"]);
+    assert_eq!(
+        steps,
+        vec![
+            RunStep::Search { query: "On the Origin of Species 1859 context Malthus".into(), ok: true },
+            RunStep::Read { url: "https://plato.stanford.edu/entries/darwinism/".into(), title: steps_title(&fxj("api-1-research.json")), ok: true },
+        ]
+    );
+    // A failed search or fetch is marked; a result not in this response (a paused turn) counts as ok.
+    let content = json!([
+        { "type": "server_tool_use", "id": "a", "name": "web_search", "input": { "query": "Malthus" } },
+        { "type": "web_search_tool_result", "tool_use_id": "a", "content": { "type": "web_search_tool_result_error", "error_code": "max_uses_exceeded" } },
+        { "type": "server_tool_use", "id": "b", "name": "web_fetch", "input": { "url": "https://example.org/x" } },
+        { "type": "web_fetch_tool_result", "tool_use_id": "b", "content": { "type": "web_fetch_tool_error", "error_code": "url_not_accessible" } },
+        { "type": "server_tool_use", "id": "c", "name": "web_fetch", "input": { "url": "https://example.org/y" } },
+        { "type": "server_tool_use", "id": "d", "name": "code_execution", "input": { "code": "print(1)" } },
+        { "type": "server_tool_use", "id": "e", "name": "web_search", "input": { "query": "  " } },
+    ]);
+    assert_eq!(
+        steps_in(&content),
+        vec![
+            RunStep::Search { query: "Malthus".into(), ok: false },
+            RunStep::Read { url: "https://example.org/x".into(), title: None, ok: false },
+            RunStep::Read { url: "https://example.org/y".into(), title: None, ok: true },
+        ]
+    );
+    assert_eq!(steps_in(&json!(null)), vec![]);
+    // Serialized for the reader as tagged objects.
+    assert_eq!(serde_json::to_value(RunStep::Lookup { source: "openLibrary", query: "Cecilia".into(), ok: true }).unwrap(), json!({ "kind": "lookup", "source": "openLibrary", "query": "Cecilia", "ok": true }));
+    assert_eq!(serde_json::to_value(RunStep::Read { url: "https://a.org/".into(), title: None, ok: true }).unwrap(), json!({ "kind": "read", "url": "https://a.org/", "ok": true }));
+}
+
+/// The fetched page's title in a research answer, if the fixture gives one.
+fn steps_title(resp: &Value) -> Option<String> {
+    resp["content"].as_array().unwrap().iter().find(|b| b["type"] == "web_fetch_tool_result").and_then(|b| b["content"]["content"]["title"].as_str()).map(str::to_string)
+}
+
+#[test]
+fn the_checker_counts_distinct_sources_and_claims() {
+    let draft: Draft = serde_json::from_value(fxj("api-3-submit.json")["content"].as_array().unwrap().iter().find(|b| b["name"] == "submit_briefing").unwrap()["input"].clone()).unwrap();
+    let c = draft_counts(&draft);
+    let claims: usize = draft.sections.iter().flat_map(|s| s.items.iter()).map(|i| i.claims.len() + i.disagreement.as_ref().map(|d| d.sides.iter().map(|s| s.claims.len()).sum()).unwrap_or(0)).sum::<usize>() + draft.links.len();
+    assert_eq!(c.claims as usize, claims);
+    assert!(c.sources > 0 && (c.sources as usize) <= claims * 3 + draft.sections.iter().flat_map(|s| s.items.iter()).filter(|i| i.work.is_some()).count());
+    // The same page cited twice, with and without "www." and a trailing slash, is one source.
+    let one = |url: &str| json!({ "kind": "page", "url": url, "title": "T", "author": null, "year": null, "quote": "a quote long enough to check here", "record": null });
+    let claim = |cits: Vec<Value>| json!({ "text": "x", "inferred": false, "spoiler": false, "citations": cits });
+    let d: Draft = serde_json::from_value(json!({
+        "littleKnown": false,
+        "sections": [{ "kind": "moment", "items": [{ "heading": "h", "spoiler": false, "claims": [claim(vec![one("https://www.a.org/p/")]), claim(vec![one("https://a.org/p"), json!({ "kind": "book", "url": null, "title": "Introduction", "author": null, "year": null, "quote": "q q q q q q", "record": null })])] }] }],
+        "entities": [], "links": []
+    }))
+    .unwrap();
+    assert_eq!(draft_counts(&d), Checking { sources: 2, claims: 2 });
+}
+
+#[tokio::test]
+async fn a_run_reports_each_stage_step_and_what_it_checks() {
+    let fake = Fake::new();
+    fake.catalogue();
+    fake.script();
+    let t = app_with(&fake, true, limits());
+    let doc = add_book(&t).await;
+    let seen: Arc<Mutex<Vec<Progress>>> = Arc::default();
+    let s2 = seen.clone();
+    let progress = move |p: Progress| s2.lock().unwrap().push(p);
+    let g = match generate(&t.app, &doc, Level::General, None, &limits(), &progress).await {
+        Ok(g) => g,
+        Err((f, _)) => panic!("the run failed: {f:?}"),
+    };
+    let seen = seen.lock().unwrap().clone();
+    let stages: Vec<Stage> = seen.iter().filter_map(|p| if let Progress::Stage(s) = p { Some(*s) } else { None }).collect();
+    assert_eq!(stages, vec![Stage::Reading, Stage::Researching, Stage::Checking]);
+    let steps: Vec<RunStep> = seen.iter().filter_map(|p| if let Progress::Step(s) = p { Some(s.clone()) } else { None }).collect();
+    // The seed lookups first, then each answer's searches and reads, with the model's own lookups between.
+    assert_eq!(steps[0], RunStep::Lookup { source: "openLibrary", query: "On the Origin of Species".into(), ok: true });
+    assert_eq!(steps[1], RunStep::Lookup { source: "wikidata", query: "Charles Darwin".into(), ok: true });
+    assert_eq!(steps[2], RunStep::Search { query: "On the Origin of Species 1859 context Malthus".into(), ok: true });
+    assert!(matches!(&steps[3], RunStep::Read { url, ok: true, .. } if url == "https://plato.stanford.edu/entries/darwinism/"));
+    assert_eq!(steps[4], RunStep::Lookup { source: "openLibrary", query: "An Essay on the Principle of Population".into(), ok: true });
+    assert!(matches!(&steps[5], RunStep::Read { ok: true, .. }), "the paused turn's fetch: {:?}", steps[5]);
+    assert_eq!(steps.len(), 6);
+    // What the checker had, reported before the checking stage.
+    let checking: Vec<Checking> = seen.iter().filter_map(|p| if let Progress::Checking(c) = p { Some(*c) } else { None }).collect();
+    assert_eq!(checking.len(), 1);
+    let at_checking = seen.iter().position(|p| matches!(p, Progress::Checking(_))).unwrap();
+    assert_eq!(seen[at_checking + 1], Progress::Stage(Stage::Checking));
+    assert!(checking[0].claims >= g.briefing.stats.claims_kept + g.briefing.stats.links_kept);
+    // Where the time went: one entry per API call, and the rest measured.
+    let tm = &g.usage.timings;
+    assert_eq!(tm.calls_ms.len(), 3);
+    assert_eq!(tm.total_ms(), tm.reading_ms + tm.seed_ms + tm.calls_ms.iter().sum::<u64>() + tm.tools_ms + tm.checking_ms);
+    let sum = tm.summary();
+    assert!(sum.starts_with("reading ") && sum.contains(", API calls ") && sum.contains(" + ") && sum.ends_with(" s"), "{sum}");
+    assert_eq!(seed_steps(&pager_server::briefing::extract::BookInput { title: "Emma: A Novel".into(), ..Default::default() }, &json!({})), vec![RunStep::Lookup { source: "openLibrary", query: "Emma".into(), ok: false }]);
+}
+
+#[tokio::test]
+async fn a_running_briefing_shows_its_steps_and_time_then_keeps_only_the_outcome() {
+    let fake = Fake::new();
+    fake.catalogue();
+    fake.script();
+    let gate = Arc::new(tokio::sync::Semaphore::new(0));
+    *fake.gate.lock().unwrap() = Some(gate.clone());
+    let t = app_with(&fake, true, limits());
+    let doc = add_book(&t).await;
+    let r = start(&t, &doc, json!({})).await;
+    assert_eq!(r.status, 202, "{}", r.text);
+    let id = r.body["run"]["id"].as_str().unwrap().to_string();
+    assert!(r.body["run"].get("steps").is_none(), "nothing done yet: {}", r.body);
+
+    // Held at the first call: the seed lookups are there, with the time since it started.
+    let run = poll_run(&t, &id, |v| v["steps"].as_array().map(|a| a.len() >= 2).unwrap_or(false)).await;
+    assert_eq!(run["stage"], "researching");
+    assert_eq!(run["steps"], json!([
+        { "kind": "lookup", "source": "openLibrary", "query": "On the Origin of Species", "ok": true },
+        { "kind": "lookup", "source": "wikidata", "query": "Charles Darwin", "ok": true },
+    ]));
+    assert_eq!(run["elapsedMs"], 0);
+    t.clock.advance(65_000);
+    assert_eq!(t.get(&format!("/api/tools/context/runs/{id}")).await.body["elapsedMs"], 65_000);
+    // The book's state carries the same live run.
+    let state = t.get(&format!("/api/tools/context/briefings/{doc}")).await.body;
+    assert_eq!(state["run"]["steps"].as_array().unwrap().len(), 2);
+    assert_eq!(state["run"]["elapsedMs"], 65_000);
+
+    // The first answer: its search, its read and the model's lookup.
+    gate.add_permits(1);
+    let run = poll_run(&t, &id, |v| v["steps"].as_array().map(|a| a.len() >= 5).unwrap_or(false)).await;
+    let kinds: Vec<&str> = run["steps"].as_array().unwrap().iter().map(|s| s["kind"].as_str().unwrap()).collect();
+    assert_eq!(kinds, vec!["lookup", "lookup", "search", "read", "lookup"]);
+    assert_eq!(run["steps"][2]["query"], "On the Origin of Species 1859 context Malthus");
+    assert_eq!(run["steps"][4], json!({ "kind": "lookup", "source": "openLibrary", "query": "An Essay on the Principle of Population", "ok": true }));
+    assert!(run.get("checking").is_none());
+
+    // The rest, then the stored outcome: no steps, no clock.
+    gate.add_permits(2);
+    let done = wait_run(&t, &id).await;
+    assert_eq!(done["status"], "done", "{done}");
+    assert!(done.get("steps").is_none() && done.get("checking").is_none() && done.get("elapsedMs").is_none(), "{done}");
+    // The run's record keeps where the time went (the server log prints it too); the reader's stats don't.
+    let usage: String = t.app.lock().one("SELECT usage FROM context_runs WHERE id = ?1", &[&id], |r| r.get(0)).unwrap().unwrap();
+    let usage: Value = serde_json::from_str(&usage).unwrap();
+    assert_eq!(usage["timings"]["callsMs"].as_array().unwrap().len(), 3);
+    for k in ["readingMs", "seedMs", "toolsMs", "checkingMs", "totalMs"] {
+        assert!(usage["timings"][k].is_u64(), "{k} in {usage}");
+    }
+    let state = t.get(&format!("/api/tools/context/briefings/{doc}")).await.body;
+    assert!(state["briefing"]["stats"].get("timings").is_none());
+}
+
+#[tokio::test]
+async fn a_failed_run_still_records_its_time() {
+    let fake = Fake::new();
+    fake.catalogue();
+    fake.api(Api::Answer(401, json!({ "type": "error", "error": { "type": "authentication_error", "message": "invalid x-api-key" } })));
+    let t = app_with(&fake, true, limits());
+    let doc = add_book(&t).await;
+    let id = start(&t, &doc, json!({})).await.body["run"]["id"].as_str().unwrap().to_string();
+    let run = wait_run(&t, &id).await;
+    assert_eq!(run["status"], "failed");
+    assert!(run.get("steps").is_none());
+    let usage: String = t.app.lock().one("SELECT usage FROM context_runs WHERE id = ?1", &[&id], |r| r.get(0)).unwrap().unwrap();
+    let usage: Value = serde_json::from_str(&usage).unwrap();
+    assert_eq!(usage["timings"]["callsMs"].as_array().unwrap().len(), 1, "{usage}");
+}
+
+async fn poll_run(t: &TestApp, id: &str, until: impl Fn(&Value) -> bool) -> Value {
+    for _ in 0..1000 {
+        let r = t.get(&format!("/api/tools/context/runs/{id}")).await;
+        assert_eq!(r.status, 200, "{}", r.text);
+        if until(&r.body) {
+            return r.body;
+        }
+        assert_eq!(r.body["status"], "running", "the run ended early: {}", r.body);
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    panic!("the run never got there");
+}
+
+#[tokio::test]
+async fn the_assistant_page_lists_every_book_with_a_briefing() {
+    let fake = Fake::new();
+    fake.catalogue();
+    fake.script();
+    let t = app_with(&fake, true, limits());
+    assert_eq!(t.get("/api/tools/context/briefings").await.body, json!({ "briefings": [] }));
+    let doc = add_book(&t).await;
+    let id = start(&t, &doc, json!({})).await.body["run"]["id"].as_str().unwrap().to_string();
+    assert_eq!(wait_run(&t, &id).await["status"], "done");
+    t.clock.advance(60_000);
+    script_focused(&fake);
+    let id = start(&t, &doc, json!({ "focus": "“Malthus’s”" })).await.body["run"]["id"].as_str().unwrap().to_string();
+    assert_eq!(wait_run(&t, &id).await["status"], "done");
+    let list = t.get("/api/tools/context/briefings").await.body;
+    assert_eq!(
+        list,
+        json!({ "briefings": [
+            { "docId": doc, "level": "general", "focus": "Malthus", "generatedAt": "2026-11-05T12:01:00.000Z" },
+            { "docId": doc, "level": "general", "focus": null, "generatedAt": "2026-11-05T12:00:00.000Z" },
+        ] })
+    );
+    // A Refresh replaces its entry rather than adding one; a deleted book drops out.
+    t.clock.advance(60_000);
+    fake.script();
+    let id = start(&t, &doc, json!({ "refresh": true })).await.body["run"]["id"].as_str().unwrap().to_string();
+    assert_eq!(wait_run(&t, &id).await["status"], "done");
+    let list = t.get("/api/tools/context/briefings").await.body;
+    assert_eq!(list["briefings"].as_array().unwrap().len(), 2);
+    assert_eq!(list["briefings"][0]["focus"], Value::Null);
+    assert_eq!(list["briefings"][0]["generatedAt"], "2026-11-05T12:02:00.000Z");
+    t.db_exec(&format!("UPDATE documents SET deleted_at = '2026-11-05T13:00:00Z' WHERE id = '{doc}'"));
+    assert_eq!(t.get("/api/tools/context/briefings").await.body, json!({ "briefings": [] }));
 }

@@ -22,7 +22,7 @@ use crate::app::App;
 use crate::errors::{not_found, AppError};
 use crate::Result;
 use focus::Focus;
-use run::{generate, Failure, Limits, Stage};
+use run::{generate, Failure, Limits, Progress, Stage};
 use schema::{Briefing, Level};
 use secrets::ApiKey;
 use serde::Serialize;
@@ -94,7 +94,49 @@ pub struct RunView {
     pub started_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub finished_at: Option<String>,
+    /// While it runs: what it has done so far, oldest first (searches, pages read, catalogue lookups).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub steps: Vec<RunStep>,
+    /// While it is checking: how much there is to check.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub checking: Option<Checking>,
+    /// While it runs: milliseconds since it started, by the computer's clock (a phone's may differ).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub elapsed_ms: Option<u64>,
 }
+
+impl RunView {
+    pub fn new(id: String, doc_id: String, level: Level, started_at: String) -> RunView {
+        RunView { id, doc_id, level, status: "running".into(), stage: Stage::Queued.as_str().into(), error: None, started_at, finished_at: None, steps: vec![], checking: None, elapsed_ms: None }
+    }
+}
+
+/// One thing a run did, for the reader's progress view ("Searched “Malthus Darwin 1838”").
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum RunStep {
+    /// A web search the model ran.
+    Search { query: String, ok: bool },
+    /// A page the model read.
+    Read {
+        url: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        ok: bool,
+    },
+    /// A catalogue lookup: `openLibrary`, `wikidata` or `crossref`.
+    Lookup { source: &'static str, query: String, ok: bool },
+}
+
+/// What the checker has before it: the distinct sources cited and the claims that cite them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub struct Checking {
+    pub sources: u32,
+    pub claims: u32,
+}
+
+/// Most steps kept for a run's progress view (the caps allow about 90).
+pub const MAX_STEPS: usize = 100;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct RunKey {
@@ -127,11 +169,28 @@ impl BriefingService {
         self.key.is_some()
     }
 
-    fn set_stage(&self, run_id: &str, stage: Stage) {
+    /// A run's progress, as `generate` reports it.
+    fn progress(&self, run_id: &str, p: Progress) {
         if let Some(v) = self.live.lock().unwrap().get_mut(run_id) {
-            v.stage = stage.as_str().to_string();
+            match p {
+                Progress::Stage(stage) => v.stage = stage.as_str().to_string(),
+                Progress::Step(step) => {
+                    if v.steps.len() < MAX_STEPS {
+                        v.steps.push(step);
+                    }
+                }
+                Progress::Checking(c) => v.checking = Some(c),
+            }
         }
     }
+}
+
+/// A live run as served: with the time since it started.
+fn served(app: &App, mut v: RunView) -> RunView {
+    if v.status == "running" {
+        v.elapsed_ms = crate::clock::parse_iso(&v.started_at).map(|t| (app.clock.now_ms() - t).max(0) as u64);
+    }
+    v
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -199,7 +258,8 @@ pub async fn state(app: &Arc<App>, doc_id: &str, level: Level, focus: Option<&Fo
     let run = {
         let active = app.briefing.active.lock().unwrap();
         active.get(&key).and_then(|id| app.briefing.live.lock().unwrap().get(id).cloned())
-    };
+    }
+    .map(|v| served(app, v));
     let stale = current.is_none() && latest.is_some();
     Ok(BriefingState { briefing: current.or(latest), stale, run, cached_levels: levels })
 }
@@ -236,19 +296,10 @@ pub async fn start(app: &Arc<App>, doc_id: &str, level: Level, refresh: bool, de
         let mut active = app.briefing.active.lock().unwrap();
         if let Some(id) = active.get(&key) {
             if let Some(v) = app.briefing.live.lock().unwrap().get(id) {
-                return Ok(Started::Run(v.clone()));
+                return Ok(Started::Run(served(app, v.clone())));
             }
         }
-        let view = RunView {
-            id: crate::ids::new_id(app.clock.now_ms()),
-            doc_id: doc_id.to_string(),
-            level,
-            status: "running".into(),
-            stage: Stage::Queued.as_str().into(),
-            error: None,
-            started_at: app.clock.iso(),
-            finished_at: None,
-        };
+        let view = RunView::new(crate::ids::new_id(app.clock.now_ms()), doc_id.to_string(), level, app.clock.iso());
         active.insert(key.clone(), view.id.clone());
         app.briefing.live.lock().unwrap().insert(view.id.clone(), view.clone());
         view
@@ -276,8 +327,9 @@ pub async fn start(app: &Arc<App>, doc_id: &str, level: Level, refresh: bool, de
 }
 
 pub async fn run_view(app: &Arc<App>, run_id: &str) -> Result<RunView> {
-    if let Some(v) = app.briefing.live.lock().unwrap().get(run_id) {
-        return Ok(v.clone());
+    let live = app.briefing.live.lock().unwrap().get(run_id).cloned();
+    if let Some(v) = live {
+        return Ok(served(app, v));
     }
     let id = run_id.to_string();
     app.run(move |c| c.briefing_run_get(&id)).await?.ok_or_else(|| not_found("That briefing run"))
@@ -288,28 +340,22 @@ async fn run_task(app: Arc<App>, key: RunKey, run_id: String, focus: Option<Focu
     let limits = app.briefing.limits.clone();
     let progress_app = app.clone();
     let progress_id = run_id.clone();
-    let progress = move |s: Stage| progress_app.briefing.set_stage(&progress_id, s);
+    let progress = move |p: Progress| progress_app.briefing.progress(&progress_id, p);
     let outcome = match tokio::time::timeout(limits.run_timeout + Duration::from_secs(60), generate(&app, &key.doc_id, key.level, focus.as_ref().map(|f| f.text.as_str()), &limits, &progress)).await {
         Ok(r) => r,
         Err(_) => Err((Failure::Timeout, run::Usage::default())),
     };
-    let mut view = app.briefing.live.lock().unwrap().get(&run_id).cloned().unwrap_or_else(|| RunView {
-        id: run_id.clone(),
-        doc_id: key.doc_id.clone(),
-        level: key.level,
-        status: "running".into(),
-        stage: String::new(),
-        error: None,
-        started_at: app.clock.iso(),
-        finished_at: None,
-    });
+    let mut view = app.briefing.live.lock().unwrap().get(&run_id).cloned().unwrap_or_else(|| RunView::new(run_id.clone(), key.doc_id.clone(), key.level, app.clock.iso()));
+    // The progress view is for the run while it goes; the stored row keeps the outcome.
+    view.steps.clear();
+    view.checking = None;
     view.finished_at = Some(app.clock.iso());
     let line = match outcome {
         Ok(g) => {
             let usage = g.usage.to_json();
             let b = g.briefing;
             let summary = format!(
-                "context: run {} doc {} level {}{}: done in {} s; {}; kept {} claims and {} works, dropped {} claims and {} works{}{}",
+                "context: run {} doc {} level {}{}: done in {} s; {}; kept {} claims and {} works, dropped {} claims and {} works{}{}; time: {}",
                 run_id,
                 key.doc_id,
                 key.level.as_str(),
@@ -322,6 +368,7 @@ async fn run_task(app: Arc<App>, key: RunKey, run_id: String, focus: Option<Focu
                 b.stats.works_dropped,
                 if b.little_known { "; little known" } else { "" },
                 if b.model != MODEL { format!("; answered by {}", b.model) } else { String::new() },
+                g.usage.timings.summary(),
             );
             let finished = view.clone();
             let saved = app
@@ -355,7 +402,7 @@ async fn run_task(app: Arc<App>, key: RunKey, run_id: String, focus: Option<Focu
             let failed = view.clone();
             let u = usage.to_json();
             let _ = app.run(move |c| c.briefing_run_finish(&failed, &u, None)).await;
-            format!("context: run {run_id} doc {} level {}: failed ({:?}); {}", key.doc_id, key.level.as_str(), failure, usage.summary())
+            format!("context: run {run_id} doc {} level {}: failed ({:?}); {}; time: {}", key.doc_id, key.level.as_str(), failure, usage.summary(), usage.timings.summary())
         }
     };
     println!("{line}");

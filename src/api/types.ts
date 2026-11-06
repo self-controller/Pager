@@ -54,6 +54,8 @@ export { API_VERSION } from "../../shared/src/api";
 /** Context briefings (API.md, "Context"): the backend's shapes, used as they are. */
 export type {
   ContextBriefing,
+  ContextBriefingEntry,
+  ContextBriefingList,
   ContextCitation,
   ContextClaim,
   ContextDisagreement,
@@ -66,6 +68,7 @@ export type {
   ContextPhoneRuns,
   ContextRecord,
   ContextRun,
+  ContextRunStep,
   ContextSection,
   ContextSectionKind,
   ContextState,

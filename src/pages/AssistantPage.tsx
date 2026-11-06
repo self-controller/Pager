@@ -18,7 +18,9 @@ export function AssistantPage() {
           {tools.map((tool) => {
             const Icon = tool.icon;
             return (
-              <section key={tool.id} className="rounded-md shadow-[inset_0_0_0_1px_var(--detail)]">
+              // A real border, clipped without making a scroll box: a tool's sticky rows and backgrounds
+              // would paint over an inset-shadow outline.
+              <section key={tool.id} className="overflow-clip rounded-md border border-detail">
                 <header className="flex items-center gap-3 border-b border-detail px-4 py-3">
                   <Icon size={18} aria-hidden />
                   <div>
@@ -26,7 +28,11 @@ export function AssistantPage() {
                     {tool.description && <p className="text-[13px] leading-[18px] text-fg-2">{tool.description}</p>}
                   </div>
                 </header>
-                {tool.Panel && <tool.Panel context={{ doc: null, section: null, selection: null }} close={() => {}} />}
+                {tool.Page ? (
+                  <tool.Page />
+                ) : (
+                  tool.Panel && <tool.Panel context={{ doc: null, section: null, selection: null }} close={() => {}} />
+                )}
               </section>
             );
           })}

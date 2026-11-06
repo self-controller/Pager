@@ -7,7 +7,7 @@ use super::prompt::{system_prompt, tools, user_message, BUDGET_SPENT, NUDGE};
 use super::schema::*;
 use super::secrets::ApiKey;
 use super::transport::{OutError, OutRequest, Transport};
-use super::verify::{verify_shaped, Evidence, Report, Shape};
+use super::verify::{draft_counts, verify_shaped, Evidence, Report, Shape};
 use super::*;
 use crate::app::App;
 use serde_json::{json, Value};
@@ -37,6 +37,46 @@ impl Stage {
             Stage::Failed => "failed",
         }
     }
+}
+
+/// What `generate` reports while it works: the stage, each step, and what the checker has before it.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Progress {
+    Stage(Stage),
+    Step(RunStep),
+    Checking(Checking),
+}
+
+/// The steps a response from the model holds: its web searches and the pages it read, in order. A
+/// tool whose result is an error (`error_code`) is marked not ok; one whose result isn't in this
+/// response (a paused turn) counts as ok.
+pub fn steps_in(content: &Value) -> Vec<RunStep> {
+    let blocks: &[Value] = content.as_array().map(Vec::as_slice).unwrap_or(&[]);
+    let result_for = |id: &str| blocks.iter().find(|b| matches!(b.get("type").and_then(Value::as_str), Some("web_search_tool_result" | "web_fetch_tool_result")) && b.get("tool_use_id").and_then(Value::as_str) == Some(id));
+    let mut steps = Vec::new();
+    for b in blocks.iter().filter(|b| b.get("type").and_then(Value::as_str) == Some("server_tool_use")) {
+        let id = b.get("id").and_then(Value::as_str).unwrap_or("");
+        let input = b.get("input");
+        let text = |k: &str| input.and_then(|i| i.get(k)).and_then(Value::as_str).map(str::trim).filter(|x| !x.is_empty()).map(str::to_string);
+        let result = result_for(id).and_then(|r| r.get("content"));
+        let ok = result.map(|c| c.get("error_code").is_none()).unwrap_or(true);
+        match b.get("name").and_then(Value::as_str) {
+            Some("web_search") => {
+                if let Some(query) = text("query") {
+                    steps.push(RunStep::Search { query, ok });
+                }
+            }
+            Some("web_fetch") => {
+                let url = text("url").or_else(|| result.and_then(|c| c.get("url")).and_then(Value::as_str).map(str::to_string));
+                let title = result.and_then(|c| c.get("content")).and_then(|d| d.get("title")).and_then(Value::as_str).map(str::trim).filter(|t| !t.is_empty()).map(str::to_string);
+                if let Some(url) = url {
+                    steps.push(RunStep::Read { url, title, ok });
+                }
+            }
+            _ => {}
+        }
+    }
+    steps
 }
 
 /// Why a run stopped without a briefing. `message` is shown to the reader as is.
@@ -73,8 +113,47 @@ impl Failure {
     }
 }
 
-/// Token, search and call counts across a run.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+/// Where a run's time went, for the log and the run's record (not shown to the reader).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Timings {
+    /// Extracting the book's front matter and lists on the computer.
+    pub reading_ms: u64,
+    /// The seed lookups (the book on Open Library, the author on Wikidata).
+    pub seed_ms: u64,
+    /// Each API call, retries and their waits included. Server-side searches and fetches run inside.
+    pub calls_ms: Vec<u64>,
+    /// The model's catalogue lookups (find_book, find_article, find_entity), all together.
+    pub tools_ms: u64,
+    /// The verifier.
+    pub checking_ms: u64,
+}
+
+fn secs(ms: u64) -> String {
+    format!("{:.1} s", ms as f64 / 1000.0)
+}
+
+impl Timings {
+    pub fn total_ms(&self) -> u64 {
+        self.reading_ms + self.seed_ms + self.calls_ms.iter().sum::<u64>() + self.tools_ms + self.checking_ms
+    }
+
+    pub fn to_json(&self) -> Value {
+        json!({ "readingMs": self.reading_ms, "seedMs": self.seed_ms, "callsMs": self.calls_ms, "toolsMs": self.tools_ms, "checkingMs": self.checking_ms, "totalMs": self.total_ms() })
+    }
+
+    /// "reading 0.2 s, seed lookups 1.4 s, API calls 21.3 + 18.0 + 38.9 s, catalogue lookups 2.1 s, checking 6.3 s"
+    pub fn summary(&self) -> String {
+        let calls = if self.calls_ms.is_empty() { "none".to_string() } else { format!("{} s", self.calls_ms.iter().map(|ms| format!("{:.1}", *ms as f64 / 1000.0)).collect::<Vec<_>>().join(" + ")) };
+        format!("reading {}, seed lookups {}, API calls {}, catalogue lookups {}, checking {}", secs(self.reading_ms), secs(self.seed_ms), calls, secs(self.tools_ms), secs(self.checking_ms))
+    }
+}
+
+fn ms_since(t: Instant) -> u64 {
+    t.elapsed().as_millis() as u64
+}
+
+/// Token, search and call counts across a run, and where its time went.
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Usage {
     pub calls: u32,
     pub input: u64,
@@ -83,6 +162,7 @@ pub struct Usage {
     pub output: u64,
     pub searches: u32,
     pub fetches: u32,
+    pub timings: Timings,
 }
 
 impl Usage {
@@ -110,6 +190,7 @@ impl Usage {
         json!({
             "calls": self.calls, "inputTokens": self.input, "cacheWriteTokens": self.cache_write, "cacheReadTokens": self.cache_read,
             "outputTokens": self.output, "searches": self.searches, "fetches": self.fetches, "costUsd": (self.cost_usd() * 10000.0).round() / 10000.0,
+            "timings": self.timings.to_json(),
         })
     }
 
@@ -259,7 +340,7 @@ pub struct Research {
 
 /// The loop with the model. Stops at the first cap, refusal or error; returns the usage either way.
 #[allow(clippy::too_many_arguments)]
-pub async fn research(transport: &Arc<dyn Transport>, key: &ApiKey, level: Level, book: &BookInput, seed: &Value, focus: Option<&str>, lookups: &Lookups, limits: &Limits, usage: &mut Usage) -> Result<Research, Failure> {
+pub async fn research(transport: &Arc<dyn Transport>, key: &ApiKey, level: Level, book: &BookInput, seed: &Value, focus: Option<&str>, lookups: &Lookups, limits: &Limits, usage: &mut Usage, progress: &(dyn Fn(Progress) + Send + Sync)) -> Result<Research, Failure> {
     let started = Instant::now();
     let (search_budget, fetch_budget) = if focus.is_some() { (FOCUS_SEARCH_BUDGET, FOCUS_FETCH_BUDGET) } else { (SEARCH_BUDGET, FETCH_BUDGET) };
     let mut messages: Vec<Value> = vec![json!({ "role": "user", "content": user_message(level, book, seed, focus) })];
@@ -282,7 +363,10 @@ pub async fn research(transport: &Arc<dyn Transport>, key: &ApiKey, level: Level
         if started.elapsed() >= limits.run_timeout {
             return Err(Failure::Timeout);
         }
-        let resp = call_api(transport, key, &request_body(&messages, limits.max_tokens_per_call), limits).await?;
+        let call_started = Instant::now();
+        let resp = call_api(transport, key, &request_body(&messages, limits.max_tokens_per_call), limits).await;
+        usage.timings.calls_ms.push(ms_since(call_started));
+        let resp = resp?;
         usage.calls += 1;
         if let Some(u) = resp.get("usage") {
             usage.add(u);
@@ -292,6 +376,9 @@ pub async fn research(transport: &Arc<dyn Transport>, key: &ApiKey, level: Level
         }
         let content = resp.get("content").cloned().unwrap_or(Value::Array(vec![]));
         evidence.collect(&content);
+        for step in steps_in(&content) {
+            progress(Progress::Step(step));
+        }
         messages.push(json!({ "role": "assistant", "content": content }));
         let stop = resp.get("stop_reason").and_then(Value::as_str).unwrap_or("");
         match stop {
@@ -301,7 +388,10 @@ pub async fn research(transport: &Arc<dyn Transport>, key: &ApiKey, level: Level
                     let id = block.get("id").and_then(Value::as_str).unwrap_or("");
                     let input = block.get("input").cloned().unwrap_or(Value::Null);
                     let s = |k: &str| input.get(k).and_then(Value::as_str).map(str::trim).filter(|x| !x.is_empty()).map(str::to_string);
-                    match block.get("name").and_then(Value::as_str).unwrap_or("") {
+                    let tool_started = Instant::now();
+                    let before = results.len();
+                    let name = block.get("name").and_then(Value::as_str).unwrap_or("");
+                    match name {
                         "submit_briefing" => match serde_json::from_value::<Draft>(input.clone()) {
                             Ok(draft) => return Ok(Research { draft, evidence, model }),
                             Err(e) => results.push(tool_result(id, format!("The briefing didn't match the schema ({e}). Fix it and call submit_briefing again."), true)),
@@ -328,6 +418,18 @@ pub async fn research(transport: &Arc<dyn Transport>, key: &ApiKey, level: Level
                             None => results.push(tool_result(id, "Give a query.".into(), true)),
                         },
                         other => results.push(tool_result(id, format!("There is no tool called {other}."), true)),
+                    }
+                    // A catalogue lookup the model asked for: one step, and its time.
+                    let source = match name {
+                        "find_book" => Some(("openLibrary", s("title"))),
+                        "find_entity" => Some(("wikidata", s("name"))),
+                        "find_article" => Some(("crossref", s("query"))),
+                        _ => None,
+                    };
+                    if let Some((source, Some(query))) = source {
+                        usage.timings.tools_ms += ms_since(tool_started);
+                        let ok = results.get(before).map(|r| r.get("is_error") != Some(&Value::Bool(true))).unwrap_or(false);
+                        progress(Progress::Step(RunStep::Lookup { source, query, ok }));
                     }
                 }
                 if results.is_empty() {
@@ -360,35 +462,60 @@ pub struct Generated {
     pub usage: Usage,
 }
 
-/// A briefing for a document, or (with `focus`) on one name or work in it. `progress` hears each stage.
-pub async fn generate(app: &Arc<App>, doc_id: &str, level: Level, focus: Option<&str>, limits: &Limits, progress: &(dyn Fn(Stage) + Send + Sync)) -> Result<Generated, (Failure, Usage)> {
+/// A briefing for a document, or (with `focus`) on one name or work in it. `progress` hears each
+/// stage, each step, and what there is to check.
+pub async fn generate(app: &Arc<App>, doc_id: &str, level: Level, focus: Option<&str>, limits: &Limits, progress: &(dyn Fn(Progress) + Send + Sync)) -> Result<Generated, (Failure, Usage)> {
     let started = Instant::now();
     let mut usage = Usage::default();
     let Some(key) = app.briefing.key().cloned() else { return Err((Failure::NotConfigured, usage)) };
-    progress(Stage::Reading);
+    progress(Progress::Stage(Stage::Reading));
     let doc = doc_id.to_string();
-    let extracted: Extracted = app.run(move |c| c.briefing_extract(&doc)).await.map_err(|e| (Failure::Book(e.message), usage))?;
+    let extracted: Result<Extracted, _> = app.run(move |c| c.briefing_extract(&doc)).await;
+    usage.timings.reading_ms = ms_since(started);
+    let extracted = match extracted {
+        Ok(x) => x,
+        Err(e) => return Err((Failure::Book(e.message), usage)),
+    };
     let transport = app.briefing.transport.clone();
-    progress(Stage::Researching);
+    progress(Progress::Stage(Stage::Researching));
     let lookups = Lookups::new(transport.clone(), limits.model_lookups);
+    let seed_started = Instant::now();
     let seed_records = seed(&lookups, &extracted.input).await;
-    let research = match research(&transport, &key, level, &extracted.input, &seed_records, focus, &lookups, limits, &mut usage).await {
+    usage.timings.seed_ms = ms_since(seed_started);
+    for step in seed_steps(&extracted.input, &seed_records) {
+        progress(Progress::Step(step));
+    }
+    let research = match research(&transport, &key, level, &extracted.input, &seed_records, focus, &lookups, limits, &mut usage, progress).await {
         Ok(r) => r,
         Err(f) => return Err((f, usage)),
     };
-    progress(Stage::Checking);
+    progress(Progress::Checking(draft_counts(&research.draft)));
+    progress(Progress::Stage(Stage::Checking));
     Ok(finish(app, extracted, level, focus.map(str::to_string), research, usage, lookups.used(), limits, started).await)
+}
+
+/// The seed lookups as steps: the book on Open Library, its first author on Wikidata. Ok when they
+/// found something.
+pub fn seed_steps(book: &BookInput, seed: &Value) -> Vec<RunStep> {
+    let found = |k: &str| seed.get(k).and_then(Value::as_array).map(|a| !a.is_empty()).unwrap_or(false);
+    let mut steps = vec![RunStep::Lookup { source: "openLibrary", query: main_title(&book.title), ok: found("openLibrary") }];
+    if let Some(a) = book.authors.first() {
+        steps.push(RunStep::Lookup { source: "wikidata", query: a.clone(), ok: found("wikidataAuthor") });
+    }
+    steps
 }
 
 /// Verify a draft and assemble the briefing. Also used for drafts written elsewhere (the
 /// `context-live --draft` check, where Claude Code agents stand in for the API).
 #[allow(clippy::too_many_arguments)]
-pub async fn finish(app: &Arc<App>, extracted: Extracted, level: Level, focus: Option<String>, research: Research, usage: Usage, model_lookups: u32, limits: &Limits, started: Instant) -> Generated {
+pub async fn finish(app: &Arc<App>, extracted: Extracted, level: Level, focus: Option<String>, research: Research, mut usage: Usage, model_lookups: u32, limits: &Limits, started: Instant) -> Generated {
+    let checking_started = Instant::now();
     let verifier = Lookups::new(app.briefing.transport.clone(), limits.verify_lookups);
     let mut evidence = research.evidence;
     evidence.book = extracted.input.front_matter.iter().map(|f| format!("{}\n{}", f.title, f.text)).collect::<Vec<_>>().join("\n\n");
     let shape = if focus.is_some() { Shape::Focus } else { Shape::Book };
     let checked = verify_shaped(research.draft, &evidence, &verifier, shape).await;
+    usage.timings.checking_ms = ms_since(checking_started);
     let report = checked.report;
     let stats = Stats {
         claims_kept: report.claims_kept,

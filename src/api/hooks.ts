@@ -39,6 +39,7 @@ export const queryKeys = {
   contextBriefing: (docId: string, level: ContextLevel, focus?: string | null) =>
     ["context", "briefing", docId, level, (focus ?? "").toLowerCase()] as const,
   contextRun: (runId: string) => ["context", "run", runId] as const,
+  contextList: ["context", "list"] as const,
 };
 
 /** The library changed shape: documents and the folder tree both show it. */
@@ -488,6 +489,7 @@ export function useContextRun(runId: string | undefined) {
       if (run.status !== "running") {
         void qc.invalidateQueries({ queryKey: ["context", "briefing", run.docId] });
         void qc.invalidateQueries({ queryKey: queryKeys.contextStatus });
+        void qc.invalidateQueries({ queryKey: queryKeys.contextList });
       }
       return run;
     },
@@ -496,6 +498,11 @@ export function useContextRun(runId: string | undefined) {
     refetchInterval: (q) => (q.state.data && q.state.data.status !== "running" ? false : 2000),
     refetchIntervalInBackground: false,
   });
+}
+
+/** Every book with a stored briefing, for the Assistant page. */
+export function useContextBriefings(enabled = true) {
+  return useQuery({ queryKey: queryKeys.contextList, queryFn: () => api.listContextBriefings(), enabled, staleTime: 30_000 });
 }
 
 /** Ask for a briefing: the cached one comes back at once, otherwise a run starts (and costs money). */
@@ -513,5 +520,8 @@ export function useStartContext(docId: string | undefined) {
       if (result.run) qc.setQueryData(queryKeys.contextRun(result.run.id), result.run);
       void qc.invalidateQueries({ queryKey: queryKeys.contextStatus });
     },
+    // Refused (a phone past its limit, a limit lowered on the computer, no key): the runs-left line and
+    // the buttons follow the server again.
+    onError: () => void qc.invalidateQueries({ queryKey: queryKeys.contextStatus }),
   });
 }

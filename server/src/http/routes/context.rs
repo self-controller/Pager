@@ -19,6 +19,7 @@ use std::sync::Arc;
 
 pub fn mount(api: Api) -> Api {
     api.add("GET", "/tools/context/status", get(status))
+        .add("GET", "/tools/context/briefings", get(list_briefings))
         .add("GET", "/tools/context/briefings/:id", get(get_briefing))
         .add("POST", "/tools/context/briefings/:id", post(start_briefing))
         .add("GET", "/tools/context/runs/:rid", get(get_run))
@@ -37,6 +38,12 @@ fn level_of(v: Option<&str>) -> Result<Level> {
 
 async fn status(State(app): State<Arc<App>>, device: Option<Extension<DeviceCtx>>) -> Result<Response> {
     Ok(ok(briefing::status(&app, device.map(|d| d.0 .0.id.clone())).await?))
+}
+
+/// The Assistant page's list: every book with a stored briefing.
+async fn list_briefings(State(app): State<Arc<App>>) -> Result<Response> {
+    let list = app.run(|c| c.briefing_list()).await?;
+    Ok(ok(json!({ "briefings": list })))
 }
 
 async fn get_briefing(State(app): State<Arc<App>>, Path(id): Path<String>, RawQuery(raw): RawQuery) -> Result<Response> {

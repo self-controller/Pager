@@ -352,7 +352,7 @@ are unchanged.
 | `GET /search`, `GET /search/documents` | search |
 | `GET /settings`, `PATCH /settings/global`, `PATCH /settings/documents/:id`, `DELETE /settings/documents/:id`, `GET /presets` | reading settings |
 | `POST /events`, `GET /stream`, `GET /assets/:file`, `GET /tree`, `GET /sync/manifest` | the journal (recording switches apply), the stream, images, the folder tree, the manifest |
-| `GET /tools/context/status`, `GET/POST /tools/context/briefings/:id`, `GET /tools/context/runs/:rid` | Context briefings; a new run counts toward the phone's daily limit (see [Context](#context-sourced-briefings-phase-1)) |
+| `GET /tools/context/status`, `GET /tools/context/briefings`, `GET/POST /tools/context/briefings/:id`, `GET /tools/context/runs/:rid` | Context briefings; a new run counts toward the phone's daily limit (see [Context](#context-sourced-briefings-phase-1)) |
 | `GET /health` | answered by the remote listener itself: `{ app, apiVersion, version, remote: { device: { id, name } } \| null }` |
 
 Refused: `PATCH /settings/app` and changes to presets; `GET /events` and `DELETE /events`; `/sources*`;
@@ -482,7 +482,8 @@ name or a title …"). A focused run from a phone counts toward its daily limit 
 | `GET /tools/context/status` | `ContextStatus { ready, model, keyFile, keyVariable, phone }`. `ready` is false when no API key is set on the computer. `phone` is `{ used, limit, left }` on a paired phone (its paid runs in the last 24 hours) and null on the computer. |
 | `GET /tools/context/briefings/:docId?level=general\|student\|scholar&focus=` | `ContextState { briefing, stale, run, cachedLevels }`. With no briefing for the file as it is now, `briefing` is the newest one for an earlier version and `stale` is true. `run` is a run in progress for this book, level and focus. `focus` (optional): a focused briefing (above); `cachedLevels` then lists that focus's levels. A bad focus: 400 `invalid_request`. |
 | `POST /tools/context/briefings/:docId` | `{ level?, refresh?, focus? }`. A cached briefing (and no `refresh`): 200 `{ briefing, run: null }`. Otherwise 202 `{ briefing: null, run }`: a new run, or the one already running for this book, level, focus and file version. No key: 503 `not_configured`, and nothing is sent anywhere. A bad focus: 400 `invalid_request`. A phone past its daily limit: 429 `limit_reached` (below). |
-| `GET /tools/context/runs/:runId` | `ContextRun { id, docId, level, status: running\|done\|failed, stage, error?, startedAt, finishedAt? }`. Poll it every 2 s; `error` is a calm sentence to show as is. |
+| `GET /tools/context/runs/:runId` | `ContextRun { id, docId, level, status: running\|done\|failed, stage, error?, startedAt, finishedAt?, steps?, checking?, elapsedMs? }`. Poll it every 2 s; `error` is a calm sentence to show as is. While it runs (Phase 4): `steps`, what it has done so far, oldest first (at most 100): `{ kind: "search", query, ok }`, `{ kind: "read", url, title?, ok }` and `{ kind: "lookup", source: openLibrary\|wikidata\|crossref, query, ok }`. The seed lookups and the model's catalogue lookups arrive as they happen; searches and pages read arrive as each API call returns (one call can run several). `checking: { sources, claims }` once the draft is in: the distinct sources it cites and the claims citing them. `elapsedMs`: the time since it started, by the computer's clock. All three are gone once the run ends. |
+| `GET /tools/context/briefings` | `ContextBriefingList { briefings: [{ docId, level, focus, generatedAt }] }` (Phase 4): every stored briefing of a document still in the library, the newest per document, level and focus (null for the whole book), newest first. For the Assistant page's list. |
 
 - **When it runs:** only when asked. A run lives on the server: it continues if the client goes away,
   but not across a restart (runs still marked running at startup become failed). Two at a time.
@@ -492,10 +493,13 @@ name or a title …"). A focused run from a phone counts toward its daily limit 
   verifier's fetches of the pages it checks. All with the User-Agent `Pager/0.1 (personal reading app)`.
 - **Cost:** capped per run (constants in `server/src/briefing/mod.rs`), and each run's tokens,
   searches, fetches and estimated cost are logged and stored with it (`stats` on the briefing).
+  Where the time went (reading the book, the seed lookups, each API call, the model's catalogue
+  lookups, the checking) is in the server's log line and the run's stored `usage.timings`, not in any
+  response.
 - **Cache:** one briefing per document, level, focus (none for the whole book) and file version
   (`content_hash`); Refresh replaces it.
   Briefings are a cache: they are not in the export.
-- **Phones:** all four routes are open to paired phones (`REMOTE_ALLOW`). A new run spends the
+- **Phones:** all five routes are open to paired phones (`REMOTE_ALLOW`). A new run spends the
   computer's API key, so each phone may start `context.phoneDailyLimit` of them (an app setting,
   default 10, 0 to 100) in a rolling 24 hours. A new briefing and a Refresh both count; a cache hit,
   or joining a run already going for the same book, never does. The check and the run's record are

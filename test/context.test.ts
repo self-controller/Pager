@@ -16,6 +16,13 @@ import {
   focusName,
   formatYear,
   generatedLabel,
+  groupBriefings,
+  checkingText,
+  elapsedLabel,
+  hostOf,
+  runLine,
+  stepCounts,
+  stepText,
   isFolded,
   itemsAbout,
   labelChars,
@@ -28,6 +35,7 @@ import {
   orderedSections,
   outlineTransform,
   parseYear,
+  phoneRefreshLine,
   phoneRunsLine,
   placeLabels,
   placePoints,
@@ -72,19 +80,21 @@ function jsonResponse(status: number, body?: unknown): Response {
 }
 
 describe("context api: http adapter", () => {
-  it("calls the four Context routes", async () => {
+  it("calls the five Context routes", async () => {
     const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => jsonResponse(200, {}));
     const api = createHttpApi("/api", fetchMock as unknown as typeof fetch);
     await api.getContextStatus();
     await api.getContextBriefing("doc 1", "scholar");
     await api.startContextBriefing("doc 1", { level: "student", refresh: true });
     await api.getContextRun("run/2");
+    await api.listContextBriefings();
     const calls = fetchMock.mock.calls.map(([url, init]) => `${init?.method ?? "GET"} ${url}`);
     expect(calls).toEqual([
       "GET /api/tools/context/status",
       "GET /api/tools/context/briefings/doc%201?level=scholar",
       "POST /api/tools/context/briefings/doc%201",
       "GET /api/tools/context/runs/run%2F2",
+      "GET /api/tools/context/briefings",
     ]);
     expect(JSON.parse(fetchMock.mock.calls[2]![1]!.body as string)).toEqual({ level: "student", refresh: true });
     expect((fetchMock.mock.calls[2]![1]!.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
@@ -135,13 +145,14 @@ describe("context api: http adapter", () => {
 });
 
 describe("context api: mock", () => {
-  it("answers unsupported for all four: there is no model or catalogue in the browser", async () => {
+  it("answers unsupported for all five: there is no model or catalogue in the browser", async () => {
     const api = createMockApi({ storage: null });
     const calls = [
       api.getContextStatus(),
       api.getContextBriefing("jane-eyre", "general"),
       api.startContextBriefing("jane-eyre", {}),
       api.getContextRun("r"),
+      api.listContextBriefings(),
     ];
     for (const c of calls) {
       const e = await c.catch((err: unknown) => err);
@@ -667,6 +678,101 @@ describe("context for this: the focused briefing", () => {
   it("says how many runs a phone has left", () => {
     expect(phoneRunsLine(null)).toBeNull();
     expect(phoneRunsLine({ used: 3, limit: 10, left: 7 })).toBe("This phone can start 7 more today.");
-    expect(phoneRunsLine({ used: 10, limit: 10, left: 0 })).toMatch(/started its 10 for today/);
+    expect(phoneRunsLine({ used: 10, limit: 10, left: 0 })).toBe(
+      "This phone has used its 10 runs for today; the computer can make one any time.",
+    );
+    expect(phoneRunsLine({ used: 1, limit: 1, left: 0 })).toBe(
+      "This phone has used its one run for today; the computer can make one any time.",
+    );
+    expect(phoneRefreshLine({ used: 3, limit: 10, left: 7 })).toBe("This phone has 7 of its 10 runs a day left.");
+    expect(phoneRefreshLine({ used: 0, limit: 1, left: 1 })).toBe("This phone can still start its one run for today.");
+    expect(phoneRefreshLine({ used: 1, limit: 1, left: 0 })).toBe(
+      "This phone has used its one run for today. The computer can make one any time.",
+    );
+    expect(phoneRefreshLine({ used: 0, limit: 0, left: 0 })).toBe(
+      "New briefings are made on the computer; this phone can open them.",
+    );
+    expect(phoneRunsLine({ used: 0, limit: 0, left: 0 })).toBe(
+      "New briefings are made on the computer; this phone can open them.",
+    );
+  });
+});
+
+describe("context: a run as it goes", () => {
+  it("says each step in a line, failed ones too", () => {
+    expect(stepText({ kind: "search", query: "Malthus Darwin 1838", ok: true })).toBe("Searched “Malthus Darwin 1838”");
+    expect(stepText({ kind: "search", query: "Malthus", ok: false })).toBe("A search for “Malthus” failed");
+    expect(stepText({ kind: "read", url: "https://www.darwin-online.org.uk/content/x?y=1", ok: true })).toBe(
+      "Read darwin-online.org.uk",
+    );
+    expect(stepText({ kind: "read", url: "https://example.org/a", title: "A", ok: false })).toBe("Couldn't read example.org");
+    expect(stepText({ kind: "lookup", source: "openLibrary", query: "Cecilia", ok: true })).toBe(
+      "Looked up “Cecilia” in Open Library",
+    );
+    expect(stepText({ kind: "lookup", source: "wikidata", query: "Fanny Burney", ok: false })).toBe(
+      "Couldn't look up “Fanny Burney” in Wikidata",
+    );
+    expect(stepText({ kind: "lookup", source: "crossref", query: "Darwin 1859 reception", ok: true })).toBe(
+      "Looked up “Darwin 1859 reception” in Crossref",
+    );
+    expect(hostOf("not a url")).toBe("not a url");
+  });
+
+  it("counts what it has done, leaving out what there's none of", () => {
+    expect(stepCounts(undefined)).toBeNull();
+    expect(stepCounts([])).toBeNull();
+    expect(
+      stepCounts([
+        { kind: "lookup", source: "openLibrary", query: "a", ok: true },
+        { kind: "search", query: "b", ok: true },
+        { kind: "read", url: "https://a.org", ok: true },
+        { kind: "read", url: "https://b.org", ok: false },
+        { kind: "search", query: "c", ok: true },
+      ]),
+    ).toBe("2 searches · 2 pages read · 1 catalogue lookup");
+    expect(stepCounts([{ kind: "read", url: "https://a.org", ok: true }])).toBe("1 page read");
+  });
+
+  it("shows the time so far and what the checker has", () => {
+    expect(elapsedLabel(0)).toBe("0:00");
+    expect(elapsedLabel(42_400)).toBe("0:42");
+    expect(elapsedLabel(65_000)).toBe("1:05");
+    expect(elapsedLabel(750_000)).toBe("12:30");
+    expect(elapsedLabel(-5)).toBe("0:00");
+    expect(checkingText({ sources: 31, claims: 22 })).toBe("Checking 31 sources behind 22 claims…");
+    expect(checkingText({ sources: 1, claims: 1 })).toBe("Checking 1 source behind 1 claim…");
+    expect(runLine({ stage: "checking", checking: { sources: 3, claims: 4 } })).toBe("Checking 3 sources behind 4 claims…");
+    expect(runLine({ stage: "checking" })).toBe("Checking every source…");
+    expect(runLine({ stage: "researching", checking: { sources: 3, claims: 4 } })).toBe("Researching sources…");
+    expect(runLine(undefined)).toBe("Waiting for a free slot…");
+  });
+});
+
+describe("context: the Assistant page's list", () => {
+  it("groups the server's list by book, newest book first, levels in order and each focus once", () => {
+    const books = groupBriefings([
+      { docId: "austen", level: "scholar", focus: null, generatedAt: "2026-11-05T15:00:00.000Z" },
+      { docId: "darwin", level: "general", focus: "Malthus", generatedAt: "2026-11-05T14:00:00.000Z" },
+      { docId: "darwin", level: "scholar", focus: "malthus", generatedAt: "2026-11-05T13:30:00.000Z" },
+      { docId: "darwin", level: "general", focus: null, generatedAt: "2026-11-05T13:00:00.000Z" },
+      { docId: "austen", level: "general", focus: null, generatedAt: "2026-11-05T12:00:00.000Z" },
+      { docId: "darwin", level: "general", focus: "Wallace", generatedAt: "2026-11-05T11:00:00.000Z" },
+      { docId: "nietzsche", level: "general", focus: "Wagner", generatedAt: "2026-11-05T10:00:00.000Z" },
+    ]);
+    expect(books.map((b) => b.docId)).toEqual(["austen", "darwin", "nietzsche"]);
+    expect(books[0]).toEqual({
+      docId: "austen",
+      levels: ["general", "scholar"],
+      focuses: [],
+      latest: "2026-11-05T15:00:00.000Z",
+    });
+    expect(books[1]!.levels).toEqual(["general"]);
+    expect(books[1]!.focuses).toEqual([
+      { focus: "Malthus", levels: ["general", "scholar"] },
+      { focus: "Wallace", levels: ["general"] },
+    ]);
+    // A book with only "Context for this" briefings still shows.
+    expect(books[2]).toMatchObject({ levels: [], focuses: [{ focus: "Wagner", levels: ["general"] }] });
+    expect(groupBriefings([])).toEqual([]);
   });
 });

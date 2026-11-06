@@ -216,7 +216,30 @@
     box-shadow: 0 0 0 8px transparent;
   }
 }
+/* Text on the page colour, a little wider than the words, so lines drawn behind it (the timeline's grid and book year) stop at the label. */
+.context-label {
+  --label-bg: var(--bg-primary);
+  background: var(--label-bg);
+  box-shadow: 0 0 0 3px var(--label-bg);
+  border-radius: 2px;
+}
+dialog .context-label {
+  --label-bg: var(--bg-elevated);
+}
+/* A run's new step slides in under the last one. */
+.context-step {
+  animation: context-step 220ms ease-out both;
+}
+@keyframes context-step {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
+  .context-step {
+    animation: none;
+  }
   .context-progress {
     animation: none;
     left: 0;

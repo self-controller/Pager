@@ -7,11 +7,21 @@ import { closeCard, openCard, useContextCard } from "./store";
 // first time "Context for this" is tapped.
 const ContextPanel = lazy(() => import("./ContextPanel").then((m) => ({ default: m.ContextPanel })));
 const ContextCard = lazy(() => import("./ContextCard").then((m) => ({ default: m.ContextCard })));
+const ContextHome = lazy(() => import("./ContextHome").then((m) => ({ default: m.ContextHome })));
 
 function Panel(props: ToolPanelProps) {
   return (
     <Suspense fallback={null}>
       <ContextPanel {...props} />
+    </Suspense>
+  );
+}
+
+/** The Assistant page's section: briefings by book, and any book's Context at the page's width. */
+function Page() {
+  return (
+    <Suspense fallback={null}>
+      <ContextHome />
     </Suspense>
   );
 }
@@ -38,6 +48,7 @@ export const contextTool: PagerTool = {
   icon: Landmark,
   Panel,
   Overlay,
+  Page,
   // Web only: the iPhone app's text menu is a fixed list (NativeMenuItem in src/lib/native.ts).
   selectionActions: [
     {

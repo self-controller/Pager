@@ -72,6 +72,7 @@ pub const REMOTE_ALLOW: &[&str] = &[
     // Context briefings: reading them is free; a new run from a phone spends the computer's API key,
     // so each phone gets `context.phoneDailyLimit` of them in a rolling 24 hours (429 limit_reached).
     "GET /tools/context/status",
+    "GET /tools/context/briefings",
     "GET /tools/context/briefings/:id",
     "POST /tools/context/briefings/:id",
     "GET /tools/context/runs/:rid",

@@ -1,14 +1,17 @@
 import type {
   ContextBriefing,
+  ContextBriefingEntry,
   ContextCitation,
   ContextClaim,
   ContextEntity,
   ContextEntityKind,
   ContextItem,
+  ContextLevel,
   ContextLink,
   ContextPhoneRuns,
   ContextRecord,
   ContextRun,
+  ContextRunStep,
   ContextSection,
   ContextSectionKind,
 } from "@/api/types";
@@ -654,12 +657,131 @@ export const LEVEL_LABELS = { general: "General", student: "Student", scholar: "
 export const BOOK_COST = "$0.20–0.70";
 export const FOCUS_COST = "$0.10–0.30";
 
+/** "one run", "10 runs". */
+function runsCount(n: number): string {
+  return n === 1 ? "one run" : `${n} runs`;
+}
+
 /** On a phone, its paid runs left today; null on the computer, which has no limit. */
 export function phoneRunsLine(phone: ContextPhoneRuns | null | undefined): string | null {
   if (!phone) return null;
+  if (phone.limit <= 0) return "New briefings are made on the computer; this phone can open them.";
   return phone.left <= 0
-    ? `This phone has started its ${phone.limit} for today; the computer can make one any time.`
+    ? `This phone has used its ${runsCount(phone.limit)} for today; the computer can make one any time.`
     : `This phone can start ${phone.left} more today.`;
+}
+
+/** The Refresh dialog's line on a phone: "This phone has 7 of its 10 runs a day left." */
+export function phoneRefreshLine(phone: ContextPhoneRuns): string {
+  if (phone.limit <= 0) return "New briefings are made on the computer; this phone can open them.";
+  if (phone.left <= 0) return `This phone has used its ${runsCount(phone.limit)} for today. The computer can make one any time.`;
+  if (phone.limit === 1) return "This phone can still start its one run for today.";
+  return `This phone has ${phone.left} of its ${phone.limit} runs a day left.`;
+}
+
+// ---- A run as it goes (Phase 4) ----
+
+/** "darwin-online.org.uk" ("www." dropped); the text as given when it isn't a URL. */
+export function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+const SOURCE_NAMES = { openLibrary: "Open Library", wikidata: "Wikidata", crossref: "Crossref" } as const;
+
+/** A step as one line: "Searched “Malthus Darwin 1838”", "Read plato.stanford.edu", "Looked up “Cecilia” in Open Library". */
+export function stepText(step: ContextRunStep): string {
+  switch (step.kind) {
+    case "search":
+      return step.ok ? `Searched “${step.query}”` : `A search for “${step.query}” failed`;
+    case "read":
+      return step.ok ? `Read ${hostOf(step.url)}` : `Couldn't read ${hostOf(step.url)}`;
+    case "lookup":
+      return step.ok
+        ? `Looked up “${step.query}” in ${SOURCE_NAMES[step.source] ?? step.source}`
+        : `Couldn't look up “${step.query}” in ${SOURCE_NAMES[step.source] ?? step.source}`;
+  }
+}
+
+/** "3 searches · 5 pages read · 4 lookups", leaving out what there's none of; null for no steps. */
+export function stepCounts(steps: ContextRunStep[] | undefined): string | null {
+  if (!steps?.length) return null;
+  const n = (kind: ContextRunStep["kind"]) => steps.filter((s) => s.kind === kind).length;
+  const parts = [
+    [n("search"), "search", "searches"],
+    [n("read"), "page read", "pages read"],
+    [n("lookup"), "catalogue lookup", "catalogue lookups"],
+  ] as const;
+  return parts
+    .filter(([count]) => count > 0)
+    .map(([count, one, many]) => `${count} ${count === 1 ? one : many}`)
+    .join(" · ");
+}
+
+/** "0:42", "1:05", "12:30". */
+export function elapsedLabel(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
+/** "Checking 31 sources behind 22 claims…" */
+export function checkingText(c: { sources: number; claims: number }): string {
+  const sources = c.sources === 1 ? "1 source" : `${c.sources} sources`;
+  const claims = c.claims === 1 ? "1 claim" : `${c.claims} claims`;
+  return `Checking ${sources} behind ${claims}…`;
+}
+
+/** The progress line: what the checker has before it once it has it, else the stage. */
+export function runLine(run: Pick<ContextRun, "stage" | "checking"> | undefined): string {
+  if (run?.stage === "checking" && run.checking) return checkingText(run.checking);
+  return STAGE_TEXT[run?.stage ?? "queued"];
+}
+
+// ---- The Assistant page: briefings by book (Phase 4) ----
+
+export interface BookBriefings {
+  docId: string;
+  /** Levels with a whole-book briefing, in General, Student, Scholar order. */
+  levels: ContextLevel[];
+  /** "Context for this" briefings: each focus once, newest first, with its levels. */
+  focuses: { focus: string; levels: ContextLevel[] }[];
+  /** The newest briefing's date, for the order. */
+  latest: string;
+}
+
+const LEVEL_ORDER: ContextLevel[] = ["general", "student", "scholar"];
+
+/** The server's list (newest first) grouped by book, the book with the newest briefing first. */
+export function groupBriefings(entries: ContextBriefingEntry[]): BookBriefings[] {
+  const books = new Map<string, BookBriefings>();
+  for (const e of entries) {
+    let b = books.get(e.docId);
+    if (!b) {
+      b = { docId: e.docId, levels: [], focuses: [], latest: e.generatedAt };
+      books.set(e.docId, b);
+    }
+    if (e.generatedAt > b.latest) b.latest = e.generatedAt;
+    if (e.focus === null) {
+      if (!b.levels.includes(e.level)) b.levels.push(e.level);
+      continue;
+    }
+    const key = focusKey(e.focus);
+    const f = b.focuses.find((x) => focusKey(x.focus) === key);
+    if (f) {
+      if (!f.levels.includes(e.level)) f.levels.push(e.level);
+    } else b.focuses.push({ focus: e.focus, levels: [e.level] });
+  }
+  const byLevel = (a: ContextLevel, b: ContextLevel) => LEVEL_ORDER.indexOf(a) - LEVEL_ORDER.indexOf(b);
+  return [...books.values()]
+    .map((b) => ({
+      ...b,
+      levels: b.levels.sort(byLevel),
+      focuses: b.focuses.map((f) => ({ ...f, levels: f.levels.sort(byLevel) })),
+    }))
+    .sort((a, b) => (a.latest < b.latest ? 1 : a.latest > b.latest ? -1 : 0));
 }
 
 // ---- "Context for this": a name or work selected in the book ----

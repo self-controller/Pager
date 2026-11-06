@@ -55,6 +55,29 @@ impl Core {
         Ok(id)
     }
 
+    /// Every stored briefing of a document still in the library: the newest per document, level and
+    /// focus (any version of the file), newest first. For the Assistant page's list.
+    pub fn briefing_list(&self) -> Result<Vec<BriefingEntry>> {
+        let rows: Vec<(String, String, String, Option<String>, String)> = self.all(
+            "SELECT b.document_id, b.level, b.focus, json_extract(b.briefing, '$.focus'), b.created_at FROM context_briefings b
+             JOIN documents d ON d.id = b.document_id AND d.deleted_at IS NULL
+             ORDER BY b.created_at DESC, b.rowid DESC",
+            params![],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+        )?;
+        let mut seen = std::collections::HashSet::new();
+        Ok(rows
+            .into_iter()
+            .filter(|(doc, level, focus, _, _)| seen.insert((doc.clone(), level.clone(), focus.clone())))
+            .filter_map(|(doc_id, level, key, focus, generated_at)| {
+                let level = Level::parse(&level)?;
+                // The focus as shown ("Malthus"); the key ("malthus") for a briefing stored without one.
+                let focus = if key.is_empty() { None } else { Some(focus.filter(|f| !f.trim().is_empty()).unwrap_or(key)) };
+                Some(BriefingEntry { doc_id, level, focus, generated_at })
+            })
+            .collect())
+    }
+
     pub fn briefing_run_insert(&self, run: &RunView, content_hash: &str, focus: &str, device_id: Option<&str>) -> Result<()> {
         self.exec(
             "INSERT INTO context_runs (id, document_id, content_hash, level, focus, device_id, status, stage, started_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
@@ -74,16 +97,12 @@ impl Core {
     pub fn briefing_run_get(&self, id: &str) -> Result<Option<RunView>> {
         self.one("SELECT id, document_id, level, status, stage, error, started_at, finished_at FROM context_runs WHERE id = ?1", params![id], |r| {
             let level: String = r.get(2)?;
-            Ok(RunView {
-                id: r.get(0)?,
-                doc_id: r.get(1)?,
-                level: Level::parse(&level).unwrap_or(Level::General),
-                status: r.get(3)?,
-                stage: r.get::<_, Option<String>>(4)?.unwrap_or_default(),
-                error: r.get(5)?,
-                started_at: r.get(6)?,
-                finished_at: r.get(7)?,
-            })
+            let mut v = RunView::new(r.get(0)?, r.get(1)?, Level::parse(&level).unwrap_or(Level::General), r.get(6)?);
+            v.status = r.get(3)?;
+            v.stage = r.get::<_, Option<String>>(4)?.unwrap_or_default();
+            v.error = r.get(5)?;
+            v.finished_at = r.get(7)?;
+            Ok(v)
         })
     }
 
@@ -122,6 +141,17 @@ impl Core {
 }
 
 const DAY_MS: i64 = 24 * 60 * 60 * 1000;
+
+/// A stored briefing, as the Assistant page lists it.
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BriefingEntry {
+    pub doc_id: String,
+    pub level: Level,
+    /// The name or work a focused briefing is about; None for the whole book.
+    pub focus: Option<String>,
+    pub generated_at: String,
+}
 
 /// A phone's paid runs in the last 24 hours, against its limit.
 #[derive(Clone, Debug)]

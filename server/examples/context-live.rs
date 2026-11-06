@@ -35,7 +35,9 @@ use pager_server::config::default_reads_dir;
 use pager_server::briefing::focus::parse_focus;
 use pager_server::briefing::lookup::Lookups;
 use pager_server::briefing::prompt::{system_prompt, tools, user_message};
-use pager_server::briefing::run::{finish, first_request, generate, seed, Limits, Research, Stage, Usage};
+use pager_server::briefing::run::{finish, first_request, generate, seed, Limits, Progress, Research, Stage, Usage};
+use pager_server::briefing::verify::draft_counts;
+use pager_server::briefing::RunStep;
 use pager_server::briefing::schema::{draft_schema, Briefing, CitationKind, Draft, Level};
 use pager_server::briefing::verify::Evidence;
 use pager_server::briefing::secrets::{load_api_key, secrets_path, KEY_VAR};
@@ -337,7 +339,14 @@ async fn main() {
         return;
     }
 
-    let progress = |s: Stage| eprintln!("… {}", s.as_str());
+    // The same progress the reader's panel shows, on stderr.
+    let progress = |p: Progress| match p {
+        Progress::Stage(s) => eprintln!("… {}", s.as_str()),
+        Progress::Step(RunStep::Search { query, ok }) => eprintln!("    searched “{query}”{}", if ok { "" } else { " (failed)" }),
+        Progress::Step(RunStep::Read { url, ok, .. }) => eprintln!("    read {url}{}", if ok { "" } else { " (failed)" }),
+        Progress::Step(RunStep::Lookup { source, query, ok }) => eprintln!("    looked up “{query}” in {source}{}", if ok { "" } else { " (failed)" }),
+        Progress::Checking(c) => eprintln!("    checking {} sources behind {} claims", c.sources, c.claims),
+    };
     let result = match &args.draft {
         Some(path) => {
             let draft: Draft = match serde_json::from_slice(&std::fs::read(path).expect("read the draft")) {
@@ -349,7 +358,8 @@ async fn main() {
             };
             let d = doc_id.clone();
             let ex = app.run(move |c| c.briefing_extract(&d)).await.expect("extract");
-            progress(Stage::Checking);
+            progress(Progress::Checking(draft_counts(&draft)));
+            progress(Progress::Stage(Stage::Checking));
             let research = Research { draft, evidence: Evidence::default(), model: "draft (Claude Code agent)".into() };
             Ok(finish(&app, ex, args.level, args.focus.clone(), research, Usage::default(), 0, &Limits::default(), std::time::Instant::now()).await)
         }
@@ -369,7 +379,7 @@ async fn main() {
                     println!("  - {} — {}", d.what, d.reason);
                 }
             }
-            println!("\nModel: {}. Usage: {}. Lookups: {}. Time: {} s.", b.model, g.usage.summary(), b.stats.lookups, b.stats.duration_ms / 1000);
+            println!("\nModel: {}. Usage: {}. Lookups: {}. Time: {} s ({}).", b.model, g.usage.summary(), b.stats.lookups, b.stats.duration_ms / 1000, g.usage.timings.summary());
             let focus_part = args.focus.as_deref().map(|f| format!("-{}", slug(Path::new(f)))).unwrap_or_default();
             let out = args.out.clone().unwrap_or_else(|| PathBuf::from(format!("context-{}{focus_part}-{}.json", slug(&book), args.level.as_str())));
             std::fs::write(&out, serde_json::to_vec_pretty(&json!({ "briefing": b, "dropped": g.report.dropped, "usage": g.usage.to_json() })).unwrap()).expect("write the JSON");
@@ -379,7 +389,7 @@ async fn main() {
             }
         }
         Err((f, usage)) => {
-            eprintln!("Failed: {}\nUsage so far: {}", f.message(), usage.summary());
+            eprintln!("Failed: {}\nUsage so far: {}. Time: {}.", f.message(), usage.summary(), usage.timings.summary());
             std::process::exit(1);
         }
     }

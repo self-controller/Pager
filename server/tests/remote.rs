@@ -295,6 +295,7 @@ async fn no_path_on_this_computer_leaves_it() {
         ("GET /tree", vec!["/tree".into()]),
         ("GET /sync/manifest", vec!["/sync/manifest".into(), "/sync/manifest?after=0".into()]),
         ("GET /tools/context/status", vec!["/tools/context/status".into()]),
+        ("GET /tools/context/briefings", vec!["/tools/context/briefings".into()]),
         ("GET /tools/context/briefings/:id", vec![format!("/tools/context/briefings/{did}"), format!("/tools/context/briefings/{did}?level=scholar")]),
         ("GET /tools/context/runs/:rid", vec!["/tools/context/runs/r1".into()]),
     ];

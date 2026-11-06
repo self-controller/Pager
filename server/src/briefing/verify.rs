@@ -421,6 +421,46 @@ impl Shape {
     }
 }
 
+/// What the checker has before it, for the progress view: the distinct sources cited (pages by
+/// URL, records, the book's own front matter, and the works named) and the claims citing them.
+pub fn draft_counts(draft: &Draft) -> super::Checking {
+    let mut sources: HashSet<String> = HashSet::new();
+    let mut claims = 0u32;
+    let mut note = |c: &Claim, sources: &mut HashSet<String>| {
+        claims += 1;
+        for cit in c.citations.iter().take(MAX_CITATIONS) {
+            let key = match cit.kind {
+                CitationKind::Book => "book".to_string(),
+                CitationKind::Page => format!("page:{}", norm_url(cit.url.as_deref().unwrap_or(&cit.title))),
+                CitationKind::Record => match &cit.record {
+                    Some(r) => format!("record:{:?}:{}", r.kind, r.value.trim()),
+                    None => continue,
+                },
+            };
+            sources.insert(key);
+        }
+    };
+    for s in &draft.sections {
+        for it in &s.items {
+            if let Some(w) = &it.work {
+                sources.insert(format!("record:{:?}:{}", w.record.kind, w.record.value.trim()));
+            }
+            for c in &it.claims {
+                note(c, &mut sources);
+            }
+            for side in it.disagreement.iter().flat_map(|d| d.sides.iter()) {
+                for c in &side.claims {
+                    note(c, &mut sources);
+                }
+            }
+        }
+    }
+    for l in &draft.links {
+        note(&l.claim, &mut sources);
+    }
+    super::Checking { sources: sources.len() as u32, claims }
+}
+
 /// Check a whole-book draft against its evidence. Lookups run up to six at a time.
 pub async fn verify(draft: Draft, evidence: &Evidence, lookups: &Lookups) -> Verified {
     verify_shaped(draft, evidence, lookups, Shape::Book).await

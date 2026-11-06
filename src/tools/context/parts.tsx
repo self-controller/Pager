@@ -1,10 +1,14 @@
-import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import { ArrowUpRight, ChevronRight, EyeOff } from "lucide-react";
-import type { ContextBriefing, ContextClaim, ContextLink } from "@/api/types";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { ArrowUpRight, ChevronRight, EyeOff, Globe, Library, Search } from "lucide-react";
+import type { ContextBriefing, ContextClaim, ContextLink, ContextRun, ContextRunStep } from "@/api/types";
 import { cx } from "@/lib/cx";
 import {
   citationView,
   distinctCitations,
+  elapsedLabel,
+  runLine,
+  stepCounts,
+  stepText,
   entityById,
   entityDates,
   itemsAbout,
@@ -205,4 +209,111 @@ export function useWidth<T extends HTMLElement>(fallback: number): [RefObject<T 
     return () => ro.disconnect();
   }, []);
   return [ref, width];
+}
+
+// ---- A run as it goes (Phase 4) ----
+
+/**
+ * The time a run has taken, ticking each second between polls: the server's `elapsedMs` when the run
+ * was fetched, plus the time since (so a phone's clock doesn't matter). Null when the run hasn't said.
+ */
+export function useElapsed(run: ContextRun | undefined, fetchedAt: number): string | null {
+  const [now, setNow] = useState(() => Date.now());
+  const running = run?.status === "running" && run.elapsedMs !== undefined;
+  useEffect(() => {
+    if (!running) return;
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, [running]);
+  if (!running) return null;
+  return elapsedLabel(run.elapsedMs! + Math.max(0, now - (fetchedAt || now)));
+}
+
+function StepIcon({ kind }: { kind: ContextRunStep["kind"] }) {
+  const Icon = kind === "search" ? Search : kind === "read" ? Globe : Library;
+  return <Icon size={13} strokeWidth={2} aria-hidden className="shrink-0 text-fg-3" />;
+}
+
+/** The run's latest steps, oldest first; earlier ones are counted. */
+export function StepList({ steps, max }: { steps: ContextRunStep[] | undefined; max: number }) {
+  if (!steps?.length) return null;
+  const from = Math.max(0, steps.length - max);
+  return (
+    <ol aria-label="What it has done so far" className="flex flex-col gap-1 font-sans text-[12.5px] leading-[18px]">
+      {from > 0 && <li className="pl-[21px] text-fg-3">{from === 1 ? "1 earlier step" : `${from} earlier steps`}</li>}
+      {steps.slice(from).map((s, i) => (
+        <li
+          key={from + i}
+          className={cx("context-step flex min-w-0 items-center gap-2", s.ok ? "text-fg-2" : "text-fg-3")}
+          title={s.kind === "read" ? (s.title ? `${s.title}\n${s.url}` : s.url) : undefined}
+        >
+          <StepIcon kind={s.kind} />
+          <span className="min-w-0 truncate">{stepText(s)}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/**
+ * A run in progress: a moving bar, what it's doing (the stage, or what the checker has before it) with
+ * the time so far, the counts, and its latest steps (they stay while it checks; the one-line form drops
+ * its step then, as it's no longer what's happening). `lead` goes before the line ("Making a new
+ * briefing: "); `steps` is how many to list (0: only the newest, on one line).
+ */
+export function RunProgress({
+  run,
+  fetchedAt,
+  lead,
+  steps,
+  children,
+}: {
+  run: ContextRun | undefined;
+  fetchedAt: number;
+  lead?: string;
+  steps: number;
+  children?: ReactNode;
+}) {
+  const elapsed = useElapsed(run, fetchedAt);
+  const line = runLine(run);
+  const counts = stepCounts(run?.steps);
+  const latest = run?.steps?.at(-1);
+  return (
+    <div className="flex flex-col">
+      <div className="relative h-0.5 overflow-hidden rounded-full bg-surface-2" aria-hidden>
+        <div className="context-progress absolute inset-y-0 w-1/3 rounded-full bg-accent" />
+      </div>
+      <div className="mt-3 flex items-baseline justify-between gap-3">
+        <p role="status" aria-live="polite" className="font-sans text-[14px] leading-5 font-medium">
+          {lead ? `${lead}${line.charAt(0).toLowerCase()}${line.slice(1)}` : line}
+        </p>
+        {elapsed && (
+          <span className="shrink-0 font-sans text-[12.5px] leading-4 text-fg-3 tabular-nums">
+            <span className="sr-only">Time so far: </span>
+            {elapsed}
+          </span>
+        )}
+      </div>
+      {counts && <p className="mt-0.5 font-sans text-[12.5px] leading-[18px] text-fg-3">{counts}</p>}
+      {steps > 0 ? (
+        run?.steps?.length ? (
+          <div className="mt-2.5">
+            <StepList steps={run.steps} max={steps} />
+          </div>
+        ) : null
+      ) : (
+        latest &&
+        run?.stage !== "checking" && (
+          <p
+            key={run!.steps!.length}
+            className="context-step mt-1 flex min-w-0 items-center gap-2 font-sans text-[12.5px] leading-[18px] text-fg-2"
+          >
+            <StepIcon kind={latest.kind} />
+            <span className="min-w-0 truncate">{stepText(latest)}</span>
+          </p>
+        )
+      )}
+      {children}
+    </div>
+  );
 }

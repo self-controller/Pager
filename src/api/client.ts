@@ -2,6 +2,7 @@ import type {
   Annotation,
   AppSettings,
   AppSettingsPatch,
+  ContextBriefingList,
   ContextLevel,
   ContextRun,
   ContextState,
@@ -117,4 +118,6 @@ export interface PagerApi {
   startContextBriefing(docId: string, input: StartContextInput): Promise<StartContextResult>;
   /** Poll every 2 s while it runs. */
   getContextRun(runId: string): Promise<ContextRun>;
+  /** Every book with a stored briefing (whole-book and focused), newest first: the Assistant page's list. */
+  listContextBriefings(): Promise<ContextBriefingList>;
 }

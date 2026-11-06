@@ -215,7 +215,10 @@ With no key, Context says so and makes no calls.
   quotes.
 - **Cost:** capped per run in `src/briefing/mod.rs` (calls, tokens, searches, fetches, time). Each run
   prints a line with its tokens, searches, fetches and estimated cost, e.g. `context: run … done in
-  74 s; 9 calls, input 182k (cache read 140k, written 30k), output 21k, 8 searches, 6 fetches, ≈ $0.55`.
+  74 s; 9 calls, input 182k (cache read 140k, written 30k), output 21k, 8 searches, 6 fetches, ≈ $0.55`,
+  then where the time went: `time: reading 0.1 s, seed lookups 0.7 s, API calls 21.3 + 18.0 + 38.9 s,
+  catalogue lookups 0.2 s, checking 6.3 s`. The same is stored with the run (`context_runs.usage`,
+  `timings`). `context-live` prints both, and each step as it happens.
 - **Trying it by hand:** `cargo run --release --example context-live -- <book.epub> [--level scholar]`
   runs the real pipeline on one book with your key and prints what was kept and dropped and why;
   `--dry-run` prints the exact request that would be sent, with no key and no network.
@@ -232,6 +235,12 @@ With no key, Context says so and makes no calls.
   tests/fixtures/context/samples/<name>.briefing.json --store .data-dev` stores a verified sample for
   the matching book in the dev library (the same books are in the repository's `reads/context-test/`);
   `--draft FILE --store .data-dev` verifies a draft first. Never part of the server's API.
+- **Watching a run in the UI without the API (dev only):** `PAGER_DATA_DIR=<a copy of .data-dev>
+  cargo run --example context-replay` serves Pager like `dev:server`, but answers every call to
+  Anthropic's API itself from the test fixtures, 8 s apart (`REPLAY_DELAY_MS`; `REPLAY_FETCH_DELAY_MS`
+  slows the catalogue and page requests, to watch the checking). It holds a placeholder instead of a
+  key and sends nothing to the API. The briefing it makes is the fixtures' Darwin one for any book,
+  so point it at a copy of the dev data.
 
 ## Security
 

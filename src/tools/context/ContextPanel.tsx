@@ -27,8 +27,8 @@ import {
   generatedLabel,
   LEVEL_LABELS,
   orderedSections,
+  phoneRefreshLine,
   phoneRunsLine,
-  STAGE_TEXT,
   usableLinks,
   viewShows,
   viewsFor,
@@ -36,7 +36,7 @@ import {
   type ContextView,
   type ItemRef,
 } from "./model";
-import { EntityDetail } from "./parts";
+import { EntityDetail, RunProgress } from "./parts";
 import { PlacesMap } from "./PlacesMap";
 import { clearReveal, setPanelFocus, usePanelFocus, usePendingReveal } from "./store";
 import { Timeline } from "./Timeline";
@@ -61,8 +61,22 @@ export function ContextPanel({ context }: ToolPanelProps) {
   return <ContextForDocument key={`${context.doc.id}:${focus ?? ""}`} doc={context.doc} focus={focus} />;
 }
 
-/** The whole book's briefing, or with `focus` the briefing on that name or work in it. */
-function ContextForDocument({ doc, focus }: { doc: DocumentDetail; focus: string | null }) {
+/**
+ * The whole book's briefing, or with `focus` the briefing on that name or work in it. In the reader's
+ * panel, and on the Assistant page, whose `onWholeBook` leaves a focused briefing by its own route.
+ */
+export function ContextForDocument({
+  doc,
+  focus,
+  onWholeBook = () => setPanelFocus(null),
+  bookShown = false,
+}: {
+  doc: DocumentDetail;
+  focus: string | null;
+  onWholeBook?: () => void;
+  /** The page already names the book above: a focused briefing's header leaves out "in <book>". */
+  bookShown?: boolean;
+}) {
   const { contextLevel: level } = useSettings();
   const status = useContextStatus();
   const state = useContextBriefing(doc.id, level, focus);
@@ -150,7 +164,7 @@ function ContextForDocument({ doc, focus }: { doc: DocumentDetail; focus: string
 
   return (
     <div className="flex min-h-full flex-col">
-      {focus && <FocusHeader focus={focus} doc={doc} />}
+      {focus && <FocusHeader focus={focus} doc={bookShown ? null : doc} onWholeBook={onWholeBook} />}
       {views.length > 1 && (
         <div className="sticky top-0 z-10 border-b border-detail bg-surface px-3 py-2">
           <SegmentedTabs
@@ -166,7 +180,7 @@ function ContextForDocument({ doc, focus }: { doc: DocumentDetail; focus: string
       {shown === "briefing" ? (
         <>
           <LevelSwitcher level={level} />
-          {running && <RunStatus run={run.data} compact={Boolean(briefing)} />}
+          {running && <RunStatus run={run.data} fetchedAt={run.dataUpdatedAt} compact={Boolean(briefing)} />}
           {failed && !running && (
             <Notice tone="error">
               <span className="font-semibold">{briefing ? "The new briefing stopped." : "The briefing stopped."}</span>{" "}
@@ -255,21 +269,17 @@ function LevelSwitcher({ level }: { level: ContextLevel }) {
   );
 }
 
-function RunStatus({ run, compact }: { run: ContextRun | undefined; compact: boolean }) {
-  const stage = run?.stage ?? "queued";
+function RunStatus({ run, fetchedAt, compact }: { run: ContextRun | undefined; fetchedAt: number; compact: boolean }) {
   return (
-    <div role="status" aria-live="polite" className={cx("px-5", compact ? "border-b border-detail py-3" : "py-8")}>
-      <div className="relative h-0.5 overflow-hidden rounded-full bg-surface-2" aria-hidden>
-        <div className="context-progress absolute inset-y-0 w-1/3 rounded-full bg-accent" />
-      </div>
-      <p className="mt-3 font-sans text-[14px] leading-5 font-medium">
-        {compact ? `Making a new briefing: ${STAGE_TEXT[stage].toLowerCase()}` : STAGE_TEXT[stage]}
-      </p>
-      {!compact && (
-        <p className="mt-1 font-sans text-[13px] leading-[18px] text-fg-2">
-          This takes a minute or two. You can keep reading: the briefing is made on your computer and will be here when it's done.
-        </p>
-      )}
+    <div className={cx("px-5", compact ? "border-b border-detail py-3" : "py-8")}>
+      <RunProgress run={run} fetchedAt={fetchedAt} lead={compact ? "Making a new briefing: " : undefined} steps={compact ? 0 : 6}>
+        {!compact && (
+          <p className="mt-4 font-sans text-[13px] leading-[18px] text-fg-2">
+            This takes a minute or two. You can keep reading: the briefing is made on your computer and will be here when it's
+            done.
+          </p>
+        )}
+      </RunProgress>
     </div>
   );
 }
@@ -322,21 +332,23 @@ function MakeOne({
 }
 
 /** A focused briefing's header: back to the whole book, then what it is about. */
-function FocusHeader({ focus, doc }: { focus: string; doc: DocumentDetail }) {
+function FocusHeader({ focus, doc, onWholeBook }: { focus: string; doc: DocumentDetail | null; onWholeBook: () => void }) {
   return (
     <div className="border-b border-detail px-5 pt-2 pb-4">
       <button
         type="button"
-        onClick={() => setPanelFocus(null)}
+        onClick={onWholeBook}
         className="-ml-1.5 inline-flex h-9 items-center gap-1 rounded-sm px-1.5 font-sans text-[13px] leading-4 font-semibold text-accent transition-hover hover:text-accent-hover"
       >
         <ArrowLeft size={14} strokeWidth={2} aria-hidden />
         The whole book
       </button>
       <h2 className="font-display text-[20px] leading-7 font-semibold">{focus}</h2>
-      <p className="font-sans text-[13px] leading-[18px] text-fg-2">
-        in <cite className="font-serif text-[14px] text-fg-2 italic">{doc.title}</cite>
-      </p>
+      {doc && (
+        <p className="font-sans text-[13px] leading-[18px] text-fg-2">
+          in <cite className="font-serif text-[14px] text-fg-2 italic">{doc.title}</cite>
+        </p>
+      )}
     </div>
   );
 }
@@ -412,13 +424,7 @@ function RefreshDialog({
           Pager asks the model again and checks every source.{cost && ` The last one cost about ${cost}.`} This briefing stays
           until the new one is ready.
         </p>
-        {phone && (
-          <p className="text-fg-2">
-            {none
-              ? `This phone has started its ${phone.limit} runs for today. The computer can make one any time.`
-              : `This phone has ${phone.left} of its ${phone.limit} runs a day left.`}
-          </p>
-        )}
+        {phone && <p className="text-fg-2">{phoneRefreshLine(phone)}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="tertiary" onClick={onCancel}>
             Cancel

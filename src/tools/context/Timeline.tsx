@@ -58,9 +58,10 @@ export function Timeline({ briefing, focus, onFocus }: Props) {
                   type="button"
                   aria-pressed={focused}
                   onClick={() => onFocus(focused ? null : r.entity.id)}
-                  className={cx("group relative block w-full py-1.5 text-left", focused && "bg-accent-bg/60")}
+                  className="group relative block w-full py-1.5 text-left"
                 >
-                  {/* The label starts at its mark, or ends at it in the right half, so it never runs off. */}
+                  {/* The label starts at its mark, or ends at it in the right half, so it never runs off. It sits
+                      on the page colour, so the grid and the book's line pass behind the words. */}
                   <span
                     className={cx(
                       "relative z-[1] block truncate font-sans text-[12.5px] leading-[18px]",
@@ -68,10 +69,14 @@ export function Timeline({ briefing, focus, onFocus }: Props) {
                     )}
                     style={left > 0.5 ? { paddingRight: `${(1 - (right ?? left)) * 100}%` } : { paddingLeft: `${left * 100}%` }}
                   >
-                    <span className={cx("font-semibold", focused || isBook ? "text-accent" : "text-fg group-hover:text-accent")}>
-                      {r.entity.name}
-                    </span>{" "}
-                    <span className="text-fg-3 tabular-nums">{entityDates(r.entity)}</span>
+                    <span className="context-label">
+                      <span
+                        className={cx("font-semibold", focused || isBook ? "text-accent" : "text-fg group-hover:text-accent")}
+                      >
+                        {r.entity.name}
+                      </span>{" "}
+                      <span className={cx("tabular-nums", focused ? "text-accent" : "text-fg-3")}>{entityDates(r.entity)}</span>
+                    </span>
                   </span>
                   <span className="relative mt-1 block h-2">
                     {right !== null ? (

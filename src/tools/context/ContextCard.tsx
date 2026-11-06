@@ -22,11 +22,10 @@ import {
   phoneRunsLine,
   relationLine,
   sectionTitle,
-  STAGE_TEXT,
   type BriefingMatch,
   type FocusText,
 } from "./model";
-import { Claim, LinkClaim, SpoilerFold } from "./parts";
+import { Claim, LinkClaim, RunProgress, SpoilerFold } from "./parts";
 import { closeCard, revealInPanel, setPanelFocus, type ContextCardState } from "./store";
 
 /**
@@ -171,14 +170,12 @@ function CardContent({ doc, focus }: { doc: DocumentDetail; focus: FocusText }) 
       <>
         <Body>
           <Title>{focus.text}</Title>
-          <div role="status" aria-live="polite" className="pt-1">
-            <div className="relative h-0.5 overflow-hidden rounded-full bg-surface-2" aria-hidden>
-              <div className="context-progress absolute inset-y-0 w-1/3 rounded-full bg-accent" />
-            </div>
-            <p className="mt-3 font-sans text-[14px] leading-5 font-medium">{STAGE_TEXT[run.data?.stage ?? "queued"]}</p>
-            <p className="mt-1 font-sans text-[13px] leading-[18px] text-fg-2">
-              You can close this; it will be here when it's done.
-            </p>
+          <div className="pt-1">
+            <RunProgress run={run.data} fetchedAt={run.dataUpdatedAt} steps={0}>
+              <p className="mt-2 font-sans text-[13px] leading-[18px] text-fg-2">
+                You can close this; it will be here when it's done.
+              </p>
+            </RunProgress>
           </div>
         </Body>
         <Footer>

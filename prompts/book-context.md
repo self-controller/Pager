@@ -239,6 +239,21 @@ conversation, then situation, then moment.
      (the iPhone app's text menu is a fixed list); a phone's browser shows the web menu, and focused
      runs count toward the phone's daily limit like any paid run.
 
+12. **Phase 4, polish** (asked 2026-11-06, before it was built):
+   - **Streaming: show the research live, don't stream the answer.** No change to how the API is
+     called. While a briefing is made, the panel (and the card) show each step: the searches run,
+     the pages read, the catalogue lookups, then "Checking 31 sources behind 22 claims…", with the
+     time so far. Streaming the model's answer section by section was offered and declined: it would
+     change every API call (SSE, a field per section, no strict validation while streaming), and
+     only a paid run could test it. Per the streaming docs, a tool input arrives one whole top-level
+     key at a time, so with today's `sections` array nothing would arrive before the whole briefing.
+   - **Measurements: the server's log only.** Each run records where its time went (reading, seed
+     lookups, each API call, the model's lookups, checking) in its log line and its stored usage; no
+     usage line on screen, and the cost lines stay the fixed estimates.
+   - **The Assistant page: briefings by book.** The books with briefings (whole-book levels and
+     "Context for this" names); tapping one shows it at the page's width, with "Open the book"; a
+     "Choose a book" picker makes one for any book in the library.
+
 ## API facts (checked against Anthropic's docs on 2026-11-05)
 There is no official Rust SDK, so the server calls `POST https://api.anthropic.com/v1/messages`
 over raw HTTP with `reqwest` (already in the dependency tree through iroh).
@@ -316,7 +331,8 @@ test books, and Phase 2's UI is built against that real output (decided 2026-11-
   is a fixed list (`NativeMenuItem` in `src/lib/native.ts`, mirrored in Swift), so the
   action is web-only until the app adds an item.
 - **Phase 4 (optional): polish.** Cost and latency measurements, streaming sections in as
-  they're verified, and the Assistant page entry.
+  they're verified, and the Assistant page entry. (Built 2026-11-06 as Decision 12 chose: the
+  research shown live instead of streamed sections, timings in the log.)
 
 If one phase turns out to be large, split it again rather than leaving it half done.
 
@@ -710,3 +726,91 @@ runs left.
 
 **Left:** Phase 4 (polish: streaming sections, cost and latency measurements, the Assistant page
 entry). The iPhone app could add a "Context for this" item to its native menu later.
+
+### Phase 4: polish (2026-11-06)
+**Asked first** (see Decision 12): the research shown live, not streamed sections; timings in the
+server's log only; briefings by book on the Assistant page.
+
+**Built:**
+- **The research, live** (`server/src/briefing/run.rs`, `mod.rs`):
+  - `generate` reports `Progress`: the stage, each `RunStep` and, once the draft is in, `Checking
+    { sources, claims }` (`verify::draft_counts`: distinct pages by normalised URL, records, the
+    book's front matter and works named; every claim, links included).
+  - Steps: the two seed lookups; each API answer's `web_search` and `web_fetch` uses
+    (`run::steps_in`, paired with their results: an `error_code` marks one failed, a paused turn's
+    pending result counts as done); the model's `find_book` / `find_entity` / `find_article` as they
+    run. At most 100 per run.
+  - `RunView` gains `steps`, `checking` and `elapsedMs` (by the computer's clock, so a phone's doesn't
+    matter), served only while the run goes; the stored row keeps the outcome.
+  - Web: `RunProgress` and `StepList` (`parts.tsx`). The panel shows the stage (or the checking line)
+    with the time so far ticking between polls, the counts ("4 searches · 3 pages read · 3 catalogue
+    lookups") and the newest six steps, earlier ones counted; they stay while it checks. A Refresh's
+    compact line and the card show the counts and the newest step on one line. A new step slides in
+    (not with reduced motion).
+- **Measurements** (`run::Timings` in `Usage`): reading, seed lookups, each API call (retries
+  included), the model's catalogue lookups and the checking; in the log line ("time: reading 0.1 s,
+  seed lookups 0.7 s, API calls 8.0 + 8.0 + 8.0 s, catalogue lookups 0.2 s, checking 0.6 s"), in
+  `context_runs.usage` and `context_briefings.usage` (`timings`), and in `context-live`'s output,
+  which also prints each step as it happens. Failed runs record theirs too. Not in any response.
+- **The Assistant page** (`ContextHome.tsx`, through a new `PagerTool.Page` seam):
+  - `GET /tools/context/briefings` (in `REMOTE_ALLOW`): the newest briefing per document, level and
+    focus, for documents still in the library, newest first.
+  - "Your briefings": each book with its levels and its "Context for this" names (links); "Choose a
+    book" (a dialog filtering the library by title or author). A book opens at the page's width
+    (`?doc=…&focus=…` in the address, so Back works), with "← All briefings", the title and author,
+    "Open the book" (the reader opens with the panel on the same view: `openTool` in the reader's
+    navigation state, and the panel's focus set) and its other "Context for this" names. It is the
+    same `ContextForDocument` as the panel, so every state works there (making one, Refresh, levels,
+    graphics, full screen); a focused briefing's header leaves out "in <book>" there.
+  - The Assistant page's tool sections have a real border, clipped without making a scroll box (the
+    sticky tabs painted over the old inset-shadow outline).
+- **Fixed on the way:** the timeline's grid and book-year line ran through the labels. The labels now
+  sit on the page colour (`.context-label`; the elevated colour in full screen), and a tapped row
+  shows by its blue label, dates and bar instead of a tint, which would have clashed with the label's
+  box.
+- **Dev only:** `cargo run --example context-replay` serves Pager with Anthropic's API answered from
+  the test fixtures, 8 s a call (`REPLAY_DELAY_MS`, `REPLAY_FETCH_DELAY_MS`); a placeholder instead
+  of a key, nothing sent to the API. Its briefing is the fixtures' Darwin one for any book, so run it
+  on a copy of the dev data.
+
+**Verified:**
+- `cargo test`: all suites pass. New in `server/tests/briefing.rs`: `steps_in` on the fixture and on
+  failed, paused and other server tools; `draft_counts` (the same page with and without "www." and a
+  trailing slash is one source); a run's progress through `generate` (the stages in order, the seed
+  lookups, each answer's search and reads, the model's lookup, the checking counts just before the
+  checking stage, three call timings); a run held at its first call by a gate (the seed steps and
+  `elapsedMs` over GET run and the book's state, the clock advanced 65 s, the first answer's steps,
+  then the stored outcome with no steps and the timings in the run's row, none in the briefing's
+  stats); a failed run's timings; the list route (empty, a whole-book and a focused briefing with the
+  focus as shown, a Refresh replacing its entry, a deleted book dropping out). The remote suite's
+  no-paths test covers the new GET from a phone.
+- `npm test`: 232 pass; `npm run typecheck` and `npm run build` pass (the main bundle 679 KB; the
+  Assistant page's part a 7 KB lazy chunk). New: the fifth client method (http and mock), step lines,
+  counts, the time label, the checking line, and grouping the list by book.
+- In a browser (Playwright's Chromium over CDP, against `context-replay` on a scratch copy of the dev
+  data, with an empty `XDG_CONFIG_HOME` and no key): at 1440 px, a new Student briefing in the panel
+  (the seed lookups at 0:02, the first answer's steps at 0:11 with a failed search and a failed read
+  greyed, "Checking 11 sources behind 19 claims…" at 0:34, then the briefing); a Refresh's compact
+  line through to "checking"; the card's run on "naturalist"; the Assistant page's list, a focused
+  briefing from it, the whole book, the map, the picker filtering to "zara", making a briefing from
+  the page, and "Open the book" landing in the reader with the panel on the same focused view. At
+  390 px: the Assistant list, book and focus views with the sticky tabs, and a run in the tool sheet.
+  The dark theme: the list, a run, the briefing, the map, the timeline and the places map. No page
+  errors.
+- **A paired phone, in a browser** (left open since Phase 2): a browser paired over the remote
+  listener on the scratch data (the device cookie set over CDP, the app built with `VITE_USE_HTTP=1`),
+  at 390 px. The Refresh dialog and the card's offer with one run left; the limit lowered to 0 on the
+  computer, then "Make a briefing": the calm 429 note; a run started, counted at once (`used` 2 of 2);
+  then the card's offer and the Refresh dialog with none left, their buttons off. The phone also gets
+  the new list route (401 without its token). Two fixes from it: after a refused start the phone's
+  status is fetched again (the card had kept saying "can start 1 more today" under the 429 note), and
+  the phone lines read right for a limit of 1 ("its one run") and of 0 ("New briefings are made on the
+  computer; this phone can open them.") instead of "its 1 runs" (`phoneRunsLine`, `phoneRefreshLine`).
+
+**Not verified:** the live steps against the real API (the replay's answers have the documented
+shapes; a real run's searches and reads arrive per call, so the list grows in a few jumps); a real
+device.
+
+**Left:** nothing planned. The real API on schema v2 and on a focused run stays the user's paid check.
+Later ideas: streaming sections (Decision 12 says why not now), the iPhone app's native "Context for
+this" item.

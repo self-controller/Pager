@@ -8,6 +8,7 @@ import {
   type Annotation,
   type ApiErrorBody,
   type AppSettings,
+  type ContextBriefingList,
   type ContextRun,
   type ContextState,
   type ContextStatus,
@@ -247,5 +248,6 @@ export function createHttpApi(base = "/api", fetchImpl: typeof fetch = fetch.bin
       ),
     startContextBriefing: (docId, input) => request<StartContextResult>(`/tools/context/briefings/${enc(docId)}`, json("POST", input)),
     getContextRun: (runId) => request<ContextRun>(`/tools/context/runs/${enc(runId)}`),
+    listContextBriefings: () => request<ContextBriefingList>(`/tools/context/briefings`),
   };
 }

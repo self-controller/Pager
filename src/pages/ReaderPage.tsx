@@ -35,7 +35,7 @@ import { cx } from "@/lib/cx";
 import { isNativeApp } from "@/lib/native";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { updateSettings, useSettings } from "@/state/settings";
-import { onToolPanelRequest, useTools } from "@/tools/registry";
+import { onToolPanelRequest, openToolPanel, useTools } from "@/tools/registry";
 import { useSelection } from "@/tools/useSelection";
 import type { ToolContext } from "@/tools/types";
 
@@ -54,6 +54,8 @@ type NavState = {
   /** The back pill's place in another chapter: opened there, on the page holding these words. */
   point?: { blockId: string; offset: number };
   reattach?: Reattach;
+  /** Opened from a tool's page (the Assistant page's "Open the book"): open the tool panel on it. */
+  openTool?: string;
 } | null;
 
 export function ReaderPage() {
@@ -96,6 +98,12 @@ export function ReaderPage() {
   );
   // A tool's overlay asked for its panel ("Open in Context").
   useEffect(() => onToolPanelRequest(() => setToolsOpen(true)), [setToolsOpen]);
+  // Arriving from a tool's page: the panel open on that tool, once.
+  const openTool = navState?.openTool;
+  useEffect(() => {
+    if (!openTool) return;
+    openToolPanel(openTool);
+  }, [openTool]);
   const overlays = useTools().filter((t) => t.Overlay);
 
   // Arriving from "Couldn't find these" → Reattach: the next selection moves that highlight.

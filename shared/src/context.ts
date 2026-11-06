@@ -164,6 +164,16 @@ export interface ContextBriefing {
   stats: ContextStats;
 }
 
+/**
+ * One thing a run did, oldest first, for the progress view: a web search the model ran, a page it read,
+ * or a catalogue lookup (the seed lookups and the model's find_book / find_entity / find_article).
+ * Searches and pages arrive as each API call returns (a call can run several); lookups as they happen.
+ */
+export type ContextRunStep =
+  | { kind: "search"; query: string; ok: boolean }
+  | { kind: "read"; url: string; title?: string; ok: boolean }
+  | { kind: "lookup"; source: "openLibrary" | "wikidata" | "crossref"; query: string; ok: boolean };
+
 export interface ContextRun {
   id: string;
   docId: string;
@@ -174,6 +184,26 @@ export interface ContextRun {
   error?: string;
   startedAt: string;
   finishedAt?: string;
+  /** While running: what it has done so far (at most 100). Absent once it has ended. */
+  steps?: ContextRunStep[];
+  /** While checking: the distinct sources cited and the claims citing them. */
+  checking?: { sources: number; claims: number };
+  /** While running: milliseconds since it started, by the computer's clock. */
+  elapsedMs?: number;
+}
+
+/** One stored briefing, for the Assistant page: the newest per document, level and focus. */
+export interface ContextBriefingEntry {
+  docId: string;
+  level: ContextLevel;
+  /** The name or work a focused briefing is about; null for the whole book. */
+  focus: string | null;
+  generatedAt: string;
+}
+
+/** GET /api/tools/context/briefings: every document still in the library with a briefing, newest first. */
+export interface ContextBriefingList {
+  briefings: ContextBriefingEntry[];
 }
 
 /** A paired phone's paid runs in the last 24 hours against `context.phoneDailyLimit`. */
