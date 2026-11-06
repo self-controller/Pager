@@ -353,6 +353,7 @@ are unchanged.
 | `GET /settings`, `PATCH /settings/global`, `PATCH /settings/documents/:id`, `DELETE /settings/documents/:id`, `GET /presets` | reading settings |
 | `POST /events`, `GET /stream`, `GET /assets/:file`, `GET /tree`, `GET /sync/manifest` | the journal (recording switches apply), the stream, images, the folder tree, the manifest |
 | `GET /tools/context/status`, `GET /tools/context/briefings`, `GET/POST /tools/context/briefings/:id`, `GET /tools/context/runs/:rid` | Context briefings; a new run counts toward the phone's daily limit (see [Context](#context-sourced-briefings-phase-1)) |
+| `GET /tools/context/media` | The map's pictures and Wikipedia intros: free, nothing counts toward a limit |
 | `GET /health` | answered by the remote listener itself: `{ app, apiVersion, version, remote: { device: { id, name } } \| null }` |
 
 Refused: `PATCH /settings/app` and changes to presets; `GET /events` and `DELETE /events`; `/sources*`;
@@ -484,13 +485,17 @@ name or a title …"). A focused run from a phone counts toward its daily limit 
 | `POST /tools/context/briefings/:docId` | `{ level?, refresh?, focus? }`. A cached briefing (and no `refresh`): 200 `{ briefing, run: null }`. Otherwise 202 `{ briefing: null, run }`: a new run, or the one already running for this book, level, focus and file version. No key: 503 `not_configured`, and nothing is sent anywhere. A bad focus: 400 `invalid_request`. A phone past its daily limit: 429 `limit_reached` (below). |
 | `GET /tools/context/runs/:runId` | `ContextRun { id, docId, level, status: running\|done\|failed, stage, error?, startedAt, finishedAt?, steps?, checking?, elapsedMs? }`. Poll it every 2 s; `error` is a calm sentence to show as is. While it runs (Phase 4): `steps`, what it has done so far, oldest first (at most 100): `{ kind: "search", query, ok }`, `{ kind: "read", url, title?, ok }` and `{ kind: "lookup", source: openLibrary\|wikidata\|crossref, query, ok }`. The seed lookups and the model's catalogue lookups arrive as they happen; searches and pages read arrive as each API call returns (one call can run several). `checking: { sources, claims }` once the draft is in: the distinct sources it cites and the claims citing them. `elapsedMs`: the time since it started, by the computer's clock. All three are gone once the run ends. |
 | `GET /tools/context/briefings` | `ContextBriefingList { briefings: [{ docId, level, focus, generatedAt }] }` (Phase 4): every stored briefing of a document still in the library, the newest per document, level and focus (null for the whole book), newest first. For the Assistant page's list. |
+| `GET /tools/context/media?ids=Q1035,Q5333` | `ContextMediaList { media: { [qid]: { image, summary } } }` (Phase 5): pictures and Wikipedia intros for the map's Wikidata items, at most 40 (400 `invalid_request` for more, or for an id that isn't `Q` and digits). `image` is `{ url, width, height, credit: { artist, license, page } }`: the English Wikipedia article's free lead image, else the item's Wikidata image (P18), as a thumbnail about 480 px wide kept in the asset store (`url` is `/api/assets/<sha>.<ext>`); `credit` is the Commons file's artist (plain text, at most 80 characters), licence and page. `summary` is `{ title, extract, url }`: the article's first three sentences, plain text. Either is null when Wikimedia has none. Free and needs no key. Three batched requests (Wikidata's SPARQL endpoint, Wikipedia's and Commons' APIs) and a thumbnail per item, from `thumb.wikimedia.org` or `upload.wikimedia.org` only; cached per item for 30 days in `context_media` (nothing found is cached too). An item that couldn't be looked up (a network failure, outbound requests off) is left out of `media` and asked about again next time. |
 
 - **When it runs:** only when asked. A run lives on the server: it continues if the client goes away,
   but not across a restart (runs still marked running at startup become failed). Two at a time.
 - **What leaves the computer:** to Anthropic's API, the book's metadata, its front matter (at most
   12,000 characters) and short lists of names, works and terms found in it, never body text. To
   openlibrary.org, api.crossref.org and wikidata.org, catalogue searches; to cited sites, the
-  verifier's fetches of the pages it checks. All with the User-Agent `Pager/0.1 (personal reading app)`.
+  verifier's fetches of the pages it checks. For the map's pictures (`GET /tools/context/media`),
+  the entities' Wikidata ids and Wikipedia titles to wikidata.org, en.wikipedia.org and
+  commons.wikimedia.org, and thumbnail downloads; a phone loads the pictures from the computer, never
+  from Wikimedia. All with the User-Agent `Pager/0.1 (personal reading app)`.
 - **Cost:** capped per run (constants in `server/src/briefing/mod.rs`), and each run's tokens,
   searches, fetches and estimated cost are logged and stored with it (`stats` on the briefing).
   Where the time went (reading the book, the seed lookups, each API call, the model's catalogue

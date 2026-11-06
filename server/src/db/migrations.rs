@@ -254,6 +254,15 @@ pub const MIGRATIONS: &[&str] = &[
   );
   CREATE INDEX context_runs_device ON context_runs(device_id, started_at);
   "#,
+    // v8: Context's pictures and Wikipedia intros per Wikidata item (Phase 5), a cache: an item with
+    // nothing found is kept too, and every entry is looked up again after 30 days.
+    r#"
+  CREATE TABLE context_media (
+    wikidata TEXT PRIMARY KEY,
+    data TEXT NOT NULL,
+    fetched_at TEXT NOT NULL
+  );
+  "#,
 ];
 
 pub const SCHEMA_VERSION: usize = MIGRATIONS.len();

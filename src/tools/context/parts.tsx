@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { ArrowUpRight, ChevronRight, EyeOff, Globe, Library, Search } from "lucide-react";
-import type { ContextBriefing, ContextClaim, ContextLink, ContextRun, ContextRunStep } from "@/api/types";
+import type { ContextBriefing, ContextClaim, ContextLink, ContextMedia, ContextRun, ContextRunStep } from "@/api/types";
 import { cx } from "@/lib/cx";
 import {
   citationView,
+  creditLine,
   distinctCitations,
   elapsedLabel,
   runLine,
@@ -17,6 +18,7 @@ import {
   safeHref,
   sectionTitle,
   type ItemRef,
+  type NodeImage,
 } from "./model";
 
 /** A link out of Pager: a new tab in a browser, Safari in the iPhone app (it sends `_blank` there). */
@@ -126,15 +128,53 @@ export function LinkClaim({ briefing, link }: { briefing: ContextBriefing; link:
   );
 }
 
-/** What the map knows about a node: its Wikidata facts, its sourced links, and where the briefing talks about it. */
+/** A small heading inside the card. */
+function CardLabel({ children }: { children: ReactNode }) {
+  return <span className="font-sans text-[12px] leading-4 font-semibold tracking-wide text-fg-3 uppercase">{children}</span>;
+}
+
+/** Longer than this, Wikipedia's intro is cut to a few lines with "More". */
+const LONG_EXTRACT = 320;
+
+/** Wikipedia's intro, apart from the checked claims: labelled, linked, and not in the reading face. */
+function FromWikipedia({ summary }: { summary: NonNullable<ContextMedia["summary"]> }) {
+  const long = summary.extract.length > LONG_EXTRACT;
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="flex flex-col gap-1 rounded-sm bg-surface-2 px-3 py-2.5">
+      <CardLabel>From Wikipedia</CardLabel>
+      <p className={cx("font-sans text-[13.5px] leading-5 text-fg", long && !open && "line-clamp-5")}>{summary.extract}</p>
+      <p className="flex flex-wrap gap-x-3 font-sans text-[12.5px] leading-[18px]">
+        {long && (
+          <button type="button" onClick={() => setOpen(!open)} className="font-semibold text-accent hover:text-accent-hover">
+            {open ? "Less" : "More"}
+          </button>
+        )}
+        <ExternalLink href={summary.url}>
+          Read on Wikipedia
+          <ArrowUpRight size={12} className="ml-0.5 inline align-[-1px]" aria-hidden />
+        </ExternalLink>
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The card for a node on a graphic (Phase 5): its picture, its Wikidata facts, Wikipedia's intro (marked
+ * as such), then what the briefing checked: the sourced links, and where the briefing talks about it.
+ */
 export function EntityDetail({
   briefing,
   id,
   onRead,
+  image,
+  summary,
 }: {
   briefing: ContextBriefing;
   id: string;
   onRead?: (ref: ItemRef) => void;
+  image?: NodeImage;
+  summary?: ContextMedia["summary"];
 }) {
   const e = entityById(briefing, id);
   if (!e) return null;
@@ -144,8 +184,30 @@ export function EntityDetail({
   const record = e.kind === "work" ? safeHref(e.resolvedUrl) : null;
   const links = linksOf(briefing, id);
   const items = itemsAbout(briefing, id);
+  const commons = image?.credit ? safeHref(image.credit.page) : null;
   return (
     <section aria-label={e.name} className="flex flex-col gap-3">
+      {image && (
+        <figure className="flex flex-col items-start gap-1">
+          <img
+            src={image.url}
+            alt={e.name}
+            className="max-h-[240px] w-auto max-w-full rounded-sm bg-surface-2 object-contain shadow-[0_0_0_1px_var(--detail)]"
+          />
+          {image.credit && (
+            <figcaption className="font-sans text-[11.5px] leading-4 text-fg-3">
+              Picture:{" "}
+              {commons ? (
+                <ExternalLink href={commons} className="text-fg-2">
+                  {creditLine(image.credit)}, Wikimedia Commons
+                </ExternalLink>
+              ) : (
+                creditLine(image.credit)
+              )}
+            </figcaption>
+          )}
+        </figure>
+      )}
       <div>
         <h4 className="font-display text-[17px] leading-6 font-semibold">{e.name}</h4>
         <p className="font-sans text-[12.5px] leading-[18px] text-fg-2">
@@ -165,8 +227,10 @@ export function EntityDetail({
         </p>
         {e.facts?.description && <p className="mt-1 font-sans text-[13px] leading-[18px] text-fg-2">{e.facts.description}</p>}
       </div>
+      {summary && safeHref(summary.url) && <FromWikipedia summary={{ ...summary, url: safeHref(summary.url)! }} />}
       {links.length > 0 && (
         <div className="flex flex-col gap-3">
+          <CardLabel>How it connects</CardLabel>
           {links.map((l, i) => (
             <LinkClaim key={i} briefing={briefing} link={l} />
           ))}
@@ -174,7 +238,7 @@ export function EntityDetail({
       )}
       {items.length > 0 && onRead && (
         <div className="flex flex-col gap-1">
-          <span className="font-sans text-[12px] leading-4 font-semibold tracking-wide text-fg-3 uppercase">In the briefing</span>
+          <CardLabel>In the briefing</CardLabel>
           {items.map((ref) => (
             <button
               key={`${ref.kind}-${ref.index}`}

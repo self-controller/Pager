@@ -8,6 +8,8 @@ import type {
   ContextItem,
   ContextLevel,
   ContextLink,
+  ContextMedia,
+  ContextMediaImage,
   ContextPhoneRuns,
   ContextRecord,
   ContextRun,
@@ -244,6 +246,11 @@ export function radialLayout(
   radius: number,
   /** The centre: the book by default; a focused briefing's `focus` node. */
   rootId?: string,
+  /**
+   * The first ring's smallest radius, so its nodes clear the centre's picture and name (at most 45% of
+   * `radius`, and never less than an even share); the other rings spread evenly out to `radius`.
+   */
+  inner = 0,
 ): RadialLayout {
   if (entities.length === 0) return { nodes: [], edges: [], rings: [] };
   const byId = new Map(entities.map((e) => [e.id, e]));
@@ -302,7 +309,10 @@ export function radialLayout(
   };
   const total = countLeaves(root);
   const maxDepth = Math.max(...depth.values());
-  const rings = Array.from({ length: maxDepth }, (_, i) => (radius * (i + 1)) / maxDepth);
+  const first = Math.max(radius / maxDepth, Math.min(inner, radius * 0.45));
+  const rings = Array.from({ length: maxDepth }, (_, i) =>
+    maxDepth === 1 ? radius : round(first + ((radius - first) * i) / (maxDepth - 1)),
+  );
 
   const angle = new Map<string, number>();
   const firstChild = children.get(root)?.[0];
@@ -363,22 +373,31 @@ export function crossPath(a: { x: number; y: number }, b: { x: number; y: number
   return `M${a.x} ${a.y}Q${round(mx * 0.35)} ${round(my * 0.35)} ${b.x} ${b.y}`;
 }
 
-/** Where a node's label goes: outward from the centre. */
-export function labelPlacement(n: { angle: number; depth: number }): {
+/**
+ * Where a node's label goes: outward from the centre, clear of a node of radius `r` (by default the
+ * plain shapes': 9 for the centre, 5.5 for the rest). The centre's name goes below it, or with
+ * `centreAbove` (a map of pictures) above it, toward the author: only that line is there, so the first
+ * ring's pictures below and beside it stay clear.
+ */
+export function labelPlacement(
+  n: { angle: number; depth: number },
+  r = n.depth === 0 ? 9 : 5.5,
+  centreAbove = false,
+): {
   anchor: "start" | "middle" | "end";
   dx: number;
   dy: number;
 } {
-  if (n.depth === 0) return { anchor: "middle", dx: 0, dy: 26 };
+  if (n.depth === 0) return { anchor: "middle", dx: 0, dy: centreAbove ? round(-(r + 6.5)) : round(r + 17) };
   const c = Math.cos(n.angle);
   const s = Math.sin(n.angle);
-  if (c > 0.35) return { anchor: "start", dx: 10, dy: 4 };
-  if (c < -0.35) return { anchor: "end", dx: -10, dy: 4 };
-  return { anchor: "middle", dx: 0, dy: s < 0 ? -12 : 20 };
+  if (c > 0.35) return { anchor: "start", dx: round(r + 4.5), dy: 4 };
+  if (c < -0.35) return { anchor: "end", dx: round(-(r + 4.5)), dy: 4 };
+  return { anchor: "middle", dx: 0, dy: s < 0 ? round(-(r + 6.5)) : round(r + 14.5) };
 }
 
 /**
- * How many characters a label's line can hold before the edge of a `size`-square map centred on 0,0,
+ * How many characters a label's line can hold before the edge of a map `size` wide, centred on 0,0,
  * given where it is anchored (about 0.56 em a character in the system sans), from 5 to `max`.
  */
 export function labelChars(
@@ -394,8 +413,8 @@ export function labelChars(
   return Math.max(5, Math.min(max, Math.floor((room - 4) / (fontSize * 0.56))));
 }
 
-/** Splits a label into at most two lines of about `width` characters, with an ellipsis if it runs over. */
-export function wrapLabel(text: string, width = 16): string[] {
+/** Splits a label into at most `maxLines` lines of about `width` characters, with an ellipsis if it runs over. */
+export function wrapLabel(text: string, width = 16, maxLines = 2): string[] {
   const words = text.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let line = "";
@@ -409,9 +428,68 @@ export function wrapLabel(text: string, width = 16): string[] {
   }
   if (line) lines.push(line);
   const cut = (l: string) => (l.length > width + 4 ? `${l.slice(0, width + 3)}…` : l);
-  if (lines.length <= 2) return lines.map(cut);
-  // More than two lines: the second ends at a word, with an ellipsis.
-  return [cut(lines[0]!), `${cut(lines[1]!).replace(/…$/, "")}…`];
+  if (lines.length <= maxLines) return lines.map(cut);
+  // More lines than that: the last one shown ends at a word, with an ellipsis.
+  const kept = lines.slice(0, maxLines);
+  return [...kept.slice(0, -1).map(cut), `${cut(kept.at(-1)!).replace(/…$/, "")}…`];
+}
+
+// ---- Pictures and Wikipedia intros (Phase 5) ----
+
+/** The briefing's Wikidata items, sorted and at most 40: what to ask the media route for. */
+export function mediaIds(b: Pick<ContextBriefing, "entities">): string[] {
+  const ids = b.entities.map((e) => e.wikidata).filter((q): q is string => typeof q === "string" && /^Q\d{1,11}$/.test(q));
+  return [...new Set(ids)].sort().slice(0, 40);
+}
+
+/** A node's picture: Wikimedia's (with its credit), or for the book its own cover from the library (none). */
+export interface NodeImage {
+  url: string;
+  width: number;
+  height: number;
+  credit: ContextMediaImage["credit"] | null;
+}
+
+/** Each entity's picture, by entity id. The book takes the library's cover first: it is this copy's. */
+export function nodeImages(
+  b: Pick<ContextBriefing, "entities">,
+  media: Record<string, ContextMedia> | undefined,
+  coverUrl?: string | null,
+): Map<string, NodeImage> {
+  const out = new Map<string, NodeImage>();
+  for (const e of b.entities) {
+    const img = e.wikidata ? media?.[e.wikidata]?.image : null;
+    if (e.id === "book" && coverUrl) out.set(e.id, { url: coverUrl, width: 2, height: 3, credit: null });
+    else if (img && img.url.startsWith("/api/assets/")) out.set(e.id, img);
+  }
+  return out;
+}
+
+/** An entity's Wikipedia intro, if Wikimedia had one. */
+export function mediaSummary(e: Pick<ContextEntity, "wikidata">, media: Record<string, ContextMedia> | undefined) {
+  return (e.wikidata && media?.[e.wikidata]?.summary) || null;
+}
+
+/** Below this height a map keeps its plain shapes: pictures would crowd the names (the card still shows them). */
+export const PICTURE_MAP_MIN = 420;
+
+/**
+ * A node's radius on a map `size` tall. Plain shapes stay small (9 the centre, 7 the author, 5.5 the
+ * rest); a picture needs room: 14 (18 the centre) up to 480 px, 24 (32) at 720 px, and at most 30 (40)
+ * from 1000 px.
+ */
+export function nodeRadius(size: number, kind: "root" | "author" | "node", picture: boolean): number {
+  if (!picture) return kind === "root" ? 9 : kind === "author" ? 7 : 5.5;
+  const clamp = (n: number) => Math.min(1, Math.max(0, n));
+  const t = clamp((size - 480) / 240);
+  const more = clamp((size - 720) / 280);
+  const r = kind === "root" ? 18 + 14 * t + 8 * more : 14 + 10 * t + 6 * more;
+  return Math.round(r * 2) / 2;
+}
+
+/** "Henry Maull · Public domain", the picture's credit; "Wikimedia Commons" when it names neither. */
+export function creditLine(credit: ContextMediaImage["credit"]): string {
+  return [credit.artist, credit.license].filter(Boolean).join(" · ") || "Wikimedia Commons";
 }
 
 // ---- The timeline ----

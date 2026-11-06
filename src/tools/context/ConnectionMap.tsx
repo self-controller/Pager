@@ -1,16 +1,19 @@
-import { useMemo, type KeyboardEvent } from "react";
+import { useId, useMemo, useState, type KeyboardEvent } from "react";
 import type { ContextBriefing, ContextEntityKind } from "@/api/types";
 import {
   crossPath,
   KIND_LABELS,
   labelPlacement,
   mapRoot,
+  nodeRadius,
+  PICTURE_MAP_MIN,
   radialLayout,
   usableLinks,
   labelChars,
   wrapLabel,
   type MapEdge,
   type MapNode,
+  type NodeImage,
 } from "./model";
 import { useWidth } from "./parts";
 
@@ -18,8 +21,10 @@ interface Props {
   briefing: ContextBriefing;
   focus: string | null;
   onFocus: (id: string | null) => void;
-  /** The tallest it may be (full screen); in the panel it is as tall as it is wide. */
+  /** The tallest it may be (full screen, the wide Assistant page); in the panel it is as tall as it is wide. */
   maxHeight?: number;
+  /** Pictures by entity id (Phase 5): drawn in their nodes, clipped to the kind's shape. */
+  images?: Map<string, NodeImage>;
 }
 
 const LABEL = {
@@ -31,28 +36,43 @@ const LABEL = {
 } as const;
 
 /** The connection map: a radial tree with the book at the centre and its author at the top. */
-export function ConnectionMap({ briefing, focus, onFocus, maxHeight }: Props) {
+export function ConnectionMap({ briefing, focus, onFocus, maxHeight, images }: Props) {
   const [ref, width] = useWidth<HTMLDivElement>(320);
-  const size = Math.max(240, Math.min(width, maxHeight ?? width));
-  const margin = size < 420 ? 76 : 110;
-  const radius = Math.max(40, size / 2 - margin);
+  // As wide as its box and at most `maxHeight` tall: the rings fit the height, and a wider box gives
+  // the names at the sides more room. Node and font sizes follow the height (`size`).
+  const w = Math.max(240, width);
+  const size = Math.max(240, Math.min(w, maxHeight ?? w));
+  const small = size < 480;
+  const large = size >= 640;
+  // Room outside the outer ring for names: above and below (a picture and two lines), and at the sides.
+  const above = small ? 60 : large ? 85 : 75;
+  const beside = small ? 76 : large ? 115 : 105;
+  const radius = Math.max(40, Math.min(size / 2 - above, w / 2 - beside));
+  // When the width limits the rings, no empty bands above and below them.
+  const h = Math.max(240, Math.min(size, Math.ceil(2 * (radius + above))));
+  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  // Pictures that didn't load fall back to their shapes.
+  const [broken, setBroken] = useState<ReadonlySet<string>>(() => new Set());
+  // Pictures where there's room for them; then the first ring clears the centre's picture, its name
+  // (two lines above it) and a node's picture. A smaller map keeps the plain layout.
+  const pictures = Boolean(images?.size) && size >= PICTURE_MAP_MIN;
+  const inner = pictures ? nodeRadius(size, "root", true) + nodeRadius(size, "node", true) + 44 : 0;
   const layout = useMemo(
-    () => radialLayout(briefing.entities, usableLinks(briefing), radius, mapRoot(briefing)),
-    [briefing, radius],
+    () => radialLayout(briefing.entities, usableLinks(briefing), radius, mapRoot(briefing), inner),
+    [briefing, radius, inner],
   );
   const at = useMemo(() => new Map(layout.nodes.map((n) => [n.entity.id, n])), [layout]);
   const touching = (e: MapEdge) => focus !== null && (e.from === focus || e.to === focus);
   const kinds = [...new Set(briefing.entities.map((e) => e.kind))];
-  const small = size < 480;
 
   return (
     <div ref={ref} className="flex w-full flex-col items-center">
       <svg
         role="group"
         aria-label={`Connection map: ${layout.nodes.length} people, works, ideas and places around the book`}
-        width={size}
-        height={size}
-        viewBox={`${-size / 2} ${-size / 2} ${size} ${size}`}
+        width={w}
+        height={h}
+        viewBox={`${-w / 2} ${-h / 2} ${w} ${h}`}
         className="max-w-full touch-manipulation select-none"
         onClick={(e) => {
           if (e.target === e.currentTarget) onFocus(null);
@@ -97,7 +117,7 @@ export function ConnectionMap({ briefing, focus, onFocus, maxHeight }: Props) {
                 x={m.x}
                 y={m.y + 3}
                 textAnchor="middle"
-                fontSize={small ? 10 : 11.5}
+                fontSize={small ? 10 : large ? 12.5 : 11.5}
                 fill="var(--accent)"
                 style={LABEL}
               >
@@ -112,7 +132,13 @@ export function ConnectionMap({ briefing, focus, onFocus, maxHeight }: Props) {
             focused={focus === n.entity.id}
             dim={focus !== null && focus !== n.entity.id}
             small={small}
+            large={large}
             size={size}
+            width={w}
+            image={!pictures || broken.has(n.entity.id) ? undefined : images?.get(n.entity.id)}
+            centreAbove={pictures}
+            clipId={`${uid}-clip-${n.entity.id.replace(/[^a-zA-Z0-9_-]/g, "_")}`}
+            onBroken={() => setBroken((b) => new Set(b).add(n.entity.id))}
             onFocus={onFocus}
           />
         ))}
@@ -127,23 +153,42 @@ function Node({
   focused,
   dim,
   small,
+  large,
   size,
+  width,
+  centreAbove,
+  image,
+  clipId,
+  onBroken,
   onFocus,
 }: {
   node: MapNode;
   focused: boolean;
   dim: boolean;
   small: boolean;
+  large: boolean;
   size: number;
+  /** The map's width, for the room a name has on its side. */
+  width: number;
+  /** A map of pictures: the centre's name goes above it. */
+  centreAbove: boolean;
+  image: NodeImage | undefined;
+  clipId: string;
+  onBroken: () => void;
   onFocus: (id: string | null) => void;
 }) {
   const e = node.entity;
   const root = node.depth === 0;
-  const place = labelPlacement(node);
-  const fontSize = root ? (small ? 12.5 : 14) : small ? 11.5 : 13;
+  const r = nodeRadius(size, root ? "root" : e.id === "author" ? "author" : "node", Boolean(image));
+  const place = labelPlacement(node, r, centreAbove);
+  const fontSize = root ? (small ? 12.5 : large ? 15.5 : 14) : small ? 11.5 : large ? 14 : 13;
   // Wrapped to the room on its side, so a long name never runs off the map.
-  const lines = wrapLabel(e.name, labelChars(node, place, size, fontSize, root ? 20 : small ? 14 : 18));
-  const r = root ? 9 : e.id === "author" ? 7 : 5.5;
+  // Names at the sides may take a third line rather than be cut.
+  const lines = wrapLabel(
+    e.name,
+    labelChars(node, place, width, fontSize, root ? 20 : small ? 14 : large ? 20 : 18),
+    place.anchor === "middle" ? 2 : 3,
+  );
   const color = focused ? "var(--accent)" : "var(--fg-primary)";
   const select = () => onFocus(focused ? null : e.id);
   const onKey = (ev: KeyboardEvent) => {
@@ -164,11 +209,15 @@ function Node({
       onClick={select}
       onKeyDown={onKey}
       className="cursor-pointer outline-none [&:focus-visible>.ring]:opacity-100"
-      opacity={dim ? 0.55 : 1}
+      opacity={dim ? (image ? 0.7 : 0.55) : 1}
     >
-      <circle r={18} fill="transparent" />
-      <circle className="ring" r={r + 5} fill="none" stroke="var(--accent)" strokeWidth={2} opacity={focused ? 1 : 0} />
-      <Shape kind={e.kind} r={r} color={color} solid={root || e.id === "author" || focused} />
+      <circle r={Math.max(18, r + 4)} fill="transparent" />
+      <circle className="ring" r={r + 5} fill="none" stroke="var(--accent)" strokeWidth={2} opacity={focused && !image ? 1 : 0} />
+      {image ? (
+        <Picture kind={e.kind} r={r} image={image} clipId={clipId} focused={focused} onBroken={onBroken} />
+      ) : (
+        <Shape kind={e.kind} r={r} color={color} solid={root || e.id === "author" || focused} />
+      )}
       <text
         textAnchor={place.anchor}
         fontSize={fontSize}
@@ -183,6 +232,81 @@ function Node({
         ))}
       </text>
     </g>
+  );
+}
+
+/** Round for people, ideas and movements; a rounded square for works, places, events and institutions. */
+function isRound(kind: ContextEntityKind): boolean {
+  return kind === "person" || kind === "idea" || kind === "movement";
+}
+
+/** The outline a picture is clipped to (and ringed with). */
+function Outline({
+  kind,
+  r,
+  fill,
+  stroke,
+  strokeWidth,
+}: {
+  kind: ContextEntityKind;
+  r: number;
+  fill?: string;
+  stroke?: string;
+  strokeWidth?: number;
+}) {
+  const paint = { fill, stroke, strokeWidth };
+  return isRound(kind) ? <circle r={r} {...paint} /> : <rect x={-r} y={-r} width={2 * r} height={2 * r} rx={r * 0.22} {...paint} />;
+}
+
+/**
+ * A picture filling its node. It covers the square, cropped from the bottom for people and works (a
+ * face, a cover's title), evenly for the rest.
+ */
+function Picture({
+  kind,
+  r,
+  image,
+  clipId,
+  focused,
+  onBroken,
+}: {
+  kind: ContextEntityKind;
+  r: number;
+  image: NodeImage;
+  clipId: string;
+  focused: boolean;
+  onBroken: () => void;
+}) {
+  const w = image.width > 0 ? image.width : 1;
+  const h = image.height > 0 ? image.height : 1;
+  const scale = Math.max((2 * r) / w, (2 * r) / h);
+  const iw = w * scale;
+  const ih = h * scale;
+  const top = kind === "person" || kind === "work" ? 0.2 : 0.5;
+  return (
+    <>
+      <clipPath id={clipId}>
+        <Outline kind={kind} r={r} />
+      </clipPath>
+      <Outline kind={kind} r={r} fill="var(--bg-secondary)" />
+      <image
+        href={image.url}
+        x={-iw / 2}
+        y={-r - (ih - 2 * r) * top}
+        width={iw}
+        height={ih}
+        preserveAspectRatio="xMidYMin slice"
+        clipPath={`url(#${clipId})`}
+        onError={onBroken}
+      />
+      <Outline
+        kind={kind}
+        r={r}
+        fill="none"
+        stroke={focused ? "var(--accent)" : "var(--fg-tertiary)"}
+        strokeWidth={focused ? 3 : 1}
+      />
+    </>
   );
 }
 

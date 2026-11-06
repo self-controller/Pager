@@ -9,6 +9,7 @@
 pub mod extract;
 pub mod focus;
 pub mod lookup;
+pub mod media;
 pub mod prompt;
 pub mod run;
 pub mod schema;
@@ -154,11 +155,13 @@ pub struct BriefingService {
     active: Mutex<HashMap<RunKey, String>>,
     live: Mutex<HashMap<String, RunView>>,
     slots: Arc<Semaphore>,
+    /// One media lookup at a time (Phase 5), so two requests never fetch the same pictures twice.
+    pub media_lock: tokio::sync::Mutex<()>,
 }
 
 impl BriefingService {
     pub fn new(transport: Arc<dyn Transport>, key: Option<ApiKey>, limits: Limits) -> BriefingService {
-        BriefingService { transport, key, limits, active: Mutex::new(HashMap::new()), live: Mutex::new(HashMap::new()), slots: Arc::new(Semaphore::new(MAX_CONCURRENT_RUNS)) }
+        BriefingService { transport, key, limits, active: Mutex::new(HashMap::new()), live: Mutex::new(HashMap::new()), slots: Arc::new(Semaphore::new(MAX_CONCURRENT_RUNS)), media_lock: tokio::sync::Mutex::new(()) }
     }
 
     pub fn key(&self) -> Option<&ApiKey> {

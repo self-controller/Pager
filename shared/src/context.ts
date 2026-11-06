@@ -206,6 +206,36 @@ export interface ContextBriefingList {
   briefings: ContextBriefingEntry[];
 }
 
+/** A picture of an entity: a Wikimedia Commons thumbnail kept on the computer (Phase 5). */
+export interface ContextMediaImage {
+  /** `/api/assets/<sha>.<ext>`. */
+  url: string;
+  width: number;
+  height: number;
+  credit: {
+    /** Plain text, at most 80 characters. */
+    artist: string | null;
+    /** "Public domain", "CC BY-SA 4.0", … */
+    license: string | null;
+    /** The file's page on Wikimedia Commons. */
+    page: string;
+  };
+}
+
+/**
+ * What Wikimedia has on a Wikidata item: the English Wikipedia article's lead image (else the item's
+ * image) and the intro's first sentences. Not checked like the briefing's claims: shown as "From Wikipedia".
+ */
+export interface ContextMedia {
+  image: ContextMediaImage | null;
+  summary: { title: string; extract: string; url: string } | null;
+}
+
+/** GET /api/tools/context/media?ids=Q1035,Q5333 (at most 40): by item; items that couldn't be looked up are left out. */
+export interface ContextMediaList {
+  media: Record<string, ContextMedia>;
+}
+
 /** A paired phone's paid runs in the last 24 hours against `context.phoneDailyLimit`. */
 export interface ContextPhoneRuns {
   used: number;

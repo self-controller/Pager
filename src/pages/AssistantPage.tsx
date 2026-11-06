@@ -1,13 +1,13 @@
 import { Sparkles } from "lucide-react";
-import { CenterColumn, PageHeader } from "@/components/shell/Page";
+import { FullColumn, PageHeader } from "@/components/shell/Page";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useTools } from "@/tools/registry";
 
-/** Full-page home for smart tools. Empty until tools are registered. */
+/** Full-page home for smart tools, as wide as the window (a book's Context needs the room). Empty until tools are registered. */
 export function AssistantPage() {
   const tools = useTools();
   return (
-    <CenterColumn className="pb-10">
+    <FullColumn className="pb-10">
       <PageHeader title="Assistant" />
       {tools.length === 0 ? (
         <EmptyState icon={Sparkles} title="Smart tools will live here">
@@ -38,6 +38,6 @@ export function AssistantPage() {
           })}
         </div>
       )}
-    </CenterColumn>
+    </FullColumn>
   );
 }

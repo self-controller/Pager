@@ -1,0 +1,39 @@
+{
+ "batchcomplete": true,
+ "query": {
+  "pages": [
+   {
+    "pageid": 29932,
+    "ns": 0,
+    "title": "On the Origin of Species",
+    "extract": "On the Origin of Species by Means of Natural Selection, or the Preservation of Favoured Races in the Struggle for Life is a work of scientific literature by the English naturalist Charles Darwin that is considered to be the foundation of evolutionary biology. It was published on 24 November 1859. Darwin's book introduced the scientific theory that populations evolve over the course of generations through a process of natural selection, although Lamarckism was also included as a mechanism of lesser importance.",
+    "pageimage": "Origin_of_Species_title_page.jpg",
+    "fullurl": "https://en.wikipedia.org/wiki/On_the_Origin_of_Species"
+   },
+   {
+    "pageid": 31468,
+    "ns": 0,
+    "title": "Thomas Robert Malthus",
+    "extract": "Thomas Robert Malthus (; 13/14 February 1766 – 29 December 1834) was an English economist, Christian priest, and scholar influential in the fields of political economy and demography.\nIn his 1798 book An Essay on the Principle of Population, Malthus observed that an increase in a nation's food production improved the well-being of the population, but the improvement was temporary because it led to population growth, which in turn restored the original per capita production level. In other words, humans had a propensity to use abundance for population growth rather than for maintaining a high standard of living, a view and stance that has become known as the \"Malthusian trap\" or the \"Malthusian spectre.\"  Populations had a tendency to grow until the lower class suffered hardship, want, and greater susceptibility to war, famine, and disease, a pessimistic view that is sometimes referred to as a Malthusian catastrophe.",
+    "pageimage": "Thomas_Robert_Malthus_Wellcome_L0069037_-crop.jpg",
+    "fullurl": "https://en.wikipedia.org/wiki/Thomas_Robert_Malthus"
+   },
+   {
+    "pageid": 646334,
+    "ns": 0,
+    "title": "Down House",
+    "extract": "Down House is the former home of the English naturalist Charles Darwin and his family. It was in this house and garden that Darwin worked on his theory of evolution by natural selection, which he had conceived in London before moving to Down.\nThe Grade I listed building stands in Luxted Road, one-quarter mile (400 m) south of Downe, a village 14+1⁄4 miles (23 km) south-east of London's Charing Cross.",
+    "pageimage": "Down_House.jpg",
+    "fullurl": "https://en.wikipedia.org/wiki/Down_House"
+   },
+   {
+    "pageid": 8145410,
+    "ns": 0,
+    "title": "Charles Darwin",
+    "extract": "Charles Robert Darwin ( DAR-win; 12 February 1809 – 19 April 1882) was an English naturalist, geologist, and biologist, widely known for his contributions to evolutionary biology. His proposition that all species  have descended from a common ancestor is now  accepted and considered a fundamental scientific concept. In a joint presentation with Alfred Russel Wallace, he proposed that this branching pattern of evolution resulted from a process he called natural selection, in which the struggle for existence has a similar effect to the artificial selection involved in selective breeding.",
+    "pageimage": "Charles_Darwin_seated_crop.jpg",
+    "fullurl": "https://en.wikipedia.org/wiki/Charles_Darwin"
+   }
+  ]
+ }
+}

@@ -186,3 +186,24 @@ impl PhoneAllowance {
         Err(AppError::new(429, "limit_reached", message))
     }
 }
+
+impl Core {
+    /// Cached media (Phase 5) for these Wikidata items, fetched at or after `since`: (item, JSON).
+    pub fn media_cached(&self, qids: &[String], since: &str) -> Result<Vec<(String, String)>> {
+        let mut out = Vec::new();
+        for q in qids {
+            if let Some(data) = self.one("SELECT data FROM context_media WHERE wikidata = ?1 AND fetched_at >= ?2", params![q, since], |r| r.get::<_, String>(0))? {
+                out.push((q.clone(), data));
+            }
+        }
+        Ok(out)
+    }
+
+    pub fn media_save(&self, qid: &str, data: &str, fetched_at: &str) -> Result<()> {
+        self.exec(
+            "INSERT INTO context_media (wikidata, data, fetched_at) VALUES (?1, ?2, ?3) ON CONFLICT(wikidata) DO UPDATE SET data = excluded.data, fetched_at = excluded.fetched_at",
+            params![qid, data, fetched_at],
+        )?;
+        Ok(())
+    }
+}

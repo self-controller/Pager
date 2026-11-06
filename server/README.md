@@ -174,7 +174,8 @@ pager.db           SQLite (WAL): sources, documents, revisions, anchors, annotat
                     progress (with device_id: who wrote the place), settings, presets, events, FTS5
                     indexes, reading_sessions, mirror_files, devices (paired phones: name, sha256 of
                     the token, last seen, revoked_at, endpoint_id for phones over iroh),
-                    context_briefings and context_runs (Context's cache and its runs)
+                    context_briefings and context_runs (Context's cache and its runs),
+                    context_media (the map's pictures and Wikipedia intros, per Wikidata item)
 cache/<rev>.json    parsed revisions (rebuildable from the file or its snapshot)
 files/              snapshots of the last 3 revisions of small text files
 assets/             images, content-addressed (<sha256>.<ext>)
@@ -187,8 +188,8 @@ server.json         pid/port of the running server (for the CLI)
 
 Migrations (`src/db/migrations.rs`) are append-only, applied by `PRAGMA user_version`. A newer
 database is refused rather than damaged. v1–v5 are the schema of the earlier TypeScript server this
-crate was ported from (deleted 2026-10-28); v6 (`devices.endpoint_id`) and v7 (Context's
-`context_briefings` and `context_runs`) are this crate's own.
+crate was ported from (deleted 2026-10-28); v6 (`devices.endpoint_id`), v7 (Context's
+`context_briefings` and `context_runs`) and v8 (Context's `context_media`) are this crate's own.
 
 ## Context (an AI briefing, with an API key)
 
@@ -250,7 +251,8 @@ With no key, Context says so and makes no calls.
 - No CORS headers are sent.
 - Images are served `nosniff` and sandboxed by CSP.
 - The only network access is a remote image, and only when the UI chooses to load it, iroh
-  while remote access is on, and a Context briefing when the reader asks for one (below). (Settings → Phone may run `tailscale status --json`, a local command,
+  while remote access is on, a Context briefing when the reader asks for one (below), and the
+  pictures and Wikipedia intros for a briefing's map when one is shown (Wikimedia, free, cached). (Settings → Phone may run `tailscale status --json`, a local command,
   to suggest the phone's address.)
 - **Phones** (off by default; setup in [`../docs/iphone.md`](../docs/iphone.md)). Turning on
   `app.remote` starts an iroh endpoint, plus a second listener on 127.0.0.1:3007 for `tailscale
@@ -282,7 +284,8 @@ src/remote/      phones over iroh: the identity key, the pager/1 protocol, the e
                  into the remote app, and the client the tests and fake phone use
 src/annotations.rs src/records.rs src/settings.rs src/journal/ src/search.rs src/mirror/ src/export.rs src/sessions.rs
 src/briefing/    Context: the key (secrets), outbound HTTP (transport), local extraction, catalogue
-                 lookups, the prompt, the research loop with the model (run), the verifier, the cache
+                 lookups, the prompt, the research loop with the model (run), the verifier, the cache,
+                 the map's pictures and Wikipedia intros (media)
 src/http/        routes (library, files, remember, keep, system, sync, devices, context), the local-only guard,
                  remote (the phones' listener and its allowlist), the live stream, static web serving
 src/cli.rs       the `pager` command (bin/pager)

@@ -76,6 +76,8 @@ pub const REMOTE_ALLOW: &[&str] = &[
     "GET /tools/context/briefings/:id",
     "POST /tools/context/briefings/:id",
     "GET /tools/context/runs/:rid",
+    // Pictures and Wikipedia intros for the map (Phase 5): free lookups, cached on the computer.
+    "GET /tools/context/media",
 ];
 
 /// Refused from a phone. Listed so the route test can tell a deliberate refusal from a forgotten route.

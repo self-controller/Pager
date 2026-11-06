@@ -1106,3 +1106,176 @@ async fn the_assistant_page_lists_every_book_with_a_briefing() {
     t.db_exec(&format!("UPDATE documents SET deleted_at = '2026-11-05T13:00:00Z' WHERE id = '{doc}'"));
     assert_eq!(t.get("/api/tools/context/briefings").await.body, json!({ "briefings": [] }));
 }
+
+// ---- Pictures and Wikipedia intros for the map (Phase 5) ----
+
+/// A JPEG's first bytes (all the asset store sniffs), told apart by `tag`.
+fn jpeg(tag: &str) -> Vec<u8> {
+    let mut b = vec![0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, b'J', b'F', b'I', b'F', 0x00];
+    b.extend_from_slice(tag.as_bytes());
+    b.extend_from_slice(&[0xff, 0xd9]);
+    b
+}
+
+const THUMBS: [(&str, &str); 4] = [
+    ("https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2e/", "darwin"),
+    ("https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d5/", "malthus"),
+    ("https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6d/", "down"),
+    ("https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cd/", "origin"),
+];
+
+/// Wikidata, Wikipedia and Commons as recorded on 2026-11-06 (trimmed), and the four thumbnails.
+fn wikimedia(fake: &Fake) {
+    let j = "application/json";
+    fake.route("https://query.wikidata.org/sparql", 200, j, fx("media-sparql.json"));
+    fake.route("https://en.wikipedia.org/w/api.php", 200, j, fx("media-wikipedia.json"));
+    fake.route("https://commons.wikimedia.org/w/api.php", 200, j, fx("media-commons.json"));
+    for (prefix, tag) in THUMBS {
+        fake.route(prefix, 200, "image/jpeg", jpeg(tag));
+    }
+}
+
+fn count(fake: &Fake, prefix: &str) -> usize {
+    fake.urls().iter().filter(|u| u.starts_with(prefix)).count()
+}
+
+const MEDIA_IDS: &str = "Q1035,Q13526,Q3038318,Q20124,Q99999";
+
+#[tokio::test]
+async fn pictures_and_intros_come_from_wikimedia_once_then_from_the_cache() {
+    let fake = Fake::new();
+    wikimedia(&fake);
+    // No API key: these lookups are free and don't need one.
+    let t = app_with(&fake, false, limits());
+    let r = t.get(&format!("/api/tools/context/media?ids={MEDIA_IDS}")).await;
+    assert_eq!(r.status, 200, "{}", r.text);
+    let m = &r.body["media"];
+
+    // One request to each service, whatever the number of items, and a thumbnail each.
+    assert_eq!(count(&fake, "https://query.wikidata.org/sparql"), 1);
+    assert_eq!(count(&fake, "https://en.wikipedia.org/"), 1);
+    assert_eq!(count(&fake, "https://commons.wikimedia.org/"), 1);
+    assert_eq!(count(&fake, "https://thumb.wikimedia.org/"), 4);
+    let sparql = fake.urls().into_iter().find(|u| u.starts_with("https://query.wikidata.org/")).unwrap();
+    assert!(sparql.contains("wd%3AQ1035") && sparql.contains("wd%3AQ99999") && sparql.contains("P18"), "{sparql}");
+
+    // The article's lead image wins over Wikidata's P18 ("Charles Darwin portrait.jpg").
+    let darwin = &m["Q1035"];
+    let img = &darwin["image"];
+    assert!(img["url"].as_str().unwrap().starts_with("/api/assets/") && img["url"].as_str().unwrap().ends_with(".jpg"), "{img}");
+    assert_eq!(img["width"], 480);
+    assert_eq!(img["credit"]["artist"], "Henry Maull (1829–1914) and John Fox (1832–1907) (Maull & Fox)");
+    assert_eq!(img["credit"]["license"], "Public domain");
+    assert_eq!(img["credit"]["page"], "https://commons.wikimedia.org/wiki/File:Charles_Darwin_seated_crop.jpg");
+    assert!(!fake.urls().iter().any(|u| u.contains("/f/f1/Charles_Darwin_portrait")), "only the chosen file is downloaded");
+    let summary = &darwin["summary"];
+    assert_eq!(summary["title"], "Charles Darwin");
+    assert_eq!(summary["url"], "https://en.wikipedia.org/wiki/Charles_Darwin");
+    let extract = summary["extract"].as_str().unwrap();
+    assert!(extract.starts_with("Charles Robert Darwin (DAR-win; 12 February 1809 – 19 April 1882) was an English naturalist"), "{extract}");
+    assert!(!extract.contains("  "));
+    assert!(m["Q13526"]["summary"]["extract"].as_str().unwrap().starts_with("Thomas Robert Malthus (13/14 February 1766"));
+    assert_eq!(m["Q3038318"]["image"]["credit"]["license"], "CC BY-SA 3.0");
+    assert_eq!(m["Q3038318"]["image"]["credit"]["artist"], "Anthonyeatworld at English Wikipedia");
+    // An item Wikimedia knows nothing more about.
+    assert_eq!(m["Q99999"], json!({ "image": null, "summary": null }));
+
+    // The thumbnail is served by the computer, as any other picture in the library.
+    let asset = t.get(img["url"].as_str().unwrap()).await;
+    assert_eq!(asset.status, 200);
+    assert_eq!(asset.headers.get("content-type").unwrap(), "image/jpeg");
+    let distinct: std::collections::HashSet<String> = ["Q1035", "Q13526", "Q3038318", "Q20124"].iter().map(|q| m[*q]["image"]["url"].as_str().unwrap().to_string()).collect();
+    assert_eq!(distinct.len(), 4);
+
+    // Again, or some of them: from the cache, with no request.
+    let before = fake.seen().len();
+    let again = t.get(&format!("/api/tools/context/media?ids={MEDIA_IDS}")).await;
+    assert_eq!(again.body, r.body);
+    let some = t.get("/api/tools/context/media?ids=Q99999,Q1035").await;
+    assert_eq!(some.body["media"]["Q1035"], m["Q1035"]);
+    assert_eq!(some.body["media"].as_object().unwrap().len(), 2);
+    assert_eq!(fake.seen().len(), before);
+
+    // After 30 days they are looked up again.
+    t.app.clock.advance(31 * 24 * 3600 * 1000);
+    t.get("/api/tools/context/media?ids=Q1035").await;
+    assert_eq!(count(&fake, "https://query.wikidata.org/sparql"), 2);
+}
+
+#[tokio::test]
+async fn a_failed_lookup_is_not_cached() {
+    let fake = Fake::new();
+    wikimedia(&fake);
+    // Darwin's thumbnail fails (a 500, which isn't retried): the intro still shows, the picture is asked for again later.
+    fake.route("https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2e/", 500, "text/plain", b"oops".to_vec());
+    let t = app_with(&fake, false, limits());
+    let r = t.get("/api/tools/context/media?ids=Q1035,Q3038318").await;
+    assert_eq!(r.status, 200, "{}", r.text);
+    assert_eq!(r.body["media"]["Q1035"]["image"], Value::Null);
+    assert_eq!(r.body["media"]["Q1035"]["summary"]["title"], "Charles Darwin");
+    assert!(r.body["media"]["Q3038318"]["image"]["url"].is_string());
+    fake.route("https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2e/", 200, "image/jpeg", jpeg("darwin"));
+    let sparql_before = count(&fake, "https://query.wikidata.org/sparql");
+    let r = t.get("/api/tools/context/media?ids=Q1035,Q3038318").await;
+    assert!(r.body["media"]["Q1035"]["image"]["url"].is_string(), "{}", r.text);
+    // Down House came from the cache: only Darwin was looked up again.
+    assert_eq!(count(&fake, "https://query.wikidata.org/sparql"), sparql_before + 1);
+    let last = fake.urls().into_iter().filter(|u| u.starts_with("https://query.wikidata.org/")).last().unwrap();
+    assert!(last.contains("wd%3AQ1035") && !last.contains("Q3038318"), "{last}");
+
+    // Wikidata down: nothing to show and nothing kept.
+    let fake = Fake::new();
+    fake.route("https://query.wikidata.org/sparql", 500, "text/plain", b"busy".to_vec());
+    let t = app_with(&fake, false, limits());
+    let r = t.get("/api/tools/context/media?ids=Q1035").await;
+    assert_eq!((r.status, r.body.clone()), (200, json!({ "media": {} })));
+    let rows: Vec<String> = t.app.lock().all("SELECT wikidata FROM context_media", &[], |r| r.get(0)).unwrap();
+    assert!(rows.is_empty());
+
+    // No outbound requests at all (the default): the same.
+    let t = make_app();
+    let r = t.get("/api/tools/context/media?ids=Q1035").await;
+    assert_eq!((r.status, r.body.clone()), (200, json!({ "media": {} })));
+}
+
+#[tokio::test]
+async fn only_wikimedia_pictures_are_downloaded() {
+    let fake = Fake::new();
+    wikimedia(&fake);
+    let mut commons = fxj("media-commons.json");
+    for p in commons["query"]["pages"].as_array_mut().unwrap() {
+        if let Some(ii) = p.get_mut("imageinfo").and_then(|a| a.get_mut(0)) {
+            ii["thumburl"] = json!("http://192.168.1.1/router.jpg");
+        }
+    }
+    fake.route("https://commons.wikimedia.org/w/api.php", 200, "application/json", commons.to_string().into_bytes());
+    let t = app_with(&fake, false, limits());
+    let r = t.get("/api/tools/context/media?ids=Q1035,Q3038318").await;
+    assert_eq!(r.status, 200);
+    assert_eq!(r.body["media"]["Q1035"]["image"], Value::Null);
+    assert!(r.body["media"]["Q1035"]["summary"].is_object());
+    assert!(!fake.urls().iter().any(|u| u.contains("192.168.")), "{:?}", fake.urls());
+
+    let fake = Fake::new();
+    wikimedia(&fake);
+    fake.route("https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6d/", 200, "text/html", b"<html>not a picture</html>".to_vec());
+    let t = app_with(&fake, false, limits());
+    let r = t.get("/api/tools/context/media?ids=Q3038318").await;
+    assert_eq!(r.body["media"]["Q3038318"]["image"], Value::Null);
+    assert!(r.body["media"]["Q3038318"]["summary"].is_object());
+}
+
+#[tokio::test]
+async fn media_ids_are_checked() {
+    let t = make_app();
+    for bad in ["Q1035,P18", "Q1035,../etc", "Q12345678901234"] {
+        let r = t.get(&format!("/api/tools/context/media?ids={bad}")).await;
+        assert_eq!((bad, r.status, r.body["error"]["code"].clone()), (bad, 400, json!("invalid_request")), "{}", r.text);
+    }
+    let many = (1..=41).map(|i| format!("Q{i}")).collect::<Vec<_>>().join(",");
+    assert_eq!(t.get(&format!("/api/tools/context/media?ids={many}")).await.status, 400);
+    let forty = (1..=40).map(|i| format!("Q{i}")).collect::<Vec<_>>().join(",");
+    assert_eq!(t.get(&format!("/api/tools/context/media?ids={forty}")).await.status, 200);
+    let none = t.get("/api/tools/context/media").await;
+    assert_eq!((none.status, none.body), (200, json!({ "media": {} })));
+}

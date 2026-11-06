@@ -701,6 +701,7 @@ export function createMockApi(options: MockApiOptions = {}): PagerApi {
     startContextBriefing: contextBackendOnly,
     getContextRun: contextBackendOnly,
     listContextBriefings: contextBackendOnly,
+    getContextMedia: contextBackendOnly,
   };
 }
 

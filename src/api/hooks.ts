@@ -40,6 +40,8 @@ export const queryKeys = {
     ["context", "briefing", docId, level, (focus ?? "").toLowerCase()] as const,
   contextRun: (runId: string) => ["context", "run", runId] as const,
   contextList: ["context", "list"] as const,
+  /** `ids`: sorted, so the same entities share one entry. */
+  contextMedia: (ids: readonly string[]) => ["context", "media", ids.join(",")] as const,
 };
 
 /** The library changed shape: documents and the folder tree both show it. */
@@ -523,5 +525,20 @@ export function useStartContext(docId: string | undefined) {
     // Refused (a phone past its limit, a limit lowered on the computer, no key): the runs-left line and
     // the buttons follow the server again.
     onError: () => void qc.invalidateQueries({ queryKey: queryKeys.contextStatus }),
+  });
+}
+
+/**
+ * Pictures and Wikipedia intros for a briefing's Wikidata items (Phase 5). Free; on failure the map
+ * just keeps its shapes, so errors stay quiet.
+ */
+export function useContextMedia(ids: readonly string[]) {
+  return useQuery({
+    queryKey: queryKeys.contextMedia(ids),
+    queryFn: () => api.getContextMedia([...ids]),
+    enabled: ids.length > 0,
+    staleTime: 60 * 60_000,
+    gcTime: 60 * 60_000,
+    retry: 1,
   });
 }

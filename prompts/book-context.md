@@ -253,6 +253,20 @@ conversation, then situation, then moment.
    - **The Assistant page: briefings by book.** The books with briefings (whole-book levels and
      "Context for this" names); tapping one shows it at the page's width, with "Open the book"; a
      "Choose a book" picker makes one for any book in the library.
+13. **Phase 5, a wide Assistant page, pictures and a card** (asked 2026-11-06, after the user asked
+   for a bigger window and map, images, and a card with sources and more information on a tap):
+   - **Layout: the window's width.** The Assistant page fills the window. The Briefing tab stays a
+     readable column; Map, Timeline and Places take the full width: a large graphic, as tall as the
+     window, with the card beside it.
+   - **The card's extra information: the image and Wikipedia's intro.** The Wikipedia lead image and
+     the first sentences of the article, labelled "From Wikipedia" with a link and the image's credit,
+     kept apart from the checked claims and their sources below. (Image only was the alternative.)
+   - **Where the card opens: beside, or below.** Beside the graphic on the wide page and in full
+     screen; in the reader's narrow panel and on phones, below it, scrolled into view.
+   - **Pictures on the map: in the nodes, in colour.** Round for people, ideas and movements; a
+     rounded square for works, places, events and institutions; the book with the library's own
+     cover; the shapes stay for nodes with no picture. (Greyscale, and pictures only in the card,
+     were the alternatives.)
 
 ## API facts (checked against Anthropic's docs on 2026-11-05)
 There is no official Rust SDK, so the server calls `POST https://api.anthropic.com/v1/messages`
@@ -333,6 +347,7 @@ test books, and Phase 2's UI is built against that real output (decided 2026-11-
 - **Phase 4 (optional): polish.** Cost and latency measurements, streaming sections in as
   they're verified, and the Assistant page entry. (Built 2026-11-06 as Decision 12 chose: the
   research shown live instead of streamed sections, timings in the log.)
+- **Phase 5: a wide Assistant page, pictures and a card** (Decision 13, built 2026-11-06).
 
 If one phase turns out to be large, split it again rather than leaving it half done.
 
@@ -810,6 +825,97 @@ server's log only; briefings by book on the Assistant page.
 **Not verified:** the live steps against the real API (the replay's answers have the documented
 shapes; a real run's searches and reads arrive per call, so the list grows in a few jumps); a real
 device.
+
+**Left:** Phase 5 (asked for after Phase 4). The real API on schema v2 and on a focused run stays the
+user's paid check. Later ideas: streaming sections (Decision 12 says why not now), the iPhone app's
+native "Context for this" item.
+
+### Phase 5: a wide Assistant page, pictures and a card (2026-11-06)
+**Asked first** (see Decision 13): the page at the window's width with the graphics beside their card;
+Wikipedia's image and intro in the card, apart from the checked claims; the card beside the graphic,
+or below it in narrow places; colour pictures in the nodes.
+
+**Built:**
+- **Pictures and intros, free** (`server/src/briefing/media.rs`; the briefing schema and the verifier
+  are unchanged, so every stored briefing gets them):
+  - `GET /tools/context/media?ids=` (at most 40 Wikidata ids; in `REMOTE_ALLOW`): for each item, one
+    SPARQL query gives its English article and its P18 image; one Wikipedia request gives the intro's
+    first three sentences (plain text, tidied: "Darwin ( DAR-win;" → "Darwin (DAR-win;") and the
+    article's free lead image; one Commons request gives a ~480 px thumbnail, the artist (HTML to
+    text, a derivative's first source, hidden copies and footnote marks dropped, 80 characters at
+    most) and the licence. The lead image wins over P18.
+  - Thumbnails are downloaded only from `thumb.wikimedia.org` (where Commons serves them now) or
+    `upload.wikimedia.org`, at most 3 MB, must sniff as JPEG, PNG, WebP or GIF, and go into the
+    asset store, so the app and a phone load them from the computer.
+  - Migration v8, `context_media`: per item for 30 days, "nothing found" included; a failed lookup
+    (network, outbound requests off) is never cached and is asked again. One lookup at a time
+    (`BriefingService::media_lock`), so two requests don't fetch twice. Entities with no Wikidata id
+    get nothing (no guessing by name).
+- **Web** (`src/tools/context/`):
+  - `useContextMedia` (one query per briefing, by sorted ids, an hour fresh, errors quiet);
+    `mediaIds`, `nodeImages` (the book's own `coverUrl` first), `mediaSummary`, `nodeRadius`,
+    `creditLine`, `PICTURE_MAP_MIN` in `model.ts`; `radialLayout` takes an optional smallest first
+    ring; `labelPlacement` takes the node's radius and can put the centre's name above it;
+    `wrapLabel` takes a line count.
+  - **The map** (`ConnectionMap.tsx`): as wide as its box, at most `maxHeight` tall (the rings fit the
+    height, a wider box gives side names more room, no empty bands when the width limits it). From
+    420 px tall, pictures fill the nodes, clipped to the kind's shape (round or a rounded square),
+    cropped from the top for people and works, with a ring (blue when tapped); a picture that fails
+    falls back to its shape. Nodes grow with the map (14 px at 420–480, 24 at 720, 30 from 1000; the
+    centre 18 → 40), the first ring clears the centre's picture and its name (now above the centre,
+    toward the author), and side names may take three lines. Smaller maps (the reader's panel, a
+    phone) keep the Phase 2 layout and shapes exactly; their card still has the picture.
+  - **The card** (`EntityDetail` in `parts.tsx`): the picture (at most 240 px tall) with "Picture:
+    artist · licence, Wikimedia Commons" linking to the file's page; the name, kind, dates, catalogue
+    record and Wikidata; the Wikidata description; "From Wikipedia" (the intro on a grey ground, cut
+    to five lines with More when long, and "Read on Wikipedia"); "How it connects" (the checked links
+    and their sources); "In the briefing".
+  - **`GraphicStage`** (`ContextPanel.tsx`), used by the panel, the full-screen dialog and the page:
+    the graphic and the card side by side (a 360 px card, sticky below the tabs on the page), or the
+    card below, scrolled into view on a tap (`scroll-mt-16`, so not under the sticky tabs; smooth
+    unless reduced motion).
+  - **The Assistant page**: `FullColumn` (the window's width, at most 1680 px) instead of the 600 px
+    column; `ContextHome` measures itself (a callback ref) and, from 960 px, passes `wide` to
+    `ContextForDocument`: graphics up to the window's height less 140 px, the Briefing tab, level
+    switcher and notices in a 720 px column, the tabs at most 560 px.
+
+**Verified:**
+- `cargo test`: all suites pass. New in `server/tests/briefing.rs`, against Wikimedia's answers
+  recorded on 2026-11-06 (`media-sparql.json`, `media-wikipedia.json`, `media-commons.json`, trimmed):
+  one request per service and a thumbnail per item, the lead image over P18 and only the chosen file
+  downloaded, the credits ("Henry Maull (1829–1914) and John Fox (1832–1907) (Maull & Fox)"), the
+  tidied intro, nothing found as nulls, the thumbnail served from `/api/assets` as `image/jpeg`, a
+  second and a partial request from the cache with no request, looked up again after 30 days, a
+  failed thumbnail not cached (the intro kept, the picture fetched next time, the cached item not
+  asked again), Wikidata down and no transport giving `{ media: {} }` with nothing cached, a
+  thumbnail URL off Wikimedia (a private address) never fetched, an HTML answer for a thumbnail
+  refused, and 400 for bad ids and 41. Unit tests for the ids, file names, the intro and the credits.
+  The remote suite's no-paths test covers the new GET from a phone.
+- `npm test`: 238 pass; `npm run typecheck` and `npm run build` pass (the main bundle 679 KB, the
+  panel's chunk 30 KB). New: the adapter's URL and the mock's `unsupported`, `mediaIds` on the real
+  samples (Paley, Murray and Huxley have no id), the cover first, node radii, label offsets with a
+  radius and above the centre, three-line labels, the first ring kept clear (and unchanged by
+  default), the credit line, the query key.
+- Live, free: the dev server's media route for Darwin's map against the real Wikimedia, with the
+  server's User-Agent: 7 pictures and intros in 0.6 s, then 17 ms from the cache. It showed two
+  things the fixtures then gained: thumbnails now come from `thumb.wikimedia.org`, and an artist
+  can carry a hidden copy ("Unknown author<span style="display: none;">Unknown author</span>").
+- In a browser (Playwright's Chromium over CDP, the dev server on a scratch copy of the dev data with
+  an empty `XDG_CONFIG_HOME` and no key): at 1440 and 1920 px, the Assistant list and Darwin's map
+  with portraits of Darwin, Wallace, Lyell, Hooker and Malthus, Down House, the library's cover on the
+  book and shapes for Paley, Murray and Huxley; Malthus's and Wallace's cards beside the map; "In the
+  briefing" from the card (switches to the text and flashes the item); the Timeline and Austen's
+  Places with the card beside them (Chawton's photograph); Austen's and Nietzsche's maps; the focused
+  Malthus map (his portrait at the centre); the Briefing tab as a 720 px column; the dark theme; the
+  reader's panel (shapes, the card below with its picture, scrolled below the tabs) and its full
+  screen (pictures); at 390 px the page stacked and a tap scrolling to the card; the media route
+  blocked (only the library cover, no errors). No page errors.
+- Fixed on the way: the centre's name and picture colliding with the first ring (Nietzsche), cut
+  side names ("Alfred Russel…"), the card's picture hidden under the sticky tabs, and the panel's
+  map crowded by pictures (hence the 420 px threshold).
+
+**Not verified:** a real device; Wikimedia's answers for every kind of entity (an idea's lead image
+can be its author's portrait: "God is dead" shows Nietzsche, as Wikipedia does).
 
 **Left:** nothing planned. The real API on schema v2 and on a focused run stays the user's paid check.
 Later ideas: streaming sections (Decision 12 says why not now), the iPhone app's native "Context for

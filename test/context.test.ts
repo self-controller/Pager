@@ -4,7 +4,14 @@ import { describe, expect, it, vi } from "vitest";
 import { queryKeys } from "@/api/hooks";
 import { createHttpApi } from "@/api/http";
 import { createMockApi } from "@/api/mock";
-import { ApiError, ErrorCodes, type ContextBriefing, type ContextEntity, type ContextLink } from "@/api/types";
+import {
+  ApiError,
+  ErrorCodes,
+  type ContextBriefing,
+  type ContextEntity,
+  type ContextLink,
+  type ContextMedia,
+} from "@/api/types";
 import {
   citationView,
   costLabel,
@@ -28,6 +35,11 @@ import {
   labelChars,
   labelPlacement,
   linksOf,
+  creditLine,
+  mediaIds,
+  mediaSummary,
+  nodeImages,
+  nodeRadius,
   mapRoot,
   matchClaim,
   MIN_PLACE_SPAN,
@@ -88,6 +100,7 @@ describe("context api: http adapter", () => {
     await api.startContextBriefing("doc 1", { level: "student", refresh: true });
     await api.getContextRun("run/2");
     await api.listContextBriefings();
+    await api.getContextMedia(["Q1035", "Q5333"]);
     const calls = fetchMock.mock.calls.map(([url, init]) => `${init?.method ?? "GET"} ${url}`);
     expect(calls).toEqual([
       "GET /api/tools/context/status",
@@ -95,6 +108,7 @@ describe("context api: http adapter", () => {
       "POST /api/tools/context/briefings/doc%201",
       "GET /api/tools/context/runs/run%2F2",
       "GET /api/tools/context/briefings",
+      "GET /api/tools/context/media?ids=Q1035,Q5333",
     ]);
     expect(JSON.parse(fetchMock.mock.calls[2]![1]!.body as string)).toEqual({ level: "student", refresh: true });
     expect((fetchMock.mock.calls[2]![1]!.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
@@ -145,7 +159,7 @@ describe("context api: http adapter", () => {
 });
 
 describe("context api: mock", () => {
-  it("answers unsupported for all five: there is no model or catalogue in the browser", async () => {
+  it("answers unsupported for all six: there is no model or catalogue in the browser", async () => {
     const api = createMockApi({ storage: null });
     const calls = [
       api.getContextStatus(),
@@ -153,6 +167,7 @@ describe("context api: mock", () => {
       api.startContextBriefing("jane-eyre", {}),
       api.getContextRun("r"),
       api.listContextBriefings(),
+      api.getContextMedia(["Q1035"]),
     ];
     for (const c of calls) {
       const e = await c.catch((err: unknown) => err);
@@ -774,5 +789,94 @@ describe("context: the Assistant page's list", () => {
     // A book with only "Context for this" briefings still shows.
     expect(books[2]).toMatchObject({ levels: [], focuses: [{ focus: "Wagner", levels: ["general"] }] });
     expect(groupBriefings([])).toEqual([]);
+  });
+});
+
+describe("context: pictures and Wikipedia intros (Phase 5)", () => {
+  const credit = { artist: "Henry Maull", license: "Public domain", page: "https://commons.wikimedia.org/wiki/File:X.jpg" };
+  const media: Record<string, ContextMedia> = {
+    Q1035: {
+      image: { url: "/api/assets/aa.jpg", width: 480, height: 640, credit },
+      summary: { title: "Charles Darwin", extract: "Charles Robert Darwin was an English naturalist.", url: "https://en.wikipedia.org/wiki/Charles_Darwin" },
+    },
+    Q20124: { image: { url: "/api/assets/bb.jpg", width: 480, height: 771, credit }, summary: null },
+    // Only pictures the computer serves are drawn.
+    Q13526: { image: { url: "https://example.org/x.jpg", width: 1, height: 1, credit }, summary: null },
+  };
+
+  it("asks for each Wikidata item once, sorted", () => {
+    expect(mediaIds(darwin)).toEqual(["Q1035", "Q13526", "Q157501", "Q160627", "Q20124", "Q3038318", "Q5333"]);
+    // Paley, Murray and Huxley have no item: no picture is guessed for them.
+    expect(mediaIds(darwin)).toHaveLength(darwin.entities.filter((e) => e.wikidata).length);
+    expect(mediaIds({ entities: [] })).toEqual([]);
+    const many = Array.from({ length: 50 }, (_, i) => ({ ...darwin.entities[0]!, id: `e${i}`, wikidata: `Q${i + 1}` }));
+    expect(mediaIds({ entities: many })).toHaveLength(40);
+    expect(mediaIds({ entities: [{ ...darwin.entities[0]!, wikidata: "P18" }] })).toEqual([]);
+  });
+
+  it("gives the book its own cover first, and the rest their Wikimedia pictures", () => {
+    const withCover = nodeImages(darwin, media, "/api/assets/cover.jpg");
+    expect(withCover.get("book")).toEqual({ url: "/api/assets/cover.jpg", width: 2, height: 3, credit: null });
+    expect(withCover.get("author")?.url).toBe("/api/assets/aa.jpg");
+    expect(withCover.has("malthus")).toBe(false);
+    expect(withCover.has("paley")).toBe(false);
+    expect(nodeImages(darwin, media, null).get("book")?.url).toBe("/api/assets/bb.jpg");
+    expect(nodeImages(darwin, undefined).size).toBe(0);
+    expect(mediaSummary(darwin.entities.find((e) => e.id === "author")!, media)?.title).toBe("Charles Darwin");
+    expect(mediaSummary(darwin.entities.find((e) => e.id === "paley")!, media)).toBeNull();
+  });
+
+  it("sizes nodes for their pictures and keeps labels clear of them", () => {
+    expect(nodeRadius(360, "node", false)).toBe(5.5);
+    expect(nodeRadius(900, "root", false)).toBe(9);
+    expect(nodeRadius(900, "author", false)).toBe(7);
+    expect(nodeRadius(420, "node", true)).toBe(14);
+    expect(nodeRadius(480, "node", true)).toBe(14);
+    expect(nodeRadius(480, "root", true)).toBe(18);
+    expect(nodeRadius(600, "node", true)).toBe(19);
+    expect(nodeRadius(720, "node", true)).toBe(24);
+    expect(nodeRadius(860, "node", true)).toBe(27);
+    expect(nodeRadius(1000, "node", true)).toBe(30);
+    expect(nodeRadius(1400, "root", true)).toBe(40);
+    // The plain shapes keep their old offsets; a picture pushes the label out.
+    expect(labelPlacement({ angle: 0, depth: 1 })).toEqual({ anchor: "start", dx: 10, dy: 4 });
+    expect(labelPlacement({ angle: 0, depth: 0 })).toEqual({ anchor: "middle", dx: 0, dy: 26 });
+    expect(labelPlacement({ angle: 0, depth: 0 }, 9, true)).toEqual({ anchor: "middle", dx: 0, dy: -15.5 });
+    expect(labelPlacement({ angle: 0, depth: 1 }, 24)).toEqual({ anchor: "start", dx: 28.5, dy: 4 });
+    expect(labelPlacement({ angle: Math.PI, depth: 1 }, 24).dx).toBe(-28.5);
+    expect(labelPlacement({ angle: -Math.PI / 2, depth: 1 }, 24).dy).toBe(-30.5);
+    expect(labelPlacement({ angle: Math.PI / 2, depth: 1 }, 24).dy).toBe(38.5);
+    expect(labelPlacement({ angle: 0, depth: 0 }, 32).dy).toBe(49);
+    expect(labelPlacement({ angle: 0, depth: 0 }, 32, true).dy).toBe(-38.5);
+    expect(wrapLabel("Alfred Russel Wallace", 10)).toEqual(["Alfred", "Russel…"]);
+    expect(wrapLabel("Alfred Russel Wallace", 10, 3)).toEqual(["Alfred", "Russel", "Wallace"]);
+    expect(wrapLabel("Sir Joseph Dalton Hooker of Kew", 8, 3)).toEqual(["Sir", "Joseph", "Dalton…"]);
+  });
+
+  it("keeps the first ring clear of the centre when asked", () => {
+    const links = usableLinks(nietzsche);
+    const even = radialLayout(nietzsche.entities, links, 233);
+    expect(even.rings).toEqual([77.67, 155.33, 233]);
+    // The default is unchanged: an even share each.
+    expect(radialLayout(nietzsche.entities, links, 233, undefined, 0).rings).toEqual(even.rings);
+    const clear = radialLayout(nietzsche.entities, links, 233, undefined, 96);
+    expect(clear.rings).toEqual([96, 164.5, 233]);
+    // At most 45% of the radius, and never less than the even share.
+    expect(radialLayout(nietzsche.entities, links, 94, undefined, 66).rings[0]).toBe(42.3);
+    expect(radialLayout(darwin.entities, usableLinks(darwin), 233, undefined, 96).rings).toEqual(
+      radialLayout(darwin.entities, usableLinks(darwin), 233).rings,
+    );
+    // Every node sits on its ring.
+    for (const n of clear.nodes) if (n.depth > 0) expect(Math.hypot(n.x, n.y)).toBeCloseTo(clear.rings[n.depth - 1]!, 1);
+  });
+
+  it("credits the picture", () => {
+    expect(creditLine(credit)).toBe("Henry Maull · Public domain");
+    expect(creditLine({ ...credit, artist: null })).toBe("Public domain");
+    expect(creditLine({ ...credit, artist: null, license: null })).toBe("Wikimedia Commons");
+  });
+
+  it("keys the media query by the sorted ids", () => {
+    expect(queryKeys.contextMedia(["Q1", "Q2"])).toEqual(["context", "media", "Q1,Q2"]);
   });
 });

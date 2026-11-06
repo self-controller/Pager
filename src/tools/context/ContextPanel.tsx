@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, BookOpen, KeyRound, Landmark, Maximize2, RefreshCw } from "lucide-react";
 import {
   ApiError,
@@ -9,7 +9,7 @@ import {
   type ContextStatus,
   type DocumentDetail,
 } from "@/api/types";
-import { useContextBriefing, useContextRun, useContextStatus, useStartContext } from "@/api/hooks";
+import { useContextBriefing, useContextMedia, useContextRun, useContextStatus, useStartContext } from "@/api/hooks";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -26,6 +26,9 @@ import {
   FOCUS_COST,
   generatedLabel,
   LEVEL_LABELS,
+  mediaIds,
+  mediaSummary,
+  nodeImages,
   orderedSections,
   phoneRefreshLine,
   phoneRunsLine,
@@ -70,12 +73,18 @@ export function ContextForDocument({
   focus,
   onWholeBook = () => setPanelFocus(null),
   bookShown = false,
+  wide = false,
 }: {
   doc: DocumentDetail;
   focus: string | null;
   onWholeBook?: () => void;
   /** The page already names the book above: a focused briefing's header leaves out "in <book>". */
   bookShown?: boolean;
+  /**
+   * The wide Assistant page (Phase 5): the graphics take the full width with the card beside them,
+   * as tall as the window; the briefing's text stays a readable column.
+   */
+  wide?: boolean;
 }) {
   const { contextLevel: level } = useSettings();
   const status = useContextStatus();
@@ -105,6 +114,11 @@ export function ContextForDocument({
   const failed = run.data?.status === "failed" ? run.data : null;
 
   const views = useMemo(() => (briefing ? viewsFor(briefing) : (["briefing"] as ContextView[])), [briefing]);
+  // Pictures and Wikipedia intros: free, looked up once per briefing; without them the map keeps its shapes.
+  const ids = useMemo(() => (briefing ? mediaIds(briefing) : []), [briefing]);
+  const media = useContextMedia(ids).data?.media;
+  const images = useMemo(() => (briefing ? nodeImages(briefing, media, doc.coverUrl) : undefined), [briefing, media, doc.coverUrl]);
+  const windowHeight = useWindowHeight();
   const shown: ContextView = views.includes(view) ? view : "briefing";
   const onMap = useMemo(
     () => new Set(views.includes("map") && briefing ? briefing.entities.map((e) => e.id) : []),
@@ -155,30 +169,48 @@ export function ContextForDocument({
 
   const graphic = (v: ContextView, maxHeight?: number) =>
     briefing && v === "map" ? (
-      <ConnectionMap briefing={briefing} focus={picked} onFocus={setPicked} maxHeight={maxHeight} />
+      <ConnectionMap briefing={briefing} focus={picked} onFocus={setPicked} maxHeight={maxHeight} images={images} />
     ) : briefing && v === "timeline" ? (
       <Timeline briefing={briefing} focus={picked} onFocus={setPicked} />
     ) : briefing && v === "places" ? (
       <PlacesMap briefing={briefing} focus={picked} onFocus={setPicked} maxHeight={maxHeight} />
     ) : null;
+  // The tapped node's card, or what to do on this graphic.
+  const card = (v: ContextView) => {
+    if (!briefing) return null;
+    const entity = picked && viewShows(briefing, v, picked) ? briefing.entities.find((e) => e.id === picked) : undefined;
+    return entity ? (
+      <EntityDetail
+        briefing={briefing}
+        id={entity.id}
+        onRead={read}
+        image={images?.get(entity.id)}
+        summary={mediaSummary(entity, media)}
+      />
+    ) : (
+      <Hint view={v} briefing={briefing} />
+    );
+  };
 
   return (
     <div className="flex min-h-full flex-col">
       {focus && <FocusHeader focus={focus} doc={bookShown ? null : doc} onWholeBook={onWholeBook} />}
       {views.length > 1 && (
         <div className="sticky top-0 z-10 border-b border-detail bg-surface px-3 py-2">
-          <SegmentedTabs
-            label="Context view"
-            stretch
-            value={shown}
-            onChange={setView}
-            options={views.map((v) => ({ value: v, label: VIEW_LABELS[v] }))}
-          />
+          <div className={cx(wide && "max-w-[560px]")}>
+            <SegmentedTabs
+              label="Context view"
+              stretch
+              value={shown}
+              onChange={setView}
+              options={views.map((v) => ({ value: v, label: VIEW_LABELS[v] }))}
+            />
+          </div>
         </div>
       )}
 
       {shown === "briefing" ? (
-        <>
+        <div className={cx(wide && "w-full max-w-[720px]")}>
           <LevelSwitcher level={level} />
           {running && <RunStatus run={run.data} fetchedAt={run.dataUpdatedAt} compact={Boolean(briefing)} />}
           {failed && !running && (
@@ -213,22 +245,19 @@ export function ContextForDocument({
           ) : !running && !failed ? (
             <MakeOne level={level} focus={focus} phone={status.data.phone} onMake={() => begin(false)} />
           ) : null}
-        </>
+        </div>
       ) : (
         briefing && (
-          <div className="flex flex-col pt-2">
-            <div className="flex justify-end px-2">
-              <IconButton icon={Maximize2} label="Full screen" size="sm" onClick={() => setFull(shown)} />
-            </div>
-            {graphic(shown)}
-            <div className="px-5 pt-4 pb-6">
-              {picked && viewShows(briefing, shown, picked) ? (
-                <EntityDetail briefing={briefing} id={picked} onRead={read} />
-              ) : (
-                <Hint view={shown} briefing={briefing} />
-              )}
-            </div>
-          </div>
+          <GraphicStage
+            wide={wide}
+            // Below the sticky tabs, with room for the key under the map.
+            maxHeight={wide ? windowHeight - 140 : undefined}
+            stickyCard={wide}
+            graphic={(h) => graphic(shown, h)}
+            card={card(shown)}
+            picked={picked}
+            onFull={() => setFull(shown)}
+          />
         )
       )}
 
@@ -247,7 +276,7 @@ export function ContextForDocument({
           title={`${full ? VIEW_LABELS[full] : ""} · ${focus ? `${focus}, in ${doc.title}` : doc.title}`}
           placement="full"
         >
-          {full && <FullView briefing={briefing} graphic={graphic} view={full} focus={picked} onRead={read} />}
+          {full && <FullView graphic={(h) => graphic(full, h)} card={card(full)} picked={picked} />}
         </Dialog>
       )}
     </div>
@@ -448,38 +477,87 @@ function Hint({ view, briefing }: { view: ContextView; briefing: ContextBriefing
   return <p className="font-sans text-[12.5px] leading-[18px] text-fg-3">{text}</p>;
 }
 
-/** A graphic on the whole screen: beside its details when there's room, above them when not. */
-function FullView({
-  briefing,
-  graphic,
-  view,
-  focus,
-  onRead,
-}: {
-  briefing: ContextBriefing;
-  graphic: (v: ContextView, maxHeight?: number) => ReactNode;
-  view: ContextView;
-  focus: string | null;
-  onRead: (ref: ItemRef) => void;
-}) {
+/** The window's height, kept up to date. */
+function useWindowHeight(): number {
   const [height, setHeight] = useState(() => window.innerHeight);
   useEffect(() => {
     const on = () => setHeight(window.innerHeight);
     window.addEventListener("resize", on);
     return () => window.removeEventListener("resize", on);
   }, []);
+  return height;
+}
+
+function reducedMotion(): boolean {
+  return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/**
+ * A graphic and the card for its tapped node: side by side when `wide` (the card a 360px column, sticky
+ * below the tabs on the Assistant page), else the card below, scrolled into view on a tap.
+ */
+function GraphicStage({
+  wide,
+  maxHeight,
+  stickyCard = false,
+  graphic,
+  card,
+  picked,
+  onFull,
+}: {
+  wide: boolean;
+  maxHeight?: number;
+  stickyCard?: boolean;
+  graphic: (maxHeight?: number) => ReactNode;
+  card: ReactNode;
+  picked: string | null;
+  onFull?: () => void;
+}) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (wide || !picked) return;
+    cardRef.current?.scrollIntoView({ block: "nearest", behavior: reducedMotion() ? "auto" : "smooth" });
+  }, [picked, wide]);
+  const full = onFull && (
+    <div className={cx("flex justify-end", !wide && "px-2")}>
+      <IconButton icon={Maximize2} label="Full screen" size="sm" onClick={onFull} />
+    </div>
+  );
+  if (wide) {
+    return (
+      <div className="flex items-start gap-6 px-4 pt-2 pb-6">
+        <div className="min-w-0 flex-1">
+          {full}
+          {graphic(maxHeight)}
+        </div>
+        <div ref={cardRef} className={cx("w-[360px] shrink-0 pt-10", stickyCard && "sticky top-[64px]")}>
+          {card}
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className="flex flex-col gap-4 p-4 md:flex-row md:items-start">
-      <div className="min-w-0 flex-1">{graphic(view, height - 120)}</div>
-      <div className="md:w-[360px] md:shrink-0">
-        {focus && viewShows(briefing, view, focus) ? (
-          <EntityDetail briefing={briefing} id={focus} onRead={onRead} />
-        ) : (
-          <Hint view={view} briefing={briefing} />
-        )}
+    <div className="flex flex-col pt-2">
+      {full}
+      {graphic(maxHeight)}
+      {/* Scrolled to below the sticky tabs, not under them. */}
+      <div ref={cardRef} className="scroll-mt-16 scroll-mb-4 px-5 pt-4 pb-6">
+        {card}
       </div>
     </div>
   );
+}
+
+/** A graphic on the whole screen: beside its card when there's room, above it when not. */
+function FullView({ graphic, card, picked }: { graphic: (maxHeight?: number) => ReactNode; card: ReactNode; picked: string | null }) {
+  const height = useWindowHeight();
+  const [wide, setWide] = useState(() => window.innerWidth >= 768);
+  useEffect(() => {
+    const on = () => setWide(window.innerWidth >= 768);
+    window.addEventListener("resize", on);
+    return () => window.removeEventListener("resize", on);
+  }, []);
+  return <GraphicStage wide={wide} maxHeight={height - 120} graphic={graphic} card={card} picked={picked} />;
 }
 
 function LoadError({ error, onRetry }: { error: unknown; onRetry: () => void }) {

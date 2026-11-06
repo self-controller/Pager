@@ -23,6 +23,7 @@ pub fn mount(api: Api) -> Api {
         .add("GET", "/tools/context/briefings/:id", get(get_briefing))
         .add("POST", "/tools/context/briefings/:id", post(start_briefing))
         .add("GET", "/tools/context/runs/:rid", get(get_run))
+        .add("GET", "/tools/context/media", get(get_media))
 }
 
 fn focus_of(v: Option<&str>) -> Result<Option<Focus>> {
@@ -71,4 +72,12 @@ async fn start_briefing(State(app): State<Arc<App>>, Path(id): Path<String>, dev
 
 async fn get_run(State(app): State<Arc<App>>, Path(rid): Path<String>) -> Result<Response> {
     Ok(ok(briefing::run_view(&app, &rid).await?))
+}
+
+/// Pictures and Wikipedia intros for the map's Wikidata items (Phase 5): free, cached on the computer.
+async fn get_media(State(app): State<Arc<App>>, RawQuery(raw): RawQuery) -> Result<Response> {
+    let q = query(&raw);
+    let ids = briefing::media::parse_ids(q.get("ids").map(String::as_str)).map_err(invalid)?;
+    let media = briefing::media::media(&app, ids).await?;
+    Ok(ok(json!({ "media": media })))
 }

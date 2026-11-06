@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { ArrowLeft, BookOpen, ChevronRight, Landmark, Library, Search } from "lucide-react";
 import { ApiError, ErrorCodes, type DocumentSummary } from "@/api/types";
@@ -20,7 +20,34 @@ export function ContextHome() {
   const docId = params.get("doc");
   const focus = normalizeFocus(params.get("focus") ?? "")?.text ?? null;
   const show = (doc: string | null, f?: string | null) => setParams(doc ? (f ? { doc, focus: f } : { doc }) : {});
-  return docId ? <BookContext key={docId} docId={docId} focus={focus} show={show} /> : <BriefingList show={show} />;
+  const [box, width] = useBoxWidth();
+  return (
+    <div ref={box}>
+      {docId ? (
+        <BookContext key={docId} docId={docId} focus={focus} show={show} wide={width >= WIDE} />
+      ) : (
+        <BriefingList show={show} />
+      )}
+    </div>
+  );
+}
+
+/** From this width the page puts a graphic and its card side by side (Phase 5). */
+const WIDE = 960;
+
+/** An element's width, measured again whenever it resizes. A callback ref, so it can attach late. */
+function useBoxWidth(): [(el: HTMLDivElement | null) => void, number] {
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => {
+    if (!el) return;
+    const measure = () => setWidth(Math.round(el.clientWidth));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [el]);
+  return [setEl, width];
 }
 
 type Show = (doc: string | null, focus?: string | null) => void;
@@ -129,7 +156,7 @@ function BriefingList({ show }: { show: Show }) {
 }
 
 /** One book's Context: the whole book's briefing, or with `focus` a "Context for this" one. */
-function BookContext({ docId, focus, show }: { docId: string; focus: string | null; show: Show }) {
+function BookContext({ docId, focus, show, wide }: { docId: string; focus: string | null; show: Show; wide: boolean }) {
   const doc = useDocument(docId);
   const list = useContextBriefings();
   const navigate = useNavigate();
@@ -196,7 +223,7 @@ function BookContext({ docId, focus, show }: { docId: string; focus: string | nu
           )}
         </div>
       </div>
-      <ContextForDocument key={focus ?? ""} doc={d} focus={focus} onWholeBook={() => show(d.id)} bookShown />
+      <ContextForDocument key={focus ?? ""} doc={d} focus={focus} onWholeBook={() => show(d.id)} bookShown wide={wide} />
     </div>
   );
 }

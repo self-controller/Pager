@@ -19,6 +19,15 @@ export function WideColumn({ children, className }: { children: ReactNode; class
   );
 }
 
+/** The window's width, for pages that need room (the Assistant page), capped on very wide screens. */
+export function FullColumn({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className="md:px-5">
+      <div className={cx("mx-auto w-full max-w-[1680px]", className)}>{children}</div>
+    </div>
+  );
+}
+
 /**
  * Page title row. On phones it is a sticky 56px top bar; on larger screens it is a
  * plain heading at the top of the column (or hidden, for pages that open straight into content).

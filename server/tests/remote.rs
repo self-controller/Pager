@@ -298,6 +298,7 @@ async fn no_path_on_this_computer_leaves_it() {
         ("GET /tools/context/briefings", vec!["/tools/context/briefings".into()]),
         ("GET /tools/context/briefings/:id", vec![format!("/tools/context/briefings/{did}"), format!("/tools/context/briefings/{did}?level=scholar")]),
         ("GET /tools/context/runs/:rid", vec!["/tools/context/runs/r1".into()]),
+        ("GET /tools/context/media", vec!["/tools/context/media?ids=Q1035,Q5333".into()]),
     ];
     let mut covered: Vec<&str> = urls.iter().map(|(r, _)| *r).collect();
     covered.sort();

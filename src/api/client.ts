@@ -4,6 +4,7 @@ import type {
   AppSettingsPatch,
   ContextBriefingList,
   ContextLevel,
+  ContextMediaList,
   ContextRun,
   ContextState,
   ContextStatus,
@@ -120,4 +121,6 @@ export interface PagerApi {
   getContextRun(runId: string): Promise<ContextRun>;
   /** Every book with a stored briefing (whole-book and focused), newest first: the Assistant page's list. */
   listContextBriefings(): Promise<ContextBriefingList>;
+  /** Pictures and Wikipedia intros for Wikidata items (at most 40): free, cached on the computer. */
+  getContextMedia(ids: string[]): Promise<ContextMediaList>;
 }

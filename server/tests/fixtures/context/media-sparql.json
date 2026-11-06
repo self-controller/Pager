@@ -1,0 +1,75 @@
+{
+ "head": {
+  "vars": [
+   "item",
+   "image",
+   "article"
+  ]
+ },
+ "results": {
+  "bindings": [
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1035"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/Charles_Darwin"
+    },
+    "image": {
+     "type": "uri",
+     "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Charles%20Darwin%20portrait.jpg"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q13526"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/Thomas_Robert_Malthus"
+    },
+    "image": {
+     "type": "uri",
+     "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Thomas%20Robert%20Malthus%20Wellcome%20L0069037%20-crop.jpg"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q3038318"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/Down_House"
+    },
+    "image": {
+     "type": "uri",
+     "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Down%20House.jpg"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q20124"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/On_the_Origin_of_Species"
+    },
+    "image": {
+     "type": "uri",
+     "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Origin%20of%20Species%20title%20page.jpg"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q99999"
+    }
+   }
+  ]
+ }
+}

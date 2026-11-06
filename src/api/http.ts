@@ -9,6 +9,7 @@ import {
   type ApiErrorBody,
   type AppSettings,
   type ContextBriefingList,
+  type ContextMediaList,
   type ContextRun,
   type ContextState,
   type ContextStatus,
@@ -249,5 +250,6 @@ export function createHttpApi(base = "/api", fetchImpl: typeof fetch = fetch.bin
     startContextBriefing: (docId, input) => request<StartContextResult>(`/tools/context/briefings/${enc(docId)}`, json("POST", input)),
     getContextRun: (runId) => request<ContextRun>(`/tools/context/runs/${enc(runId)}`),
     listContextBriefings: () => request<ContextBriefingList>(`/tools/context/briefings`),
+    getContextMedia: (ids) => request<ContextMediaList>(`/tools/context/media?ids=${ids.map(enc).join(",")}`),
   };
 }
