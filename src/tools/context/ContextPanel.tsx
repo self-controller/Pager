@@ -19,6 +19,7 @@ import { cx } from "@/lib/cx";
 import { updateSettings, useSettings } from "@/state/settings";
 import type { ToolPanelProps } from "@/tools/types";
 import { BriefingView } from "./BriefingView";
+import { CardMap } from "./CardMap";
 import { ConnectionMap } from "./ConnectionMap";
 import {
   BOOK_COST,
@@ -175,8 +176,8 @@ export function ContextForDocument({
     ) : briefing && v === "places" ? (
       <PlacesMap briefing={briefing} focus={picked} onFocus={setPicked} maxHeight={maxHeight} />
     ) : null;
-  // The tapped node's card, or what to do on this graphic.
-  const card = (v: ContextView) => {
+  // The tapped node's details on this graphic, if it shows there.
+  const detail = (v: ContextView) => {
     if (!briefing) return null;
     const entity = picked && viewShows(briefing, v, picked) ? briefing.entities.find((e) => e.id === picked) : undefined;
     return entity ? (
@@ -187,10 +188,15 @@ export function ContextForDocument({
         image={images?.get(entity.id)}
         summary={mediaSummary(entity, media)}
       />
-    ) : (
-      <Hint view={v} briefing={briefing} />
-    );
+    ) : null;
   };
+  // Beside or below a graphic: the details, or what to do on it.
+  const card = (v: ContextView) => (briefing ? (detail(v) ?? <Hint view={v} briefing={briefing} />) : null);
+  // The card map, where there's room (the wide page, a full screen): the details float over it.
+  const cardMap = (height: number) =>
+    briefing && (
+      <CardMap briefing={briefing} focus={picked} onFocus={setPicked} height={height} images={images} detail={detail("map")} />
+    );
 
   return (
     <div className="flex min-h-full flex-col">
@@ -247,18 +253,28 @@ export function ContextForDocument({
           ) : null}
         </div>
       ) : (
-        briefing && (
+        briefing &&
+        (wide && shown === "map" ? (
+          // The map fills the window below the sticky tabs.
+          <MapStage
+            height={windowHeight - TABS_HEIGHT}
+            hint={<Hint view="map" briefing={briefing} cards />}
+            map={cardMap}
+            onFull={() => setFull("map")}
+          />
+        ) : (
           <GraphicStage
-            wide={wide}
-            // Below the sticky tabs, with room for the key under the map.
+            mode={wide ? "beside" : "below"}
+            // Below the sticky tabs.
             maxHeight={wide ? windowHeight - 140 : undefined}
+            cardHeight={windowHeight - TABS_HEIGHT - 16}
             stickyCard={wide}
             graphic={(h) => graphic(shown, h)}
             card={card(shown)}
             picked={picked}
             onFull={() => setFull(shown)}
           />
-        )
+        ))
       )}
 
       <RefreshDialog
@@ -276,7 +292,16 @@ export function ContextForDocument({
           title={`${full ? VIEW_LABELS[full] : ""} · ${focus ? `${focus}, in ${doc.title}` : doc.title}`}
           placement="full"
         >
-          {full && <FullView graphic={(h) => graphic(full, h)} card={card(full)} picked={picked} />}
+          {full && (
+            <FullView
+              view={full}
+              graphic={(h) => graphic(full, h)}
+              cardMap={cardMap}
+              card={card(full)}
+              hint={<Hint view={full} briefing={briefing} cards />}
+              picked={picked}
+            />
+          )}
         </Dialog>
       )}
     </div>
@@ -467,10 +492,10 @@ function RefreshDialog({
   );
 }
 
-function Hint({ view, briefing }: { view: ContextView; briefing: ContextBriefing }) {
+function Hint({ view, briefing, cards = false }: { view: ContextView; briefing: ContextBriefing; cards?: boolean }) {
   const text =
     view === "map"
-      ? `Tap a name to see how it connects to the book, with sources. ${usableLinks(briefing).length} sourced links.`
+      ? `Tap a ${cards ? "card" : "name"} to see how it connects to the book, with sources. ${usableLinks(briefing).length} sourced links.`
       : view === "timeline"
         ? "Dates from Wikidata. Tap a row for its sources."
         : "Places from Wikidata. Tap one for its sources.";
@@ -492,21 +517,58 @@ function reducedMotion(): boolean {
   return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+/** The sticky tab bar's height on the Assistant page (8 px padding, the 36 px tabs, its border). */
+const TABS_HEIGHT = 53;
+/** The row above the card map: the hint and the full-screen button. */
+const MAP_TOOLBAR = 36;
+
 /**
- * A graphic and the card for its tapped node: side by side when `wide` (the card a 360px column, sticky
- * below the tabs on the Assistant page), else the card below, scrolled into view on a tap.
+ * The card map's stage (Phase 6): the hint and the full-screen button in a row above it, then the map
+ * at `height` less that row. The tapped card's details float over the map, so a tap never changes the
+ * page's height or its scroll.
+ */
+function MapStage({
+  height,
+  hint,
+  map,
+  onFull,
+}: {
+  height: number;
+  hint: ReactNode;
+  map: (height: number) => ReactNode;
+  onFull?: () => void;
+}) {
+  return (
+    <div className="flex flex-col px-3 pb-2">
+      <div className="flex shrink-0 items-center justify-between gap-3 px-1" style={{ height: MAP_TOOLBAR }}>
+        <div className="min-w-0 truncate">{hint}</div>
+        {onFull && <IconButton icon={Maximize2} label="Full screen" size="sm" onClick={onFull} />}
+      </div>
+      {map(Math.max(420, height - MAP_TOOLBAR - 8))}
+    </div>
+  );
+}
+
+/**
+ * A graphic and the card for its tapped node. `beside`: side by side, the card a 360 px column of a
+ * fixed height with its own scroll (sticky below the tabs on the Assistant page), so the page's height
+ * never follows the card's and a tap never moves the page. `below`: the card under the graphic,
+ * scrolled into view on a tap (the reader's panel, narrow places).
  */
 function GraphicStage({
-  wide,
+  mode,
   maxHeight,
+  cardHeight,
   stickyCard = false,
   graphic,
   card,
   picked,
   onFull,
 }: {
-  wide: boolean;
+  mode: "beside" | "below";
   maxHeight?: number;
+  /** The card column's height, beside the graphic. */
+  cardHeight: number;
   stickyCard?: boolean;
   graphic: (maxHeight?: number) => ReactNode;
   card: ReactNode;
@@ -515,22 +577,26 @@ function GraphicStage({
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (wide || !picked) return;
+    if (mode !== "below" || !picked) return;
     cardRef.current?.scrollIntoView({ block: "nearest", behavior: reducedMotion() ? "auto" : "smooth" });
-  }, [picked, wide]);
+  }, [picked, mode]);
   const full = onFull && (
-    <div className={cx("flex justify-end", !wide && "px-2")}>
+    <div className={cx("flex justify-end", mode === "below" && "px-2")}>
       <IconButton icon={Maximize2} label="Full screen" size="sm" onClick={onFull} />
     </div>
   );
-  if (wide) {
+  if (mode === "beside") {
     return (
       <div className="flex items-start gap-6 px-4 pt-2 pb-6">
         <div className="min-w-0 flex-1">
           {full}
           {graphic(maxHeight)}
         </div>
-        <div ref={cardRef} className={cx("w-[360px] shrink-0 pt-10", stickyCard && "sticky top-[64px]")}>
+        <div
+          ref={cardRef}
+          className={cx("w-[360px] shrink-0 overflow-y-auto overscroll-contain pt-10 pb-4", stickyCard && "sticky top-[64px]")}
+          style={{ height: cardHeight }}
+        >
           {card}
         </div>
       </div>
@@ -548,8 +614,25 @@ function GraphicStage({
   );
 }
 
-/** A graphic on the whole screen: beside its card when there's room, above it when not. */
-function FullView({ graphic, card, picked }: { graphic: (maxHeight?: number) => ReactNode; card: ReactNode; picked: string | null }) {
+/**
+ * A graphic on the whole screen. From 768 px: the card map with its floating details, or a timeline
+ * or places map beside its card; narrower, the card below.
+ */
+function FullView({
+  view,
+  graphic,
+  cardMap,
+  card,
+  hint,
+  picked,
+}: {
+  view: ContextView;
+  graphic: (maxHeight?: number) => ReactNode;
+  cardMap: (height: number) => ReactNode;
+  card: ReactNode;
+  hint: ReactNode;
+  picked: string | null;
+}) {
   const height = useWindowHeight();
   const [wide, setWide] = useState(() => window.innerWidth >= 768);
   useEffect(() => {
@@ -557,7 +640,18 @@ function FullView({ graphic, card, picked }: { graphic: (maxHeight?: number) => 
     window.addEventListener("resize", on);
     return () => window.removeEventListener("resize", on);
   }, []);
-  return <GraphicStage wide={wide} maxHeight={height - 120} graphic={graphic} card={card} picked={picked} />;
+  // Below the dialog's 56 px title bar.
+  if (wide && view === "map") return <MapStage height={height - 56} hint={hint} map={cardMap} />;
+  return (
+    <GraphicStage
+      mode={wide ? "beside" : "below"}
+      maxHeight={height - 120}
+      cardHeight={height - 56 - 8}
+      graphic={graphic}
+      card={card}
+      picked={picked}
+    />
+  );
 }
 
 function LoadError({ error, onRetry }: { error: unknown; onRetry: () => void }) {

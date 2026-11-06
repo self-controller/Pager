@@ -1,27 +1,13 @@
 import { useId, useMemo, useState, type KeyboardEvent } from "react";
 import type { ContextBriefing, ContextEntityKind } from "@/api/types";
-import {
-  crossPath,
-  KIND_LABELS,
-  labelPlacement,
-  mapRoot,
-  nodeRadius,
-  PICTURE_MAP_MIN,
-  radialLayout,
-  usableLinks,
-  labelChars,
-  wrapLabel,
-  type MapEdge,
-  type MapNode,
-  type NodeImage,
-} from "./model";
-import { useWidth } from "./parts";
+import { crossPath, KIND_LABELS, smallMap, type MapEdge, type MapLabel, type MapNode, type NodeImage } from "./model";
+import { useTextMeasure, useWidth } from "./parts";
 
 interface Props {
   briefing: ContextBriefing;
   focus: string | null;
   onFocus: (id: string | null) => void;
-  /** The tallest it may be (full screen, the wide Assistant page); in the panel it is as tall as it is wide. */
+  /** The tallest it may be (a narrow full screen); in the panel it is as tall as it is wide. */
   maxHeight?: number;
   /** Pictures by entity id (Phase 5): drawn in their nodes, clipped to the kind's shape. */
   images?: Map<string, NodeImage>;
@@ -35,33 +21,28 @@ const LABEL = {
   strokeLinejoin: "round",
 } as const;
 
-/** The connection map: a radial tree with the book at the centre and its author at the top. */
+/**
+ * The small connection map (the reader's panel, narrow places): a radial tree with the book at the
+ * centre and its author at the top, every name placed clear of the others (`mapLabels`). Wide places
+ * draw the card map instead (CardMap.tsx).
+ */
 export function ConnectionMap({ briefing, focus, onFocus, maxHeight, images }: Props) {
   const [ref, width] = useWidth<HTMLDivElement>(320);
-  // As wide as its box and at most `maxHeight` tall: the rings fit the height, and a wider box gives
-  // the names at the sides more room. Node and font sizes follow the height (`size`).
-  const w = Math.max(240, width);
-  const size = Math.max(240, Math.min(w, maxHeight ?? w));
-  const small = size < 480;
-  const large = size >= 640;
-  // Room outside the outer ring for names: above and below (a picture and two lines), and at the sides.
-  const above = small ? 60 : large ? 85 : 75;
-  const beside = small ? 76 : large ? 115 : 105;
-  const radius = Math.max(40, Math.min(size / 2 - above, w / 2 - beside));
-  // When the width limits the rings, no empty bands above and below them.
-  const h = Math.max(240, Math.min(size, Math.ceil(2 * (radius + above))));
-  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const measure = useTextMeasure();
   // Pictures that didn't load fall back to their shapes.
   const [broken, setBroken] = useState<ReadonlySet<string>>(() => new Set());
-  // Pictures where there's room for them; then the first ring clears the centre's picture, its name
-  // (two lines above it) and a node's picture. A smaller map keeps the plain layout.
-  const pictures = Boolean(images?.size) && size >= PICTURE_MAP_MIN;
-  const inner = pictures ? nodeRadius(size, "root", true) + nodeRadius(size, "node", true) + 44 : 0;
-  const layout = useMemo(
-    () => radialLayout(briefing.entities, usableLinks(briefing), radius, mapRoot(briefing), inner),
-    [briefing, radius, inner],
+  const pictured = useMemo(
+    () => new Set([...(images?.keys() ?? [])].filter((id) => !broken.has(id))),
+    [images, broken],
   );
-  const at = useMemo(() => new Map(layout.nodes.map((n) => [n.entity.id, n])), [layout]);
+  const { frame, layout, labels, radius } = useMemo(
+    () => smallMap(briefing, width, maxHeight, pictured, measure),
+    [briefing, width, maxHeight, pictured, measure],
+  );
+  const { w, h, small, large } = frame;
+  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  // Where each node is drawn: a leaf may have moved to make room for a name.
+  const at = useMemo(() => new Map(layout.nodes.map((n) => [n.entity.id, labels.get(n.entity.id)!])), [layout, labels]);
   const touching = (e: MapEdge) => focus !== null && (e.from === focus || e.to === focus);
   const kinds = [...new Set(briefing.entities.map((e) => e.kind))];
 
@@ -117,7 +98,7 @@ export function ConnectionMap({ briefing, focus, onFocus, maxHeight, images }: P
                 x={m.x}
                 y={m.y + 3}
                 textAnchor="middle"
-                fontSize={small ? 10 : large ? 12.5 : 11.5}
+                fontSize={large ? 12.5 : 11.5}
                 fill="var(--accent)"
                 style={LABEL}
               >
@@ -129,14 +110,11 @@ export function ConnectionMap({ briefing, focus, onFocus, maxHeight, images }: P
           <Node
             key={n.entity.id}
             node={n}
+            label={at.get(n.entity.id)!}
+            r={radius(n)}
             focused={focus === n.entity.id}
             dim={focus !== null && focus !== n.entity.id}
-            small={small}
-            large={large}
-            size={size}
-            width={w}
-            image={!pictures || broken.has(n.entity.id) ? undefined : images?.get(n.entity.id)}
-            centreAbove={pictures}
+            image={frame.pictures && pictured.has(n.entity.id) ? images?.get(n.entity.id) : undefined}
             clipId={`${uid}-clip-${n.entity.id.replace(/[^a-zA-Z0-9_-]/g, "_")}`}
             onBroken={() => setBroken((b) => new Set(b).add(n.entity.id))}
             onFocus={onFocus}
@@ -150,28 +128,21 @@ export function ConnectionMap({ briefing, focus, onFocus, maxHeight, images }: P
 
 function Node({
   node,
+  label,
+  r,
   focused,
   dim,
-  small,
-  large,
-  size,
-  width,
-  centreAbove,
   image,
   clipId,
   onBroken,
   onFocus,
 }: {
   node: MapNode;
+  /** Where it's drawn and its name's place and lines. */
+  label: MapLabel;
+  r: number;
   focused: boolean;
   dim: boolean;
-  small: boolean;
-  large: boolean;
-  size: number;
-  /** The map's width, for the room a name has on its side. */
-  width: number;
-  /** A map of pictures: the centre's name goes above it. */
-  centreAbove: boolean;
   image: NodeImage | undefined;
   clipId: string;
   onBroken: () => void;
@@ -179,16 +150,6 @@ function Node({
 }) {
   const e = node.entity;
   const root = node.depth === 0;
-  const r = nodeRadius(size, root ? "root" : e.id === "author" ? "author" : "node", Boolean(image));
-  const place = labelPlacement(node, r, centreAbove);
-  const fontSize = root ? (small ? 12.5 : large ? 15.5 : 14) : small ? 11.5 : large ? 14 : 13;
-  // Wrapped to the room on its side, so a long name never runs off the map.
-  // Names at the sides may take a third line rather than be cut.
-  const lines = wrapLabel(
-    e.name,
-    labelChars(node, place, width, fontSize, root ? 20 : small ? 14 : large ? 20 : 18),
-    place.anchor === "middle" ? 2 : 3,
-  );
   const color = focused ? "var(--accent)" : "var(--fg-primary)";
   const select = () => onFocus(focused ? null : e.id);
   const onKey = (ev: KeyboardEvent) => {
@@ -197,15 +158,13 @@ function Node({
       select();
     }
   };
-  // Lines above the node when the label sits above it.
-  const startY = place.dy < 0 ? place.dy - (lines.length - 1) * (fontSize + 1) : place.dy;
   return (
     <g
       role="button"
       tabIndex={0}
       aria-pressed={focused}
       aria-label={`${e.name}, ${KIND_LABELS[e.kind].toLowerCase()}`}
-      transform={`translate(${node.x} ${node.y})`}
+      transform={`translate(${label.x} ${label.y})`}
       onClick={select}
       onKeyDown={onKey}
       className="cursor-pointer outline-none [&:focus-visible>.ring]:opacity-100"
@@ -219,14 +178,14 @@ function Node({
         <Shape kind={e.kind} r={r} color={color} solid={root || e.id === "author" || focused} />
       )}
       <text
-        textAnchor={place.anchor}
-        fontSize={fontSize}
+        textAnchor={label.anchor}
+        fontSize={label.fontSize}
         fontWeight={root || e.id === "author" ? 600 : 400}
         fill={focused ? "var(--accent)" : "var(--fg-primary)"}
         style={LABEL}
       >
-        {lines.map((l, i) => (
-          <tspan key={i} x={place.dx} y={startY + i * (fontSize + 1)}>
+        {label.lines.map((l, i) => (
+          <tspan key={i} x={label.dx} y={label.dy + i * label.lineHeight}>
             {l}
           </tspan>
         ))}

@@ -834,9 +834,9 @@ async fn a_focused_briefing_keeps_its_focus_and_at_most_twelve_claims() {
         { "kind": "conversation", "items": items(4, 1) },
         { "kind": "terms", "items": items(2, 1) },
     ], "entities": [
-        { "id": "book", "kind": "work", "name": "On the Origin of Species", "wikidata": null, "record": null },
-        { "id": "author", "kind": "person", "name": "Charles Darwin", "wikidata": null, "record": null },
-        { "id": "focus", "kind": "person", "name": "Thomas Robert Malthus", "wikidata": null, "record": null },
+        { "id": "book", "kind": "work", "name": "On the Origin of Species", "role": "This book", "wikidata": null, "record": null },
+        { "id": "author", "kind": "person", "name": "Charles Darwin", "role": "the economist he read and argued with at length", "wikidata": null, "record": null },
+        { "id": "focus", "kind": "person", "name": "Thomas Robert Malthus", "role": " source of the  struggle: ", "wikidata": null, "record": null },
     ], "links": [] });
     let fake = Fake::new();
     fake.catalogue();
@@ -852,6 +852,9 @@ async fn a_focused_briefing_keeps_its_focus_and_at_most_twelve_claims() {
     assert!(v.report.dropped.iter().any(|d| d.reason.contains("length of 12 claims")));
     let ids: Vec<&str> = v.entities.iter().map(|e| e.id.as_str()).collect();
     assert_eq!(ids, vec!["book", "author", "focus"], "the focus stays even with no link to it");
+    // Roles are tidied; one too long is left out, its entity kept.
+    let roles: Vec<Option<&str>> = v.entities.iter().map(|e| e.role.as_deref()).collect();
+    assert_eq!(roles, vec![Some("This book"), None, Some("Source of the struggle")]);
 
     // The same draft as a whole-book briefing: pre-reading allowed, and a node nothing points at goes.
     let whole = verify(serde_json::from_value(draft).unwrap(), &evidence, &lookups).await;

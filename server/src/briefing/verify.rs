@@ -190,6 +190,25 @@ fn short(s: &str, n: usize) -> String {
     }
 }
 
+/// Longest role kept on a map entity, in characters and in words.
+pub const ROLE_MAX_CHARS: usize = 32;
+pub const ROLE_MAX_WORDS: usize = 5;
+
+/// An entity's role as its card shows it ("Concept", "Rival theorist"): spaces collapsed, a trailing
+/// colon or full stop dropped, the first letter capitalised. None when empty or too long: then the
+/// card falls back to the entity's kind, and the entity itself stays.
+pub fn clean_role(raw: &str) -> Option<String> {
+    let words: Vec<&str> = raw.split_whitespace().collect();
+    let joined = words.join(" ");
+    let trimmed = joined.trim_end_matches([':', '.', ';', ',']).trim();
+    if trimmed.is_empty() || trimmed.chars().count() > ROLE_MAX_CHARS || trimmed.split(' ').count() > ROLE_MAX_WORDS {
+        return None;
+    }
+    let mut cs = trimmed.chars();
+    let first = cs.next()?;
+    Some(first.to_uppercase().chain(cs).collect())
+}
+
 impl Ctx<'_> {
     fn drop(&mut self, what: String, reason: impl Into<String>) {
         self.report.dropped.push(Dropped { what, reason: reason.into() });
@@ -576,6 +595,7 @@ pub async fn verify_shaped(draft: Draft, evidence: &Evidence, lookups: &Lookups,
         }
         e.facts = None;
         e.resolved_url = None;
+        e.role = e.role.as_deref().and_then(clean_role);
         if let Some(q) = e.wikidata.clone().map(|q| q.trim().to_string()) {
             match facts.get(&q) {
                 Some(f) if f.label.iter().chain(f.aliases.iter()).any(|l| title_matches(&e.name, l, None) || title_matches(l, &e.name, None)) => {
@@ -662,4 +682,20 @@ pub async fn verify_shaped(draft: Draft, evidence: &Evidence, lookups: &Lookups,
 
     let little_known = draft.little_known || outside_overview < LITTLE_KNOWN_BELOW;
     Verified { sections, entities, links, little_known, report: ctx.report }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_role_is_tidied_or_left_out() {
+        assert_eq!(clean_role("  concept: ").as_deref(), Some("Concept"));
+        assert_eq!(clean_role("Where he  wrote it.").as_deref(), Some("Where he wrote it"));
+        assert_eq!(clean_role("Übermensch's source").as_deref(), Some("Übermensch's source"));
+        assert_eq!(clean_role("  :  "), None);
+        assert_eq!(clean_role("The economist whose essay he read"), None, "over five words");
+        assert_eq!(clean_role("Where he wrote Part II").as_deref(), Some("Where he wrote Part II"));
+        assert_eq!(clean_role("Counterrevolutionaryphilosophers!!"), None, "over 32 characters");
+    }
 }

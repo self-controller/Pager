@@ -1,7 +1,8 @@
 /**
  * Context: a sourced background briefing for a book (prompts/book-context.md, API.md "Context").
- * The same shape as server/src/briefing/schema.rs (version 2). Every claim carries 1–3 citations the
- * server checked: a page whose quote was found on it, or a catalogue record that resolved.
+ * The same shape as server/src/briefing/schema.rs (version 3; version 2 had no entity `role`). Every
+ * claim carries 1–3 citations the server checked: a page whose quote was found on it, or a catalogue
+ * record that resolved.
  *
  * Mostly historical and situational context. Pre-reading (`readFirst`) is rare: only what the book
  * can't be followed without. `entities` and `links` are a small sourced graph for the connection
@@ -110,6 +111,11 @@ export interface ContextEntity {
   id: string;
   kind: ContextEntityKind;
   name: string;
+  /**
+   * What it is to the author, a few words for its card on the map: "Concept", "Publisher", "Rival
+   * theorist". Absent in briefings made before version 3 (the card falls back to the kind).
+   */
+  role?: string;
   wikidata: string | null;
   record: ContextRecord | null;
   facts?: ContextFacts;

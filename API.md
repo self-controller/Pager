@@ -463,7 +463,9 @@ server checked: a page whose quote it found on that page, a quote from the book'
 or a catalogue record (Open Library, Crossref, Wikidata) that resolved and matched. Anything it
 couldn't check is dropped, never shown. `entities` and `links` are a small sourced graph (people,
 works, ideas, places, events) for a connection map; entities' dates and coordinates come from
-Wikidata, for a timeline and a map.
+Wikidata, for a timeline and a map. Since version 3 each entity may carry a `role`, what it is to the
+author in a few words ("Concept", "Publisher", "Rival theorist"), for its card on the map; the
+verifier tidies it and leaves it out past 32 characters or five words (the entity stays).
 The shapes are `shared/src/context.ts`; the build prompt is `prompts/book-context.md`.
 
 **"Context for this" (Phase 3):** a briefing can be focused on one name or work the reader selected in

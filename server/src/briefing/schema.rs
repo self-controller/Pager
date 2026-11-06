@@ -270,6 +270,10 @@ pub struct Entity {
     /// A catalogue record, for works.
     #[serde(default)]
     pub record: Option<Record>,
+    /// What it is to the author, in a few words, for its card on the map ("Concept", "Publisher",
+    /// "Rival theorist"). Cleaned by the verifier; absent in briefings made before version 3.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
     /// Set by the verifier from Wikidata.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub facts: Option<Facts>,
@@ -348,8 +352,8 @@ pub struct Briefing {
     pub stats: Stats,
 }
 
-/// 2: the situation section, pre-reading without tiers, entities and links.
-pub const BRIEFING_VERSION: u32 = 2;
+/// 2: the situation section, pre-reading without tiers, entities and links. 3: entities' `role`.
+pub const BRIEFING_VERSION: u32 = 3;
 
 fn nullable(t: Value) -> Value {
     json!({ "anyOf": [t, { "type": "null" }] })
@@ -416,6 +420,7 @@ pub fn draft_schema() -> Value {
         "id": string(),
         "kind": { "type": "string", "enum": ["person", "work", "idea", "movement", "institution", "place", "event"] },
         "name": string(),
+        "role": nullable(string()),
         "wikidata": nullable(string()),
         "record": nullable(json!({ "$ref": "#/$defs/record" })),
     }));
@@ -480,5 +485,7 @@ mod tests {
         let s = draft_schema();
         assert!(s["$defs"]["item"]["required"].as_array().unwrap().len() >= 10);
         assert!(s["$defs"]["link"]["properties"]["claim"].is_object());
+        assert!(s["$defs"]["entity"]["required"].as_array().unwrap().iter().any(|r| r == "role"));
+        assert_eq!(d.entities[0].role, None, "a draft from before roles still parses");
     }
 }

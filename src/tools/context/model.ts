@@ -166,6 +166,26 @@ export const KIND_LABELS: Record<ContextEntityKind, string> = {
   event: "Event",
 };
 
+/** What a node is to the author when its briefing gives no `role` (made before version 3). */
+export const KIND_ROLES: Record<ContextEntityKind, string> = {
+  person: "Person",
+  work: "Work",
+  idea: "Concept",
+  movement: "Movement",
+  institution: "Institution",
+  place: "Place",
+  event: "Event",
+};
+
+/** The role on a node's card ("Concept", "Rival theorist"): the briefing's, else "This book", "Author" or the kind's. */
+export function entityRole(e: Pick<ContextEntity, "id" | "kind" | "role">): string {
+  const role = e.role?.trim();
+  if (role) return role;
+  if (e.id === "book") return "This book";
+  if (e.id === "author") return "Author";
+  return KIND_ROLES[e.kind];
+}
+
 /** "1809–1882", "1859", "from 1788", or null. Places have no dates. */
 export function entityDates(e: ContextEntity): string | null {
   const start = parseYear(e.facts?.start);
@@ -209,8 +229,17 @@ export type MapEdgeKind = "tree" | "cross" | "author" | "loose";
 export interface MapNode {
   entity: ContextEntity;
   depth: number;
+  /**
+   * The ring it is drawn on (0 the centre): its depth, except that a leaf hanging straight from the
+   * centre goes on the second ring when there is one, so the centre and its name have room.
+   */
+  ring: number;
   /** Radians, 0 pointing right, growing clockwise (SVG's y runs down). */
   angle: number;
+  /** The share of the circle it and its children own, in radians. */
+  span: number;
+  /** A leaf: nothing hangs from it. */
+  leaf: boolean;
   x: number;
   y: number;
   parent: string | null;
@@ -233,26 +262,26 @@ export interface RadialLayout {
   rings: number[];
 }
 
+export interface RadialTree {
+  /** In the briefing's order, all at 0,0: a layout places them. */
+  nodes: MapNode[];
+  edges: MapEdge[];
+  /** How many rings. */
+  rings: number;
+  root: string;
+}
+
 /**
- * Lays the map out as rings around the book: what links to the book directly on the first ring, and
- * so on outward (a breadth-first tree over the links, either direction). The author always hangs
- * from the book, first, and sits at the top. Each leaf gets an equal share of the circle and a parent
- * sits in the middle of its children's share, so the drawing is the same every time. Links left over
- * after the tree are cross links; entities no link reaches hang loose from the book.
+ * The map's tree, without positions: rings around the centre (the book, or a focused briefing's
+ * `focus`), what links to it directly on the first ring, and so on outward (a breadth-first tree over
+ * the links, either direction). The author always hangs from the book, first, and sits at the top.
+ * Each leaf gets an equal share of the circle and a parent sits in the middle of its children's
+ * share, so the drawing is the same every time. Links left over after the tree are cross links;
+ * entities no link reaches hang loose from the centre. A leaf hanging from the centre (the author
+ * aside) goes on the second ring when there is one.
  */
-export function radialLayout(
-  entities: ContextEntity[],
-  links: ContextLink[],
-  radius: number,
-  /** The centre: the book by default; a focused briefing's `focus` node. */
-  rootId?: string,
-  /**
-   * The first ring's smallest radius, so its nodes clear the centre's picture and name (at most 45% of
-   * `radius`, and never less than an even share); the other rings spread evenly out to `radius`.
-   */
-  inner = 0,
-): RadialLayout {
-  if (entities.length === 0) return { nodes: [], edges: [], rings: [] };
+export function radialTree(entities: ContextEntity[], links: ContextLink[], rootId?: string): RadialTree {
+  if (entities.length === 0) return { nodes: [], edges: [], rings: 0, root: "" };
   const byId = new Map(entities.map((e) => [e.id, e]));
   const root = rootId && byId.has(rootId) ? rootId : byId.has("book") ? "book" : entities[0]!.id;
   const usable = links.filter((l) => byId.has(l.from) && byId.has(l.to) && l.from !== l.to);
@@ -309,16 +338,14 @@ export function radialLayout(
   };
   const total = countLeaves(root);
   const maxDepth = Math.max(...depth.values());
-  const first = Math.max(radius / maxDepth, Math.min(inner, radius * 0.45));
-  const rings = Array.from({ length: maxDepth }, (_, i) =>
-    maxDepth === 1 ? radius : round(first + ((radius - first) * i) / (maxDepth - 1)),
-  );
 
   const angle = new Map<string, number>();
+  const span = new Map<string, number>();
   const firstChild = children.get(root)?.[0];
   const firstShare = firstChild ? ((leaves.get(firstChild) ?? 1) / total) * 2 * Math.PI : 0;
   const assign = (id: string, from: number, to: number) => {
     angle.set(id, (from + to) / 2);
+    span.set(id, to - from);
     let at = from;
     for (const k of children.get(id) ?? []) {
       const share = ((leaves.get(k) ?? 1) / (leaves.get(id) ?? 1)) * (to - from);
@@ -332,14 +359,17 @@ export function radialLayout(
 
   const nodes: MapNode[] = entities.map((entity) => {
     const d = depth.get(entity.id) ?? 1;
-    const a = angle.get(entity.id) ?? 0;
-    const r = d === 0 ? 0 : rings[d - 1]!;
+    const leaf = !(children.get(entity.id)?.length);
+    const ring = d === 1 && leaf && maxDepth >= 2 && entity.id !== "author" ? 2 : d;
     return {
       entity,
       depth: d,
-      angle: a,
-      x: round(Math.cos(a) * r),
-      y: round(Math.sin(a) * r),
+      ring,
+      angle: angle.get(entity.id) ?? 0,
+      span: span.get(entity.id) ?? 0,
+      leaf,
+      x: 0,
+      y: 0,
       parent: parent.get(entity.id) ?? null,
     };
   });
@@ -354,7 +384,32 @@ export function radialLayout(
     edges.push(link ? { from: link.from, to: link.to, kind, link } : { from: p, to: id, kind, link: null });
   }
   for (const l of usable) if (!treeLinks.has(l)) edges.push({ from: l.from, to: l.to, kind: "cross", link: l });
-  return { nodes, edges, rings };
+  return { nodes, edges, rings: maxDepth, root };
+}
+
+/**
+ * The tree laid out on circles (`radialTree`), the outer ring at `radius`. With `inner`, the first
+ * ring's smallest radius (so its nodes clear the centre's picture and name): at most 45% of
+ * `radius`, and never less than an even share; the other rings spread evenly out to `radius`.
+ */
+export function radialLayout(
+  entities: ContextEntity[],
+  links: ContextLink[],
+  radius: number,
+  /** The centre: the book by default; a focused briefing's `focus` node. */
+  rootId?: string,
+  inner = 0,
+): RadialLayout {
+  const tree = radialTree(entities, links, rootId);
+  if (tree.nodes.length === 0) return { nodes: [], edges: [], rings: [] };
+  const n = tree.rings;
+  const first = Math.max(radius / n, Math.min(inner, radius * 0.45));
+  const rings = Array.from({ length: n }, (_, i) => (n === 1 ? radius : round(first + ((radius - first) * i) / (n - 1))));
+  const nodes = tree.nodes.map((node) => {
+    const r = node.ring === 0 ? 0 : rings[node.ring - 1]!;
+    return { ...node, x: round(Math.cos(node.angle) * r), y: round(Math.sin(node.angle) * r) };
+  });
+  return { nodes, edges: tree.edges, rings };
 }
 
 function round(n: number): number {
@@ -432,6 +487,591 @@ export function wrapLabel(text: string, width = 16, maxLines = 2): string[] {
   // More lines than that: the last one shown ends at a word, with an ellipsis.
   const kept = lines.slice(0, maxLines);
   return [...kept.slice(0, -1).map(cut), `${cut(kept.at(-1)!).replace(/…$/, "")}…`];
+}
+
+// ---- The small map's frame and its labels (the reader's panel, narrow places) ----
+
+/** A text's width in px at a size and weight. */
+export type Measure = (text: string, px: number, weight: number) => number;
+
+/** About 0.56 em a character in the system sans (0.6 when bold): for tests, and until the fonts load. */
+export const estimateWidth: Measure = (text, px, weight) => text.length * px * (weight >= 600 ? 0.6 : 0.56);
+
+export interface MapFrame {
+  /** The map's width and height. */
+  w: number;
+  h: number;
+  /** What node and font sizes follow: the height the rings fit. */
+  size: number;
+  small: boolean;
+  large: boolean;
+  /** The outer ring's radius. */
+  radius: number;
+  /** Pictures in the nodes (from PICTURE_MAP_MIN tall, when there are any). */
+  pictures: boolean;
+  /** The first ring's smallest radius, so it clears the centre's picture and name. */
+  inner: number;
+}
+
+/**
+ * The small map's frame: as wide as its box and at most `maxHeight` tall (as tall as wide without
+ * one). The rings fit the height; a wider box gives the names at the sides more room; with the width
+ * the limit, no empty bands above and below.
+ */
+export function mapFrame(width: number, maxHeight: number | undefined, hasImages: boolean): MapFrame {
+  const w = Math.max(240, width);
+  const size = Math.max(240, Math.min(w, maxHeight ?? w));
+  const small = size < 480;
+  const large = size >= 640;
+  // Room outside the outer ring for names: above and below (a picture and two lines), and at the sides.
+  const above = small ? 60 : large ? 85 : 75;
+  const beside = small ? 76 : large ? 115 : 105;
+  const radius = Math.max(40, Math.min(size / 2 - above, w / 2 - beside));
+  const h = Math.max(240, Math.min(size, Math.ceil(2 * (radius + above))));
+  const pictures = hasImages && size >= PICTURE_MAP_MIN;
+  const inner = pictures ? nodeRadius(size, "root", true) + nodeRadius(size, "node", true) + 44 : 0;
+  return { w, h, size, small, large, radius, pictures, inner };
+}
+
+/** A label's font size on the small map. */
+export function labelFont(root: boolean, frame: Pick<MapFrame, "small" | "large">): number {
+  return root ? (frame.small ? 12.5 : frame.large ? 15.5 : 14) : frame.small ? 11.5 : frame.large ? 14 : 13;
+}
+
+export interface Box {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/** A node's label as `mapLabels` placed it. */
+export interface MapLabel {
+  /** Where the node is drawn: where the layout put it, or moved within its share to make room. */
+  x: number;
+  y: number;
+  anchor: "start" | "middle" | "end";
+  /** From the node: the anchor's x, and the first line's baseline. */
+  dx: number;
+  dy: number;
+  lines: string[];
+  fontSize: number;
+  lineHeight: number;
+  /** The words' box, in map coordinates. */
+  box: Box;
+}
+
+type LabelSide = "right" | "left" | "above" | "below";
+
+function overlapArea(a: Box, b: Box): number {
+  const w = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
+  const h = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0);
+  return w > 0 && h > 0 ? w * h : 0;
+}
+
+/** How much of a box lies outside the map (centred on 0,0). */
+function outsideArea(b: Box, w: number, h: number): number {
+  const area = (b.x1 - b.x0) * (b.y1 - b.y0);
+  return area - overlapArea(b, { x0: -w / 2, y0: -h / 2, x1: w / 2, y1: h / 2 });
+}
+
+function discBox(x: number, y: number, r: number): Box {
+  return { x0: x - r, y0: y - r, x1: x + r, y1: y + r };
+}
+
+/**
+ * Places every name on the small map so that none sits on another name or on another node, inside
+ * the map. Greedy: the centre, the author, the nodes with children (which stay where they are), then
+ * the leaves. Each tries its outward side first (`labelPlacement`), then the two sides across, then
+ * inward; a leaf that still finds no room moves within its share of the circle, or out a ring. When
+ * nothing is clear, the least overlap wins.
+ */
+export function mapLabels(
+  layout: RadialLayout,
+  opts: {
+    width: number;
+    height: number;
+    /** A node's radius (its shape's or its picture's). */
+    radius: (n: MapNode) => number;
+    fontSize: (n: MapNode) => number;
+    weight: (n: MapNode) => number;
+    /** Most characters on a line. */
+    maxChars: (n: MapNode) => number;
+    /** A map of pictures: the centre's name above it. */
+    centreAbove?: boolean;
+    measure?: Measure;
+  },
+): Map<string, MapLabel> {
+  const measure = opts.measure ?? estimateWidth;
+  const { width, height } = opts;
+  const halfW = width / 2;
+  // A node's footprint: a diamond or a triangle reaches a little past its radius.
+  const reach = (n: MapNode) => opts.radius(n) * 1.25 + 1.5;
+  const at = new Map(layout.nodes.map((n) => [n.entity.id, { x: n.x, y: n.y, r: reach(n), done: false, movable: canMove(n) }]));
+  const placed: Box[] = [];
+  const out = new Map<string, MapLabel>();
+
+  function canMove(n: MapNode): boolean {
+    return n.leaf && n.depth > 0 && n.entity.id !== "author";
+  }
+
+  const label = (n: MapNode, p: { x: number; y: number }, side: LabelSide, narrow: boolean): MapLabel => {
+    const r = opts.radius(n);
+    const fs = opts.fontSize(n);
+    const lh = fs + 1;
+    const anchor = side === "right" ? "start" : side === "left" ? "end" : "middle";
+    const dx = side === "right" ? round(r + 4.5) : side === "left" ? round(-(r + 4.5)) : 0;
+    const room =
+      anchor === "start" ? halfW - (p.x + dx) : anchor === "end" ? p.x + dx + halfW : 2 * Math.min(halfW - p.x, p.x + halfW);
+    const fit = Math.max(5, Math.min(opts.maxChars(n), Math.floor((room - 4) / (fs * 0.56))));
+    // Narrow: a line a word (at least 7 characters), for a tight spot.
+    const longest = Math.max(...n.entity.name.split(/\s+/).map((w) => w.length));
+    const chars = narrow ? Math.min(fit, Math.max(7, longest)) : fit;
+    const lines = wrapLabel(n.entity.name, chars, anchor === "middle" ? 2 : 3);
+    const tw = Math.max(...lines.map((l) => measure(l, fs, opts.weight(n))));
+    const k = lines.length;
+    const dy =
+      side === "above"
+        ? round(-(r + 6.5) - (k - 1) * lh)
+        : side === "below"
+          ? round(r + fs + 2)
+          : round(fs * 0.32 - ((k - 1) * lh) / 2);
+    const x0 = anchor === "start" ? p.x + dx : anchor === "end" ? p.x + dx - tw : p.x - tw / 2;
+    const box = { x0: x0 - 1, x1: x0 + tw + 1, y0: p.y + dy - fs * 0.8, y1: p.y + dy + (k - 1) * lh + fs * 0.25 };
+    return { x: p.x, y: p.y, anchor, dx, dy, lines, fontSize: fs, lineHeight: lh, box };
+  };
+
+  const sidesFor = (n: MapNode, p: { x: number; y: number; angle: number }): LabelSide[] => {
+    if (n.depth === 0) return opts.centreAbove ? ["above", "below", "right", "left"] : ["below", "above", "right", "left"];
+    const place = labelPlacement({ angle: p.angle, depth: 1 });
+    const outward: LabelSide = place.anchor === "start" ? "right" : place.anchor === "end" ? "left" : place.dy < 0 ? "above" : "below";
+    const across: LabelSide[] = outward === "right" || outward === "left" ? ["above", "below"] : ["right", "left"];
+    const inward: LabelSide = { right: "left", left: "right", above: "below", below: "above" }[outward] as LabelSide;
+    return [outward, ...across, inward];
+  };
+
+  // Where a node may go: where it is; a leaf anywhere well inside its share, or out a ring; a node with
+  // children a little to either side (its children's lines still fan out from it).
+  const positions = (n: MapNode): { x: number; y: number; angle: number }[] => {
+    const here = { x: n.x, y: n.y, angle: n.angle };
+    if (n.depth === 0 || n.entity.id === "author" || n.span <= 0) return [here];
+    const r = Math.hypot(n.x, n.y);
+    const turn = (f: number, radius = r) => {
+      const a = n.angle + f * n.span;
+      return { x: round(Math.cos(a) * radius), y: round(Math.sin(a) * radius), angle: a };
+    };
+    if (!canMove(n)) return [here, turn(0.15), turn(-0.15)];
+    const out = [here, turn(0.2), turn(-0.2), turn(0.38), turn(-0.38)];
+    // Out a ring; on the outer ring, a little way into the margin (its name must still fit the map).
+    const gap = layout.rings.length > 1 ? layout.rings[1]! - layout.rings[0]! : r / 2;
+    const next = layout.rings[n.ring] ?? r + gap * 0.6;
+    out.push(turn(0, next), turn(0.25, next), turn(-0.25, next));
+    return out;
+  };
+
+  const cost = (n: MapNode, p: { x: number; y: number }, l: MapLabel): number => {
+    let c = 4 * outsideArea(l.box, width, height);
+    for (const b of placed) c += overlapArea(l.box, b);
+    const own = discBox(p.x, p.y, reach(n));
+    for (const [id, d] of at) {
+      if (id === n.entity.id) continue;
+      const disc = discBox(d.x, d.y, d.r);
+      // A leaf not placed yet can still move out of the way: its node counts for less.
+      c += overlapArea(l.box, disc) * (d.done || !d.movable ? 1 : 0.3);
+      c += 4 * overlapArea(own, disc);
+    }
+    for (const b of placed) c += overlapArea(own, b);
+    return c;
+  };
+
+  const rank = (n: MapNode) => (n.depth === 0 ? 0 : n.entity.id === "author" ? 1 : !n.leaf ? 2 : 3);
+  const order = [...layout.nodes].sort((a, b) => rank(a) - rank(b) || a.ring - b.ring || a.angle - b.angle);
+  for (const n of order) {
+    let best: { l: MapLabel; c: number } | null = null;
+    search: for (const p of positions(n)) {
+      for (const side of sidesFor(n, p)) {
+        for (const narrow of [false, true]) {
+          const l = label(n, p, side, narrow);
+          const c = cost(n, p, l);
+          if (!best || c < best.c - 0.01) best = { l, c };
+          if (c < 0.5) break search;
+        }
+      }
+    }
+    out.set(n.entity.id, best!.l);
+    placed.push(best!.l.box);
+    at.set(n.entity.id, { x: best!.l.x, y: best!.l.y, r: reach(n), done: true, movable: false });
+  }
+  return out;
+}
+
+/**
+ * The small map as drawn: its frame, the rings, each node's radius and its label (`mapLabels`). The
+ * node positions to draw are the labels' (a leaf may have moved to make room).
+ */
+export function smallMap(
+  b: Pick<ContextBriefing, "entities" | "links" | "focus">,
+  width: number,
+  maxHeight: number | undefined,
+  /** The entities with a picture to draw. */
+  pictured: ReadonlySet<string>,
+  measure?: Measure,
+): { frame: MapFrame; layout: RadialLayout; labels: Map<string, MapLabel>; radius: (n: MapNode) => number } {
+  const frame = mapFrame(width, maxHeight, pictured.size > 0);
+  const layout = radialLayout(b.entities, usableLinks(b as ContextBriefing), frame.radius, mapRoot(b), frame.inner);
+  const radius = (n: MapNode) =>
+    nodeRadius(
+      frame.size,
+      n.depth === 0 ? "root" : n.entity.id === "author" ? "author" : "node",
+      frame.pictures && pictured.has(n.entity.id),
+    );
+  const labels = mapLabels(layout, {
+    width: frame.w,
+    height: frame.h,
+    radius,
+    fontSize: (n) => labelFont(n.depth === 0, frame),
+    weight: (n) => (n.depth === 0 || n.entity.id === "author" ? 600 : 400),
+    maxChars: (n) => (n.depth === 0 ? 20 : frame.small ? 14 : frame.large ? 20 : 18),
+    centreAbove: frame.pictures,
+    measure,
+  });
+  return { frame, layout, labels, radius };
+}
+
+// ---- The card map (the Assistant page and full screen) ----
+
+/** A card's measurements: padding, the picture, the role's and the name's type. */
+export const CARD = {
+  padX: 12,
+  padY: 10,
+  gap: 10,
+  picture: 44,
+  coverW: 34,
+  coverH: 50,
+  roleSize: 12,
+  roleLine: 16,
+  nameSize: 14.5,
+  nameLine: 19,
+  rootNameSize: 16.5,
+  rootNameLine: 22,
+  minW: 132,
+} as const;
+
+export type CardPicture = "round" | "cover" | null;
+
+/** The widest a card may be on a stage this wide (the centre's 40 px more). */
+export function cardMaxWidth(stageWidth: number): number {
+  return Math.round(Math.min(260, Math.max(200, stageWidth * 0.19)));
+}
+
+/** Splits a text into at most `maxLines` lines no wider than `maxWidth`, with an ellipsis if it runs over. */
+export function wrapToWidth(text: string, maxWidth: number, maxLines: number, measure: Measure, px: number, weight: number): string[] {
+  const fits = (t: string) => measure(t, px, weight) <= maxWidth;
+  const cut = (t: string) => {
+    if (fits(t)) return t;
+    let s = t;
+    while (s.length > 1 && !fits(`${s}…`)) s = s.slice(0, -1).trimEnd();
+    return `${s}…`;
+  };
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let line = "";
+  for (const w of words) {
+    if (!line) line = w;
+    else if (fits(`${line} ${w}`)) line += ` ${w}`;
+    else {
+      lines.push(line);
+      line = w;
+    }
+  }
+  if (line) lines.push(line);
+  if (lines.length <= maxLines) return lines.map(cut);
+  const kept = lines.slice(0, maxLines);
+  const last = kept.at(-1)!;
+  return [...kept.slice(0, -1).map(cut), cut(`${last}…`).replace(/……$/, "…")];
+}
+
+export interface CardText {
+  /** The name's lines (one or two). */
+  lines: string[];
+  /** The role's lines, its colon after the last ("Geological hero and", "friend:"). */
+  role: string[];
+  w: number;
+  h: number;
+}
+
+/** A card's text and size: the role over the name, the picture (if any) on the right. */
+export function cardText(
+  name: string,
+  role: string,
+  opts: { picture: CardPicture; root: boolean; maxW: number; measure?: Measure },
+): CardText {
+  const m = opts.measure ?? estimateWidth;
+  const px = opts.root ? CARD.rootNameSize : CARD.nameSize;
+  const lineH = opts.root ? CARD.rootNameLine : CARD.nameLine;
+  const pic = opts.picture === "round" ? CARD.picture : opts.picture === "cover" ? CARD.coverW : 0;
+  const maxW = opts.root ? opts.maxW + 40 : opts.maxW;
+  const textMax = maxW - 2 * CARD.padX - (pic ? CARD.gap + pic : 0);
+  const roleLines = wrapToWidth(`${role}:`, textMax, 2, m, CARD.roleSize, 500);
+  const lines = wrapToWidth(name, textMax, 2, m, px, 600);
+  const textW = Math.min(
+    textMax,
+    Math.max(...roleLines.map((l) => m(l, CARD.roleSize, 500)), ...lines.map((l) => m(l, px, 600))),
+  );
+  const w = Math.ceil(Math.min(maxW, Math.max(CARD.minW, 2 * CARD.padX + textW + (pic ? CARD.gap + pic : 0))));
+  const picH = opts.picture === "round" ? CARD.picture : opts.picture === "cover" ? CARD.coverH : 0;
+  const h = Math.ceil(2 * CARD.padY + Math.max(roleLines.length * CARD.roleLine + 2 + lines.length * lineH, picH));
+  return { lines, role: roleLines, w, h };
+}
+
+export interface CardNode extends MapNode {
+  w: number;
+  h: number;
+}
+
+export interface CardLayout {
+  /** Centred on 0,0, like the small map. */
+  nodes: CardNode[];
+  edges: MapEdge[];
+  width: number;
+  /** The height used: the stage's, or more when the cards needed it. */
+  height: number;
+}
+
+/**
+ * The card map: the radial tree on ovals that fill the stage, the centre's card fixed in the middle,
+ * the first ring just clear of it, the last reaching the edges. Cards that still overlap are pushed
+ * apart along their smaller overlap, a few hundred rounds at most, kept inside the stage; if they
+ * don't fit, the stage grows taller and it starts again. Then it all spreads out from the centre to
+ * fill the stage (at most 1.7 times). The same every time.
+ */
+export function cardLayout(
+  tree: RadialTree,
+  sizes: Map<string, { w: number; h: number }>,
+  width: number,
+  height: number,
+  gap = { x: 18, y: 14 },
+): CardLayout {
+  const size = (id: string) => sizes.get(id) ?? { w: CARD.minW, h: 64 };
+  const others = tree.nodes.filter((n) => n.ring > 0);
+  const maxW = Math.max(CARD.minW, ...others.map((n) => size(n.entity.id).w));
+  const maxH = Math.max(40, ...others.map((n) => size(n.entity.id).h));
+  const root = size(tree.root);
+  const margin = 6;
+  let h = height;
+  let pos: { x: number; y: number; w: number; h: number; fixed: boolean }[] = [];
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const rx1 = root.w / 2 + maxW / 2 + gap.x;
+    const ry1 = root.h / 2 + maxH / 2 + gap.y;
+    const rxN = Math.max(rx1, width / 2 - maxW / 2 - margin);
+    const ryN = Math.max(ry1, h / 2 - maxH / 2 - margin);
+    const n = Math.max(1, tree.rings);
+    const ringAt = (k: number) => (n === 1 ? 1 : (k - 1) / (n - 1));
+    pos = tree.nodes.map((node) => {
+      const s = size(node.entity.id);
+      if (node.ring === 0) return { x: 0, y: 0, w: s.w, h: s.h, fixed: true };
+      const t = ringAt(node.ring);
+      const rx = rx1 + (rxN - rx1) * t;
+      const ry = ry1 + (ryN - ry1) * t;
+      return { x: Math.cos(node.angle) * rx, y: Math.sin(node.angle) * ry, w: s.w, h: s.h, fixed: false };
+    });
+    if (separate(pos, width, h, gap, margin)) break;
+    h = Math.round(h * 1.12);
+  }
+  // Spread out from the centre to fill the stage (a tree with few deep nodes leaves bands empty).
+  // Spreading only moves cards apart, so none comes to overlap.
+  const stretch = (half: number, at: (p: (typeof pos)[number]) => number, ext: (p: (typeof pos)[number]) => number) => {
+    let k = MAX_STRETCH;
+    for (const p of pos) if (!p.fixed && Math.abs(at(p)) > 1) k = Math.min(k, (half - margin - ext(p)) / Math.abs(at(p)));
+    return Math.max(1, k);
+  };
+  const sx = stretch(width / 2, (p) => p.x, (p) => p.w / 2);
+  const sy = stretch(h / 2, (p) => p.y, (p) => p.h / 2);
+  for (const p of pos) {
+    p.x *= sx;
+    p.y *= sy;
+  }
+  const nodes = tree.nodes.map((node, i) => ({ ...node, x: round(pos[i]!.x), y: round(pos[i]!.y), w: pos[i]!.w, h: pos[i]!.h }));
+  return { nodes, edges: tree.edges, width, height: h };
+}
+
+/** The most the card map spreads out from its centre to fill the stage. */
+const MAX_STRETCH = 1.7;
+
+/** Pushes overlapping cards apart, inside a stage; true when none overlap. */
+function separate(
+  pos: { x: number; y: number; w: number; h: number; fixed: boolean }[],
+  width: number,
+  height: number,
+  gap: { x: number; y: number },
+  margin: number,
+): boolean {
+  const clamp = (p: (typeof pos)[number]) => {
+    if (p.fixed) return;
+    const xMax = Math.max(0, width / 2 - p.w / 2 - margin);
+    const yMax = Math.max(0, height / 2 - p.h / 2 - margin);
+    p.x = Math.min(xMax, Math.max(-xMax, p.x));
+    p.y = Math.min(yMax, Math.max(-yMax, p.y));
+  };
+  for (let round = 0; round < 400; round++) {
+    let overlapping = false;
+    for (let i = 0; i < pos.length; i++) {
+      for (let j = i + 1; j < pos.length; j++) {
+        const a = pos[i]!;
+        const b = pos[j]!;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const ox = (a.w + b.w) / 2 + gap.x - Math.abs(dx);
+        const oy = (a.h + b.h) / 2 + gap.y - Math.abs(dy);
+        if (ox <= 0.5 || oy <= 0.5) continue;
+        overlapping = true;
+        const [sa, sb] = a.fixed ? [0, 1] : b.fixed ? [1, 0] : [0.5, 0.5];
+        // Along the smaller overlap; a tie in place goes by the order, so it's the same every time.
+        if (ox / (a.w + b.w) < oy / (a.h + b.h)) {
+          const sx = dx > 0 || (dx === 0 && j % 2 === 0) ? 1 : -1;
+          a.x -= sx * ox * sa;
+          b.x += sx * ox * sb;
+        } else {
+          const sy = dy > 0 || (dy === 0 && b.y >= 0) ? 1 : -1;
+          a.y -= sy * oy * sa;
+          b.y += sy * oy * sb;
+        }
+      }
+    }
+    for (const p of pos) clamp(p);
+    if (!overlapping) return true;
+  }
+  return false;
+}
+
+export interface CardBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * A line between two cards that goes round the others: straight when it can, else the gentlest curve
+ * that keeps it off every other card. The curves pass through a point beside the line's middle (to
+ * either side, further and further out) or just off a corner of a card in the way, as a quadratic or
+ * a flatter cubic; the first clear one, by how far it strays, wins. A cross link always bends a
+ * little, away from the centre first, so it reads apart from the tree's lines. `mid` is the line's
+ * middle; `along`, points on it from the middle outward, for its relation's place.
+ */
+export function routeEdge(
+  a: CardBox,
+  b: CardBox,
+  others: CardBox[],
+  cross = false,
+): { d: string; mid: { x: number; y: number }; along: { x: number; y: number }[] } {
+  type Pt = { x: number; y: number };
+  const along = (at: (t: number) => Pt) =>
+    [0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74, 0.18, 0.82].map((t) => {
+      const p = at(t);
+      return { x: round(p.x), y: round(p.y) };
+    });
+  const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+  const n = { x: -(b.y - a.y) / len, y: (b.x - a.x) / len };
+  // The side away from the centre.
+  const out = n.x * mid.x + n.y * mid.y >= 0 ? 1 : -1;
+  const inside = (p: Pt, c: CardBox, pad: number) => Math.abs(p.x - c.x) < c.w / 2 + pad && Math.abs(p.y - c.y) < c.h / 2 + pad;
+  const clear = (at: (t: number) => Pt) => {
+    for (let i = 1; i < 48; i++) {
+      const p = at(i / 48);
+      if (inside(p, a, 0) || inside(p, b, 0)) continue;
+      if (others.some((o) => inside(p, o, 6))) return false;
+    }
+    return true;
+  };
+  const line = (t: number) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+  const straight = {
+    d: `M${round(a.x)} ${round(a.y)}L${round(b.x)} ${round(b.y)}`,
+    mid: { x: round(mid.x), y: round(mid.y) },
+    along: along(line),
+  };
+  if (!cross && clear(line)) return straight;
+
+  // Points for the curve's middle: beside the line's middle, and off the corners of the cards it crosses.
+  const waypoints: Pt[] = [];
+  for (const k of [30, 60, 90, 130, 180, 240, 310]) for (const s of [out, -out]) waypoints.push({ x: mid.x + n.x * k * s, y: mid.y + n.y * k * s });
+  for (const o of others) {
+    let crosses = false;
+    for (let i = 1; i < 48 && !crosses; i++) crosses = inside(line(i / 48), o, 6);
+    if (!crosses) continue;
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) waypoints.push({ x: o.x + sx * (o.w / 2 + 16), y: o.y + sy * (o.h / 2 + 16) });
+  }
+  const stray = (w: Pt) => Math.hypot(w.x - mid.x, w.y - mid.y);
+  waypoints.sort((p, q) => stray(p) - stray(q));
+
+  for (const w of waypoints) {
+    // A quadratic through w at its middle: its control point is 2w less the chord's middle.
+    const q = { x: 2 * w.x - mid.x, y: 2 * w.y - mid.y };
+    const quad = (t: number) => ({
+      x: (1 - t) ** 2 * a.x + 2 * (1 - t) * t * q.x + t * t * b.x,
+      y: (1 - t) ** 2 * a.y + 2 * (1 - t) * t * q.y + t * t * b.y,
+    });
+    if (clear(quad))
+      return {
+        d: `M${round(a.x)} ${round(a.y)}Q${round(q.x)} ${round(q.y)} ${round(b.x)} ${round(b.y)}`,
+        mid: { x: round(w.x), y: round(w.y) },
+        along: along(quad),
+      };
+    // A flatter cubic through w: both control points shifted by 4/3 of w's offset.
+    const off = { x: ((w.x - mid.x) * 4) / 3, y: ((w.y - mid.y) * 4) / 3 };
+    const c1 = { x: a.x + (b.x - a.x) / 3 + off.x, y: a.y + (b.y - a.y) / 3 + off.y };
+    const c2 = { x: a.x + (2 * (b.x - a.x)) / 3 + off.x, y: a.y + (2 * (b.y - a.y)) / 3 + off.y };
+    const cubic = (t: number) => ({
+      x: (1 - t) ** 3 * a.x + 3 * (1 - t) ** 2 * t * c1.x + 3 * (1 - t) * t * t * c2.x + t ** 3 * b.x,
+      y: (1 - t) ** 3 * a.y + 3 * (1 - t) ** 2 * t * c1.y + 3 * (1 - t) * t * t * c2.y + t ** 3 * b.y,
+    });
+    if (clear(cubic))
+      return {
+        d: `M${round(a.x)} ${round(a.y)}C${round(c1.x)} ${round(c1.y)} ${round(c2.x)} ${round(c2.y)} ${round(b.x)} ${round(b.y)}`,
+        mid: { x: round(w.x), y: round(w.y) },
+        along: along(cubic),
+      };
+  }
+  // Nothing clears: straight, or a cross link's first bend.
+  if (!cross) return straight;
+  const w = waypoints[0]!;
+  const q = { x: 2 * w.x - mid.x, y: 2 * w.y - mid.y };
+  return {
+    d: `M${round(a.x)} ${round(a.y)}Q${round(q.x)} ${round(q.y)} ${round(b.x)} ${round(b.y)}`,
+    mid: { x: round(w.x), y: round(w.y) },
+    along: along((t) => ({
+      x: (1 - t) ** 2 * a.x + 2 * (1 - t) * t * q.x + t * t * b.x,
+      y: (1 - t) ** 2 * a.y + 2 * (1 - t) * t * q.y + t * t * b.y,
+    })),
+  };
+}
+
+/**
+ * Where a line's relation goes: the first of its points (from the middle out) where the words, `w`
+ * wide, sit clear of every card; null when there's no such place (the details list it anyway).
+ */
+export function relationSpot(along: { x: number; y: number }[], w: number, cards: CardBox[]): { x: number; y: number } | null {
+  const h = 16;
+  return (
+    along.find((p) => cards.every((c) => Math.abs(p.x - c.x) >= (w + c.w) / 2 + 2 || Math.abs(p.y - c.y) >= (h + c.h) / 2 + 2)) ??
+    null
+  );
+}
+
+/** The part of the line between two cards' centres that shows between them; null when they touch. */
+export function visibleSegment(
+  a: { x: number; y: number; w: number; h: number },
+  b: { x: number; y: number; w: number; h: number },
+): { x1: number; y1: number; x2: number; y2: number } | null {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const exit = (c: { w: number; h: number }) =>
+    Math.min(dx ? c.w / 2 / Math.abs(dx) : Infinity, dy ? c.h / 2 / Math.abs(dy) : Infinity);
+  const t0 = exit(a);
+  const t1 = 1 - exit(b);
+  if (!(t0 < t1)) return null;
+  return { x1: round(a.x + dx * t0), y1: round(a.y + dy * t0), x2: round(a.x + dx * t1), y2: round(a.y + dy * t1) };
 }
 
 // ---- Pictures and Wikipedia intros (Phase 5) ----

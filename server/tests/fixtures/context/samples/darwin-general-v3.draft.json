@@ -1,0 +1,1066 @@
+{
+ "littleKnown": false,
+ "sections": [
+  {
+   "kind": "overview",
+   "items": [
+    {
+     "heading": "The book in one paragraph",
+     "entity": "book",
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "The Origin of Species is Charles Darwin's argument that species were not each separately created but descended from earlier species, with natural selection as the main cause of change. It was published by John Murray in London in 1859 and is written as a long, non-technical book for educated readers rather than as a specialist paper.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "book",
+         "url": null,
+         "title": "Introduction by Charles Darwin",
+         "author": "Charles Darwin",
+         "year": "1859",
+         "quote": "come to the conclusion that each species had not been independently created, but had descended, like varieties, from other species.",
+         "record": null
+        },
+        {
+         "kind": "record",
+         "url": null,
+         "title": "On the origin of species by means of natural selection",
+         "author": null,
+         "year": null,
+         "quote": null,
+         "record": {
+          "kind": "olid",
+          "value": "OL515051W"
+         }
+        }
+       ]
+      },
+      {
+       "text": "Darwin calls it an “Abstract”: a shortened version of a much larger work still unfinished. He says he was urged to publish it because his health was poor and because Alfred Russel Wallace, a naturalist working in the Malay archipelago, had reached almost the same conclusions.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "book",
+         "url": null,
+         "title": "Introduction by Charles Darwin",
+         "author": "Charles Darwin",
+         "year": "1859",
+         "quote": "My work is now nearly finished; but as it will take me two or three more years to complete it, and as my health is far from strong, I have been urged to publish this Abstract.",
+         "record": null
+        },
+        {
+         "kind": "book",
+         "url": null,
+         "title": "Introduction by Charles Darwin",
+         "author": "Charles Darwin",
+         "year": "1859",
+         "quote": "Mr. Wallace, who is now studying the natural history of the Malay archipelago, has arrived at almost exactly the same general conclusions that I have on the origin of species.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    }
+   ]
+  },
+  {
+   "kind": "moment",
+   "items": [
+    {
+     "heading": "Nature governed by general laws",
+     "entity": null,
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Darwin opens with an epigraph from William Whewell, a Cambridge philosopher of science, saying that natural events come from the establishment of general laws, not from separate acts of divine intervention. This was how many educated Britons already thought of the natural world, and Darwin wished to place his theory inside that outlook.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "book",
+         "url": null,
+         "title": "Epigraph from Whewell",
+         "author": "Charles Darwin",
+         "year": "1859",
+         "quote": "we can perceive that events are brought about not by insulated interpositions of Divine power, exerted in each particular case, but by the establishment of general laws.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    },
+    {
+     "heading": "The geologists' method",
+     "entity": "lyell",
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Darwin's method came from the geologist Charles Lyell and the philosopher Sir John Herschel: explain the past only by causes that can be observed working now. Darwin held that any theory of species had to meet this standard.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/darwinism/",
+         "title": "Darwinism (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "had been advocated by his geological hero, and now close friend, Charles Lyell; and they had been defended philosophically by his philosophical hero, Sir John Herschel.",
+         "record": null
+        },
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/darwinism/",
+         "title": "Darwinism (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "During the voyage he read and reread Charles Lyell’s newly published Principles of Geology",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    },
+    {
+     "heading": "Religious and scientific resistance",
+     "entity": "sedgwick",
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "The theory was expected to meet hostility from religiously conservative scientists. Darwin's old geology teacher Adam Sedgwick later reviewed it with deep aversion, objecting that it dropped the idea of purposes in nature.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/darwinism/",
+         "title": "Darwinism (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "Darwin, of course, expected, and got, outraged reactions from religiously conservative colleagues, such as his old geology teacher Sedgwick",
+         "record": null
+        },
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/darwinism/",
+         "title": "Darwinism (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "deep aversion to the theory; because of its unflinching materialism",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    }
+   ]
+  },
+  {
+   "kind": "situation",
+   "items": [
+    {
+     "heading": "A naturalist on the Beagle",
+     "entity": "beagle",
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Darwin was recommended as a gentleman companion and naturalist for Captain Robert FitzRoy's round-the-world voyage of HMS Beagle. What he saw in South America, in the distribution of living animals and in their relation to fossil ones, set him thinking about the origin of species.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/darwinism/",
+         "title": "Darwinism (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "Fitzroy sought a gentleman companion who could also collect information on geology and natural history during a proposed circumnavigation of the globe.",
+         "record": null
+        },
+        {
+         "kind": "book",
+         "url": null,
+         "title": "Introduction by Charles Darwin",
+         "author": "Charles Darwin",
+         "year": "1859",
+         "quote": "When on board H.M.S. ‘Beagle,’ as naturalist, I was much struck with certain facts in the distribution of the inhabitants of South America",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    },
+    {
+     "heading": "Twenty years of waiting",
+     "entity": null,
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Darwin began patiently collecting facts on the question in 1837 and wrote a sketch of his conclusions in 1844. He read Malthus's Essay on Population in October 1838 and saw at once that favourable variations would be preserved and unfavourable ones destroyed.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://www.encyclopedia.com/science/encyclopedias-almanacs-transcripts-and-maps/population-theory-malthuss-influence-scope-evolution",
+         "title": "Population Theory: Malthus's Influence on the Scope of Evolution (Science and Its Times)",
+         "author": null,
+         "year": null,
+         "quote": "In October 1838, that is, fifteen months after I had begun my systematic inquiry, I happened to read for amusement Malthus on Population",
+         "record": null
+        },
+        {
+         "kind": "book",
+         "url": null,
+         "title": "Introduction by Charles Darwin",
+         "author": "Charles Darwin",
+         "year": "1859",
+         "quote": "it occurred to me, in 1837, that something might perhaps be made out on this question by patiently accumulating and reflecting on all sorts of facts",
+         "record": null
+        },
+        {
+         "kind": "book",
+         "url": null,
+         "title": "Introduction by Charles Darwin",
+         "author": "Charles Darwin",
+         "year": "1859",
+         "quote": "these I enlarged in 1844 into a sketch of the conclusions, which then seemed to me probable",
+         "record": null
+        }
+       ]
+      },
+      {
+       "text": "He did not publish for years; the book itself explains that he wished first to publish his facts in full detail.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "book",
+         "url": null,
+         "title": "Introduction by Charles Darwin",
+         "author": "Charles Darwin",
+         "year": "1859",
+         "quote": "No one can feel more sensible than I do of the necessity of hereafter publishing in detail all the facts, with references, on which my conclusions have been grounded",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    },
+    {
+     "heading": "Wallace's essay forces the issue",
+     "entity": "wallace",
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "In 1858 Wallace sent Darwin from Ternate (in the East Indies) an essay containing the same theory. Darwin's friends Lyell and Joseph Hooker arranged for it to be read at the Linnean Society of London, together with extracts from Darwin's own earlier manuscripts, on 1 July 1858.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://www.darwinproject.ac.uk/entry-2299",
+         "title": "From J. D. Hooker and Charles Lyell to the Linnean Society, 30 June 1858 (Darwin Correspondence Project)",
+         "author": null,
+         "year": null,
+         "quote": "This was written at Ternate in February 1858, for the perusal of his friend and correspondent Mr. Darwin",
+         "record": null
+        },
+        {
+         "kind": "page",
+         "url": "https://www.darwinproject.ac.uk/entry-2299",
+         "title": "From J. D. Hooker and Charles Lyell to the Linnean Society, 30 June 1858 (Darwin Correspondence Project)",
+         "author": null,
+         "year": null,
+         "quote": "At this meeting, the postponed papers were read and a new councillor elected. CD’s and Wallace’s contributions were also read on that day",
+         "record": null
+        }
+       ]
+      },
+      {
+       "text": "Hooker and Lyell described the two men as having conceived the same theory independently and unknown to one another. The Origin followed as Darwin's fuller statement the next year.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://www.darwinproject.ac.uk/entry-2299",
+         "title": "From J. D. Hooker and Charles Lyell to the Linnean Society, 30 June 1858 (Darwin Correspondence Project)",
+         "author": null,
+         "year": null,
+         "quote": "These gentlemen having, independently and unknown to one another, conceived the same very ingenious theory to account for the appearance and perpetuation of varieties and of specific forms on our planet",
+         "record": null
+        },
+        {
+         "kind": "book",
+         "url": null,
+         "title": "Introduction by Charles Darwin",
+         "author": "Charles Darwin",
+         "year": "1859",
+         "quote": "Mr. Wallace, who is now studying the natural history of the Malay archipelago, has arrived at almost exactly the same general conclusions that I have on the origin of species.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    },
+    {
+     "heading": "First reception",
+     "entity": null,
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Darwin's friends Hooker, Thomas Henry Huxley and the American botanist Asa Gray sent him their first impressions of the book. Even sympathetic scientists balked: Lyell would not openly endorse the theory and Herschel rejected key elements of it.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://www.cambridge.org/9780521385640",
+         "title": "The Correspondence of Charles Darwin: Volume 7, 1858-1859 (Cambridge University Press)",
+         "author": null,
+         "year": null,
+         "quote": "They reveal the first impressions of Darwin's book given by his confidants; including Joseph Dalton Hooker, Thomas Henry Huxley, and Asa Gray.",
+         "record": null
+        },
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/darwinism/",
+         "title": "Darwinism (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "What he had not expected was Lyell’s refusal to openly endorse his theory and Herschel’s decisive (if polite) rejection of its key elements.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    }
+   ]
+  },
+  {
+   "kind": "conversation",
+   "items": [
+    {
+     "heading": "Charles Lyell",
+     "entity": "lyell",
+     "relation": "builds on",
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Darwin read and reread Lyell's Principles of Geology during the Beagle voyage, and Lyell became his close friend. Lyell later helped bring Wallace's essay and Darwin's extracts before the Linnean Society, but declined to endorse the theory publicly.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/darwinism/",
+         "title": "Darwinism (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "During the voyage he read and reread Charles Lyell’s newly published Principles of Geology",
+         "record": null
+        },
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/darwinism/",
+         "title": "Darwinism (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "had been advocated by his geological hero, and now close friend, Charles Lyell; and they had been defended philosophically by his philosophical hero, Sir John Herschel.",
+         "record": null
+        },
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/darwinism/",
+         "title": "Darwinism (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "What he had not expected was Lyell’s refusal to openly endorse his theory and Herschel’s decisive (if polite) rejection of its key elements.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    },
+    {
+     "heading": "Thomas Malthus",
+     "entity": "malthus",
+     "relation": "borrows from",
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Malthus argued that human population grows geometrically while resources grow arithmetically. Darwin carried the idea of a struggle for existence from human society into plant and animal life.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://www.encyclopedia.com/science/encyclopedias-almanacs-transcripts-and-maps/population-theory-malthuss-influence-scope-evolution",
+         "title": "Population Theory: Malthus's Influence on the Scope of Evolution (Science and Its Times)",
+         "author": null,
+         "year": null,
+         "quote": "Malthusian principle states that populations grow geometrically while resources grow only arithmetically.",
+         "record": null
+        },
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/darwinism/",
+         "title": "Darwinism (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "This tendency is checked, to use the language of Thomas Malthus’ On the Principle of Population, by limited resources, disease, predation, and so on, creating a struggle for existence among the members of a species.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    },
+    {
+     "heading": "Lamarck's evolutionary ideas",
+     "entity": "lamarck",
+     "relation": "was introduced to",
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Darwin's Edinburgh mentor Robert Grant taught evolutionary ideas derived from the French naturalist Jean-Baptiste Lamarck and from Darwin's own grandfather Erasmus Darwin, so the possibility of evolution was familiar to Darwin before the Origin.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/darwinism/",
+         "title": "Darwinism (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "Grant expounded evolutionary ideas derived from Jean-Baptiste Lamarck and Charles’ grandfather.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    },
+    {
+     "heading": "Alfred Russel Wallace",
+     "entity": "wallace",
+     "relation": "was anticipated by",
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Wallace independently reached nearly the same theory, and Darwin credits him in the book's Introduction. Wallace later disliked the word selection and in his own copy wrote ‘survival of the fittest’ beside ‘natural selection’.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "book",
+         "url": null,
+         "title": "Introduction by Charles Darwin",
+         "author": "Charles Darwin",
+         "year": "1859",
+         "quote": "Mr. Wallace, who is now studying the natural history of the Malay archipelago, has arrived at almost exactly the same general conclusions that I have on the origin of species.",
+         "record": null
+        },
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/darwinism/",
+         "title": "Darwinism (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "Alfred Russell Wallace crosses out ‘natural selection’ and writes ‘survival of the fittest’ next to it.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    }
+   ]
+  },
+  {
+   "kind": "terms",
+   "items": [
+    {
+     "heading": "Natural selection",
+     "entity": "selection",
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Darwin's name for the process by which individuals with slight, inherited advantages leave more offspring. The word selection puzzled readers, some of whom asked whether it implied a purposeful chooser.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/darwinism/",
+         "title": "Darwinism (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "Perhaps because of his use of the term selection, this core element of his theory apparently baffled nearly everyone.",
+         "record": null
+        },
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/darwinism/",
+         "title": "Darwinism (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "This tendency is checked, to use the language of Thomas Malthus’ On the Principle of Population, by limited resources, disease, predation, and so on, creating a struggle for existence among the members of a species.",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    },
+    {
+     "heading": "Hooker",
+     "entity": "hooker",
+     "relation": null,
+     "work": null,
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": null,
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Joseph Dalton Hooker, the botanist and Darwin's friend, who read Darwin's 1844 sketch and whom Darwin thanks in the Introduction for fifteen years of help.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "book",
+         "url": null,
+         "title": "Introduction by Charles Darwin",
+         "author": "Charles Darwin",
+         "year": "1859",
+         "quote": "my deep obligations to Dr. Hooker, who for the last fifteen years has aided me in every possible way by his large stores of knowledge and his excellent judgment",
+         "record": null
+        },
+        {
+         "kind": "book",
+         "url": null,
+         "title": "Introduction by Charles Darwin",
+         "author": "Charles Darwin",
+         "year": "1859",
+         "quote": "Sir C. Lyell and Dr. Hooker, who both knew of my work—the latter having read my sketch of 1844",
+         "record": null
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    }
+   ]
+  },
+  {
+   "kind": "furtherReading",
+   "items": [
+    {
+     "heading": "Charles Darwin: Voyaging",
+     "entity": null,
+     "relation": null,
+     "work": {
+      "title": "Charles Darwin: Voyaging",
+      "authors": [
+       "Janet Browne"
+      ],
+      "year": null,
+      "record": {
+       "kind": "olid",
+       "value": "OL26466985W"
+      }
+     },
+     "readScope": null,
+     "readNote": null,
+     "timeEstimate": null,
+     "suits": "Readers who want the life behind the book.",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Janet Browne's biography, the first volume of a standard life, covers Darwin up to the writing of the Origin.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "record",
+         "url": null,
+         "title": "Charles Darwin : Voyaging Vol. 1",
+         "author": null,
+         "year": null,
+         "quote": null,
+         "record": {
+          "kind": "olid",
+          "value": "OL26466985W"
+         }
+        }
+       ]
+      }
+     ],
+     "disagreement": null
+    }
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "id": "book",
+   "kind": "work",
+   "name": "On the Origin of Species",
+   "role": "This book",
+   "wikidata": null,
+   "record": {
+    "kind": "olid",
+    "value": "OL515051W"
+   }
+  },
+  {
+   "id": "author",
+   "kind": "person",
+   "name": "Charles Darwin",
+   "role": "Author",
+   "wikidata": "Q1035",
+   "record": null
+  },
+  {
+   "id": "wallace",
+   "kind": "person",
+   "name": "Alfred Russel Wallace",
+   "role": "Independent co-theorist",
+   "wikidata": "Q160627",
+   "record": null
+  },
+  {
+   "id": "lyell",
+   "kind": "person",
+   "name": "Charles Lyell",
+   "role": "Geological hero and friend",
+   "wikidata": "Q5333",
+   "record": null
+  },
+  {
+   "id": "hooker",
+   "kind": "person",
+   "name": "Joseph Dalton Hooker",
+   "role": "Long-time helper",
+   "wikidata": "Q157501",
+   "record": null
+  },
+  {
+   "id": "malthus",
+   "kind": "person",
+   "name": "Thomas Robert Malthus",
+   "role": "Economist he read",
+   "wikidata": "Q13526",
+   "record": null
+  },
+  {
+   "id": "beagle",
+   "kind": "event",
+   "name": "Voyage of HMS Beagle",
+   "role": "His voyage as naturalist",
+   "wikidata": null,
+   "record": null
+  },
+  {
+   "id": "linnean",
+   "kind": "institution",
+   "name": "Linnean Society of London",
+   "role": "Where papers were read",
+   "wikidata": "Q867447",
+   "record": null
+  },
+  {
+   "id": "sedgwick",
+   "kind": "person",
+   "name": "Adam Sedgwick",
+   "role": "Former geology teacher",
+   "wikidata": "Q350891",
+   "record": null
+  },
+  {
+   "id": "herschel",
+   "kind": "person",
+   "name": "John Herschel",
+   "role": "Philosophical hero",
+   "wikidata": null,
+   "record": null
+  },
+  {
+   "id": "lamarck",
+   "kind": "person",
+   "name": "Jean-Baptiste Lamarck",
+   "role": "Earlier evolutionist",
+   "wikidata": null,
+   "record": null
+  },
+  {
+   "id": "selection",
+   "kind": "idea",
+   "name": "Natural selection",
+   "role": "Concept",
+   "wikidata": null,
+   "record": null
+  }
+ ],
+ "links": [
+  {
+   "from": "author",
+   "to": "book",
+   "relation": "wrote",
+   "claim": {
+    "text": "Darwin's Introduction calls the book an Abstract of a larger work he was urged to publish.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "book",
+      "url": null,
+      "title": "Introduction by Charles Darwin",
+      "author": "Charles Darwin",
+      "year": "1859",
+      "quote": "My work is now nearly finished; but as it will take me two or three more years to complete it, and as my health is far from strong, I have been urged to publish this Abstract.",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "author",
+   "to": "beagle",
+   "relation": "sailed on",
+   "claim": {
+    "text": "Darwin joined the Beagle as naturalist, and what he saw in South America set him thinking about the origin of species.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "book",
+      "url": null,
+      "title": "Introduction by Charles Darwin",
+      "author": "Charles Darwin",
+      "year": "1859",
+      "quote": "When on board H.M.S. ‘Beagle,’ as naturalist, I was much struck with certain facts in the distribution of the inhabitants of South America",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "author",
+   "to": "lyell",
+   "relation": "read and befriended",
+   "claim": {
+    "text": "Darwin read Lyell's Principles of Geology on the voyage; Lyell was his geological hero and now close friend.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://plato.stanford.edu/entries/darwinism/",
+      "title": "Darwinism (Stanford Encyclopedia of Philosophy)",
+      "author": null,
+      "year": null,
+      "quote": "During the voyage he read and reread Charles Lyell’s newly published Principles of Geology",
+      "record": null
+     },
+     {
+      "kind": "page",
+      "url": "https://plato.stanford.edu/entries/darwinism/",
+      "title": "Darwinism (Stanford Encyclopedia of Philosophy)",
+      "author": null,
+      "year": null,
+      "quote": "had been advocated by his geological hero, and now close friend, Charles Lyell; and they had been defended philosophically by his philosophical hero, Sir John Herschel.",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "author",
+   "to": "malthus",
+   "relation": "read",
+   "claim": {
+    "text": "Darwin read Malthus on Population for amusement in October 1838 and saw how favourable variations would be preserved.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://www.encyclopedia.com/science/encyclopedias-almanacs-transcripts-and-maps/population-theory-malthuss-influence-scope-evolution",
+      "title": "Population Theory: Malthus's Influence on the Scope of Evolution (Science and Its Times)",
+      "author": null,
+      "year": null,
+      "quote": "In October 1838, that is, fifteen months after I had begun my systematic inquiry, I happened to read for amusement Malthus on Population",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "malthus",
+   "to": "selection",
+   "relation": "idea of struggle used in",
+   "claim": {
+    "text": "The struggle for existence, in Malthus's language, is one causal element of Darwin's theory of natural selection.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://plato.stanford.edu/entries/darwinism/",
+      "title": "Darwinism (Stanford Encyclopedia of Philosophy)",
+      "author": null,
+      "year": null,
+      "quote": "This tendency is checked, to use the language of Thomas Malthus’ On the Principle of Population, by limited resources, disease, predation, and so on, creating a struggle for existence among the members of a species.",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "wallace",
+   "to": "author",
+   "relation": "reached the same theory as",
+   "claim": {
+    "text": "Hooker and Lyell said the two men conceived the same theory independently and unknown to one another.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://www.darwinproject.ac.uk/entry-2299",
+      "title": "From J. D. Hooker and Charles Lyell to the Linnean Society, 30 June 1858 (Darwin Correspondence Project)",
+      "author": null,
+      "year": null,
+      "quote": "These gentlemen having, independently and unknown to one another, conceived the same very ingenious theory to account for the appearance and perpetuation of varieties and of specific forms on our planet",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "lyell",
+   "to": "wallace",
+   "relation": "forwarded essay of",
+   "claim": {
+    "text": "Wallace asked that his essay be forwarded to Lyell if Darwin thought it sufficiently novel.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://www.darwinproject.ac.uk/entry-2299",
+      "title": "From J. D. Hooker and Charles Lyell to the Linnean Society, 30 June 1858 (Darwin Correspondence Project)",
+      "author": null,
+      "year": null,
+      "quote": "This was written at Ternate in February 1858, for the perusal of his friend and correspondent Mr. Darwin",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "hooker",
+   "to": "linnean",
+   "relation": "presented papers to",
+   "claim": {
+    "text": "Hooker and Lyell communicated the Darwin and Wallace papers to the Linnean Society, where they were read on 1 July 1858.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://www.darwinproject.ac.uk/entry-2299",
+      "title": "From J. D. Hooker and Charles Lyell to the Linnean Society, 30 June 1858 (Darwin Correspondence Project)",
+      "author": null,
+      "year": null,
+      "quote": "At this meeting, the postponed papers were read and a new councillor elected. CD’s and Wallace’s contributions were also read on that day",
+      "record": null
+     },
+     {
+      "kind": "page",
+      "url": "https://www.darwinproject.ac.uk/entry-2299",
+      "title": "From J. D. Hooker and Charles Lyell to the Linnean Society, 30 June 1858 (Darwin Correspondence Project)",
+      "author": null,
+      "year": null,
+      "quote": "contain the results of the investigations of two indefatigable naturalists, Mr. Charles Darwin and Mr. Alfred Wallace.",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "author",
+   "to": "hooker",
+   "relation": "thanked",
+   "claim": {
+    "text": "Darwin thanks Hooker for aiding him in every possible way for fifteen years.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "book",
+      "url": null,
+      "title": "Introduction by Charles Darwin",
+      "author": "Charles Darwin",
+      "year": "1859",
+      "quote": "my deep obligations to Dr. Hooker, who for the last fifteen years has aided me in every possible way by his large stores of knowledge and his excellent judgment",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "author",
+   "to": "sedgwick",
+   "relation": "was taught by",
+   "claim": {
+    "text": "Sedgwick was Darwin's old geology teacher and reacted with outrage to the theory.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://plato.stanford.edu/entries/darwinism/",
+      "title": "Darwinism (Stanford Encyclopedia of Philosophy)",
+      "author": null,
+      "year": null,
+      "quote": "Darwin, of course, expected, and got, outraged reactions from religiously conservative colleagues, such as his old geology teacher Sedgwick",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "lyell",
+   "to": "herschel",
+   "relation": "shared method with",
+   "claim": {
+    "text": "Lyell's constraints on causes had been defended philosophically by Sir John Herschel.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://plato.stanford.edu/entries/darwinism/",
+      "title": "Darwinism (Stanford Encyclopedia of Philosophy)",
+      "author": null,
+      "year": null,
+      "quote": "had been advocated by his geological hero, and now close friend, Charles Lyell; and they had been defended philosophically by his philosophical hero, Sir John Herschel.",
+      "record": null
+     }
+    ]
+   }
+  },
+  {
+   "from": "author",
+   "to": "lamarck",
+   "relation": "was taught about",
+   "claim": {
+    "text": "Robert Grant at Edinburgh expounded evolutionary ideas derived from Lamarck.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://plato.stanford.edu/entries/darwinism/",
+      "title": "Darwinism (Stanford Encyclopedia of Philosophy)",
+      "author": null,
+      "year": null,
+      "quote": "Grant expounded evolutionary ideas derived from Jean-Baptiste Lamarck and Charles’ grandfather.",
+      "record": null
+     }
+    ]
+   }
+  }
+ ]
+}

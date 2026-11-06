@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { ArrowUpRight, ChevronRight, EyeOff, Globe, Library, Search } from "lucide-react";
 import type { ContextBriefing, ContextClaim, ContextLink, ContextMedia, ContextRun, ContextRunStep } from "@/api/types";
 import { cx } from "@/lib/cx";
@@ -12,12 +12,15 @@ import {
   stepText,
   entityById,
   entityDates,
+  entityRole,
+  estimateWidth,
   itemsAbout,
   KIND_LABELS,
   linksOf,
   safeHref,
   sectionTitle,
   type ItemRef,
+  type Measure,
   type NodeImage,
 } from "./model";
 
@@ -179,6 +182,9 @@ export function EntityDetail({
   const e = entityById(briefing, id);
   if (!e) return null;
   const dates = entityDates(e);
+  // What it is to the author ("Rival theorist · Person · 1823–1913"); a briefing without roles keeps the kind alone.
+  const role = e.role?.trim() || (e.id === "book" || e.id === "author" ? entityRole(e) : null);
+  const kind = KIND_LABELS[e.kind];
   const wikidata =
     safeHref(e.facts?.source) ?? (e.wikidata ? `https://www.wikidata.org/wiki/${encodeURIComponent(e.wikidata)}` : null);
   const record = e.kind === "work" ? safeHref(e.resolvedUrl) : null;
@@ -211,7 +217,7 @@ export function EntityDetail({
       <div>
         <h4 className="font-display text-[17px] leading-6 font-semibold">{e.name}</h4>
         <p className="font-sans text-[12.5px] leading-[18px] text-fg-2">
-          {[KIND_LABELS[e.kind], dates].filter(Boolean).join(" · ")}
+          {[role, role?.toLowerCase() === kind.toLowerCase() ? null : kind, dates].filter(Boolean).join(" · ")}
           {record && record !== wikidata && (
             <>
               {" · "}
@@ -257,6 +263,38 @@ export function EntityDetail({
       )}
     </section>
   );
+}
+
+/**
+ * Text widths in the UI font, from a canvas (cached). Measured again once the fonts have loaded; until
+ * then, and without a canvas, an estimate.
+ */
+export function useTextMeasure(): Measure {
+  const [loaded, setLoaded] = useState(0);
+  useEffect(() => {
+    let live = true;
+    void document.fonts?.ready.then(() => live && setLoaded((n) => n + 1));
+    return () => {
+      live = false;
+    };
+  }, []);
+  return useMemo<Measure>(() => {
+    const ctx = typeof document === "undefined" ? null : document.createElement("canvas").getContext("2d");
+    if (!ctx) return estimateWidth;
+    const family = getComputedStyle(document.documentElement).getPropertyValue("--font-ui").trim() || "system-ui, sans-serif";
+    const cache = new Map<string, number>();
+    return (text, px, weight) => {
+      const key = `${weight}|${px}|${text}`;
+      let w = cache.get(key);
+      if (w === undefined) {
+        ctx.font = `${weight} ${px}px ${family}`;
+        w = ctx.measureText(text).width;
+        cache.set(key, w);
+      }
+      return w;
+    };
+    // `loaded`: measured again once the fonts are in.
+  }, [loaded]);
 }
 
 /** The width of a box, kept up to date. */

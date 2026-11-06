@@ -54,6 +54,7 @@ import {
   placesView,
   projectPoint,
   radialLayout,
+  radialTree,
   recordHref,
   relationLine,
   safeHref,
@@ -67,6 +68,17 @@ import {
   viewShows,
   viewsFor,
   wrapLabel,
+  cardLayout,
+  cardMaxWidth,
+  cardText,
+  entityRole,
+  estimateWidth,
+  smallMap,
+  relationSpot,
+  routeEdge,
+  visibleSegment,
+  wrapToWidth,
+  type Box,
 } from "@/tools/context/model";
 
 /** The real, verified briefings from the agent runs (server/tests/fixtures/context/samples). */
@@ -83,6 +95,20 @@ const nietzsche = sample("nietzsche-general");
 const malthus = sample("darwin-malthus-general");
 const burney = sample("austen-burney-general");
 const wagner = sample("nietzsche-wagner-general");
+// Version 3, with each entity's role (Phase 6).
+const nietzsche3 = sample("nietzsche-general-v3");
+const darwin3 = sample("darwin-general-v3");
+const allSamples: [string, ContextBriefing][] = [
+  ["darwin", darwin],
+  ["scholar", scholar],
+  ["austen", austen],
+  ["nietzsche", nietzsche],
+  ["malthus", malthus],
+  ["burney", burney],
+  ["wagner", wagner],
+  ["nietzsche3", nietzsche3],
+  ["darwin3", darwin3],
+];
 
 function jsonResponse(status: number, body?: unknown): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -294,7 +320,7 @@ describe("context: the connection map", () => {
     expect(layout.rings).toEqual([50, 100]);
     for (const n of layout.nodes) {
       expect(Number.isFinite(n.x) && Number.isFinite(n.y)).toBe(true);
-      expect(Math.hypot(n.x, n.y)).toBeCloseTo(n.depth === 0 ? 0 : layout.rings[n.depth - 1]!, 0);
+      expect(Math.hypot(n.x, n.y)).toBeCloseTo(n.ring === 0 ? 0 : layout.rings[n.ring - 1]!, 0);
     }
   });
 
@@ -867,7 +893,7 @@ describe("context: pictures and Wikipedia intros (Phase 5)", () => {
       radialLayout(darwin.entities, usableLinks(darwin), 233).rings,
     );
     // Every node sits on its ring.
-    for (const n of clear.nodes) if (n.depth > 0) expect(Math.hypot(n.x, n.y)).toBeCloseTo(clear.rings[n.depth - 1]!, 1);
+    for (const n of clear.nodes) if (n.depth > 0) expect(Math.hypot(n.x, n.y)).toBeCloseTo(clear.rings[n.ring - 1]!, 1);
   });
 
   it("credits the picture", () => {
@@ -878,5 +904,211 @@ describe("context: pictures and Wikipedia intros (Phase 5)", () => {
 
   it("keys the media query by the sorted ids", () => {
     expect(queryKeys.contextMedia(["Q1", "Q2"])).toEqual(["context", "media", "Q1,Q2"]);
+  });
+});
+
+describe("context: roles, readable labels and the card map (Phase 6)", () => {
+  const hits = (a: Box, b: Box, slack = 0.5) =>
+    Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0) > slack && Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0) > slack;
+  const entity = (b: ContextBriefing, id: string) => b.entities.find((e) => e.id === id)!;
+
+  it("names what each node is to the author, else its kind", () => {
+    expect(entityRole(entity(nietzsche3, "recurrence"))).toBe("Concept");
+    expect(entityRole(entity(nietzsche3, "wagner"))).toBe("Former friend");
+    expect(entityRole(entity(nietzsche3, "sils"))).toBe("Where he wrote Part II");
+    expect(entityRole(entity(darwin3, "malthus"))).toBe("Economist he read");
+    // A version 2 briefing has no roles: the book, the author, then the kind (an idea is a concept).
+    expect(entityRole(entity(nietzsche, "book"))).toBe("This book");
+    expect(entityRole(entity(nietzsche, "author"))).toBe("Author");
+    expect(entityRole(entity(nietzsche, "recurrence"))).toBe("Concept");
+    expect(entityRole(entity(nietzsche, "wagner"))).toBe("Person");
+    expect(entityRole(entity(nietzsche, "sils"))).toBe("Place");
+    expect(entityRole({ id: "x", kind: "work", role: "  " })).toBe("Work");
+  });
+
+  it("puts a leaf hanging from the centre on the second ring, the author aside", () => {
+    const t = radialTree(nietzsche.entities, usableLinks(nietzsche));
+    const node = (id: string) => t.nodes.find((n) => n.entity.id === id)!;
+    expect(t.rings).toBe(3);
+    expect(node("god-dead")).toMatchObject({ depth: 1, ring: 2, leaf: true });
+    expect(node("sils")).toMatchObject({ depth: 1, ring: 2 });
+    expect(node("author")).toMatchObject({ depth: 1, ring: 1, leaf: false });
+    expect(node("ree")).toMatchObject({ depth: 3, ring: 3 });
+    const d = radialTree(darwin.entities, usableLinks(darwin));
+    expect(d.nodes.find((n) => n.entity.id === "huxley")).toMatchObject({ depth: 1, ring: 2 });
+    expect(d.nodes.find((n) => n.entity.id === "murray")).toMatchObject({ depth: 1, ring: 1 });
+    // The shares of the centre's children make up the circle.
+    const total = t.nodes.filter((n) => n.depth === 1).reduce((sum, n) => sum + n.span, 0);
+    expect(total).toBeCloseTo(2 * Math.PI, 6);
+    // One ring only: everything stays on it.
+    const flat = radialTree(nietzsche.entities.filter((e) => ["book", "author", "god-dead"].includes(e.id)), []);
+    expect(flat.nodes.map((n) => n.ring)).toEqual([0, 1, 1]);
+  });
+
+  it("keeps every name on the small map off the others, off the nodes and inside the map", () => {
+    const problems: string[] = [];
+    for (const [name, b] of allSamples) {
+      for (const [width, maxHeight, pictures] of [
+        [340, undefined, false],
+        [480, undefined, false],
+        [600, 600, true],
+      ] as const) {
+        // With pictures: every node with a Wikidata item and the book (its cover) has one.
+        const pictured = new Set(pictures ? b.entities.filter((e) => e.wikidata || e.id === "book").map((e) => e.id) : []);
+        const { frame, layout, labels, radius } = smallMap(b, width, maxHeight, pictured);
+        const where = `${name} at ${width}${pictures ? " with pictures" : ""}`;
+        const list = layout.nodes.map((n) => ({ n, l: labels.get(n.entity.id)! }));
+        for (const { n, l } of list) {
+          const { box } = l;
+          if (box.x0 < -frame.w / 2 - 0.5 || box.x1 > frame.w / 2 + 0.5 || box.y0 < -frame.h / 2 - 0.5 || box.y1 > frame.h / 2 + 0.5)
+            problems.push(`${where}: ${n.entity.name} runs off the map`);
+          for (const o of list) {
+            if (o.n === n) continue;
+            const r = radius(o.n) * 1.25;
+            if (hits(box, { x0: o.l.x - r, y0: o.l.y - r, x1: o.l.x + r, y1: o.l.y + r }))
+              problems.push(`${where}: ${n.entity.name} covers the node of ${o.n.entity.name}`);
+            if (o.n.entity.id > n.entity.id && hits(box, o.l.box)) problems.push(`${where}: ${n.entity.name} / ${o.n.entity.name}`);
+          }
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it("fixes the screenshot's overlaps: Wagner, Nietzsche and the book's name", () => {
+    const { labels } = smallMap(nietzsche, 490, undefined, new Set());
+    const box = (id: string) => labels.get(id)!.box;
+    expect(hits(box("wagner"), box("author"))).toBe(false);
+    for (const id of ["gay-science", "ubermensch", "god-dead", "sils"]) expect(hits(box("book"), box(id))).toBe(false);
+  });
+
+  it("wraps a card's name to its width and sizes the card", () => {
+    const m = estimateWidth;
+    expect(wrapToWidth("Alfred Russel Wallace", 120, 2, m, 14.5, 600)).toEqual(["Alfred Russel", "Wallace"]);
+    expect(wrapToWidth("Lyell", 120, 2, m, 14.5, 600)).toEqual(["Lyell"]);
+    const long = wrapToWidth("The Linnean Society of London and its Journal", 100, 2, m, 14.5, 600);
+    expect(long).toHaveLength(2);
+    expect(long[1]!.endsWith("…")).toBe(true);
+    for (const l of long) expect(m(l, 14.5, 600)).toBeLessThanOrEqual(100);
+    const card = cardText("Eternal recurrence", "Concept", { picture: null, root: false, maxW: 220 });
+    expect(card.role).toEqual(["Concept:"]);
+    expect(card.lines).toEqual(["Eternal recurrence"]);
+    expect(card.h).toBe(10 * 2 + 16 + 2 + 19);
+    const pic = cardText("Alfred Russel Wallace", "Independent co-theorist", { picture: "round", root: false, maxW: 200 });
+    expect(pic.w).toBeLessThanOrEqual(200);
+    // A long role takes a second line rather than being cut.
+    expect(pic.role).toEqual(["Independent", "co-theorist:"]);
+    expect(pic.h).toBeGreaterThanOrEqual(64);
+    expect(cardText("On the Origin of Species", "This book", { picture: "cover", root: true, maxW: 220 }).w).toBeLessThanOrEqual(260);
+    expect(cardMaxWidth(1150)).toBe(219);
+    expect(cardMaxWidth(800)).toBe(200);
+    expect(cardMaxWidth(2000)).toBe(260);
+  });
+
+  function cards(b: ContextBriefing, width: number, height: number) {
+    const tree = radialTree(b.entities, usableLinks(b), mapRoot(b));
+    const maxW = cardMaxWidth(width);
+    const sizes = new Map(
+      tree.nodes.map((n) => [
+        n.entity.id,
+        cardText(n.entity.name, entityRole(n.entity), {
+          picture: n.entity.id === "book" ? "cover" : n.entity.wikidata ? "round" : null,
+          root: n.depth === 0,
+          maxW,
+        }),
+      ]),
+    );
+    return cardLayout(tree, sizes, width, height);
+  }
+
+  it("lays the cards out on ovals with none on another, inside the stage", () => {
+    const problems: string[] = [];
+    for (const [name, b] of allSamples) {
+      for (const [width, height] of [
+        [1200, 800],
+        [1500, 900],
+        [760, 640],
+      ] as const) {
+        const layout = cards(b, width, height);
+        const where = `${name} at ${width}×${height}`;
+        if (layout.height > height * 1.4) problems.push(`${where}: grew to ${layout.height}`);
+        const root = layout.nodes.find((n) => n.depth === 0)!;
+        if (root.x !== 0 || root.y !== 0) problems.push(`${where}: the centre moved`);
+        const author = layout.nodes.find((n) => n.entity.id === "author");
+        if (!b.focus && author && !(author.y < 0)) problems.push(`${where}: the author isn't above the book`);
+        for (const n of layout.nodes) {
+          if (Math.abs(n.x) + n.w / 2 > width / 2 + 0.5 || Math.abs(n.y) + n.h / 2 > layout.height / 2 + 0.5)
+            problems.push(`${where}: ${n.entity.name} is outside the stage`);
+          for (const o of layout.nodes) {
+            if (o.entity.id <= n.entity.id) continue;
+            const a = { x0: n.x - n.w / 2, x1: n.x + n.w / 2, y0: n.y - n.h / 2, y1: n.y + n.h / 2 };
+            const c = { x0: o.x - o.w / 2 - 8, x1: o.x + o.w / 2 + 8, y0: o.y - o.h / 2 - 6, y1: o.y + o.h / 2 + 6 };
+            if (hits(a, c, 0)) problems.push(`${where}: ${n.entity.name} / ${o.entity.name}`);
+          }
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+    // The same every time.
+    expect(cards(nietzsche3, 1200, 800)).toEqual(cards(nietzsche3, 1200, 800));
+  });
+
+  it("routes a line round the cards in its way", () => {
+    const a = { x: 0, y: -200, w: 180, h: 64 };
+    const b = { x: 0, y: 200, w: 180, h: 64 };
+    expect(routeEdge(a, b, []).d).toBe("M0 -200L0 200");
+    const book = { x: 0, y: 0, w: 180, h: 80 };
+    const bent = routeEdge(a, b, [book]);
+    expect(bent.d).toContain("Q");
+    expect(Math.abs(bent.mid.x)).toBeGreaterThan(90 + 6);
+    // A cross link bends even with nothing in its way.
+    expect(routeEdge(a, b, [], true).d).toContain("Q");
+    // On every sample's card map, no line runs under a card it doesn't join.
+    const under: string[] = [];
+    for (const [name, br] of allSamples) {
+      const layout = cards(br, 1200, 800);
+      const at = new Map(layout.nodes.map((n) => [n.entity.id, n]));
+      for (const e of layout.edges) {
+        const p = at.get(e.from)!;
+        const q = at.get(e.to)!;
+        const route = routeEdge(p, q, layout.nodes.filter((n) => n !== p && n !== q), e.kind === "cross");
+        // The path's points: M x0 y0, then L x y, Q c x y, or C c1 c2 x y.
+        const nums = route.d.match(/-?[\d.]+/g)!.map(Number);
+        const pts = Array.from({ length: nums.length / 2 }, (_, i) => ({ x: nums[2 * i]!, y: nums[2 * i + 1]! }));
+        const bez = (t: number, ps: { x: number; y: number }[]): { x: number; y: number } =>
+          ps.length === 1 ? ps[0]! : bez(t, ps.slice(1).map((q, i) => ({ x: ps[i]!.x + (q.x - ps[i]!.x) * t, y: ps[i]!.y + (q.y - ps[i]!.y) * t })));
+        for (let i = 1; i < 60; i++) {
+          const pt = bez(i / 60, pts);
+          const hit = layout.nodes.find(
+            (n) => n !== p && n !== q && Math.abs(pt.x - n.x) < n.w / 2 - 1 && Math.abs(pt.y - n.y) < n.h / 2 - 1,
+          );
+          if (hit) {
+            under.push(`${name}: ${e.from}→${e.to} under ${hit.entity.id}`);
+            break;
+          }
+        }
+      }
+    }
+    expect(under).toEqual([]);
+  });
+
+  it("puts a relation where its words are clear of the cards, or nowhere", () => {
+    const a = { x: 0, y: 0, w: 100, h: 40 };
+    const b = { x: 300, y: 0, w: 100, h: 40 };
+    const route = routeEdge(a, b, []);
+    expect(route.along[0]).toEqual({ x: 150, y: 0 });
+    expect(relationSpot(route.along, 80, [a, b])).toEqual({ x: 150, y: 0 });
+    // Words wider than the gap between the cards have no place.
+    expect(relationSpot(route.along, 220, [a, b])).toBeNull();
+    // A card in the middle: the words move along the line.
+    const spot = relationSpot(route.along, 40, [a, b, { x: 150, y: 0, w: 40, h: 40 }]);
+    expect(spot && Math.abs(spot.x - 150)).toBeGreaterThan(40);
+  });
+
+  it("finds the part of a line that shows between two cards", () => {
+    const a = { x: 0, y: 0, w: 100, h: 40 };
+    expect(visibleSegment(a, { x: 200, y: 0, w: 100, h: 40 })).toEqual({ x1: 50, y1: 0, x2: 150, y2: 0 });
+    expect(visibleSegment(a, { x: 0, y: 100, w: 100, h: 40 })).toEqual({ x1: 0, y1: 20, x2: 0, y2: 80 });
+    expect(visibleSegment(a, { x: 60, y: 10, w: 100, h: 40 })).toBeNull();
   });
 });

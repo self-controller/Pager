@@ -51,6 +51,9 @@ Revised 2026-11-05 after the first live run, at the user's direction:
 - **Entities:** 6–15 people, works, ideas, movements, institutions, places and events.
   The book is `book` and the author is `author`. Each has a Wikidata ID where there is
   one, and a catalogue record for works.
+- **Roles** (Phase 6): each entity says what it is to the author in a few words ("Concept",
+  "Publisher", "Rival theorist", "Where he wrote Part II"), printed on its card. Only what a cited
+  link or claim says.
 - **Links:** 5–20 relations between entities ("read", "replied to", "studied under",
   "lived in"). Each is a claim cited and verified like any other.
 - **Dates and coordinates** come from Wikidata, fetched by the verifier, never written by
@@ -267,6 +270,23 @@ conversation, then situation, then moment.
      rounded square for works, places, events and institutions; the book with the library's own
      cover; the shapes stay for nodes with no picture. (Greyscale, and pictures only in the card,
      were the alternatives.)
+
+14. **Phase 6, the map as cards** (asked 2026-11-06, after the user sketched each connection as a card
+   with text on the left and a round picture on the right, "Concept: Eternal Recurrence" on a card
+   with no picture, asked for the terms to say what they are to the author, a large map, no key,
+   and no jump when a card is tapped):
+   - **Layout: the radial tree on ovals.** The book's card in the centre, the author's above it, the
+     rest on rings stretched to an oval that fills the screen; cards that would overlap are pushed
+     apart. (A mind map in columns was the alternative.)
+   - **The role: written by the agent.** A `role` per entity, one to four words from the author's
+     side, saying only what a cited link or claim says. Briefings made before show the kind (an idea
+     is a "Concept") until refreshed. (A fixed list, or no agent change, were the alternatives.)
+   - **The details: floating over the map,** on the side away from the tapped card, with their own
+     scroll and a ✕, so the page never moves. (Beside the map, as before, was the alternative.)
+   - **The reader's panel keeps its small map and key,** but no name may overlap another or a node
+     (the user's screenshot of Nietzsche's map showed "Richard Wagner" on "Friedrich Nietzsche" and
+     the book's name on "The Gay Science" and "Overman"). Cards wherever there's room: the Assistant
+     page and every full screen from 768 px.
 
 ## API facts (checked against Anthropic's docs on 2026-11-05)
 There is no official Rust SDK, so the server calls `POST https://api.anthropic.com/v1/messages`
@@ -920,3 +940,63 @@ can be its author's portrait: "God is dead" shows Nietzsche, as Wikipedia does).
 **Left:** nothing planned. The real API on schema v2 and on a focused run stays the user's paid check.
 Later ideas: streaming sections (Decision 12 says why not now), the iPhone app's native "Context for
 this" item.
+
+### Phase 6: the map as cards, roles, no jump (2026-11-06)
+**Asked first** (Decision 14): the radial tree on ovals, the role written by the agent, the details
+floating over the map, the reader's panel keeping its small map with its names clear.
+
+**The jump, found first:** on the wide page the card column was in the page's flow, so the page's
+height followed the card's length (1185 px with Huxley's card, 1613 px with Darwin's). Scrolled down
+to 560 with Darwin's card open, a tap on Huxley pulled the page back to 285.
+
+**Built:**
+- **Schema version 3** (`schema.rs`): `Entity.role`, in the strict tool schema as a nullable string.
+  The prompt asks for what the node is to the author in one to four words, from the author's side,
+  only what a cited link or claim says, "This book" and "Author" for those two; a focused briefing's
+  roles too. The verifier (`clean_role`) collapses spaces, drops a trailing colon or full stop,
+  capitalises, and leaves out a role past 32 characters or five words (the entity stays). Version 2
+  briefings and drafts still parse.
+- **Agent check** (two Sonnet agents with the stand-in tools, then `--draft`): Nietzsche and Darwin,
+  General, nothing dropped (33 and 30 claims, 12 links each). Roles: "Former friend", "Philosopher
+  he read", "Where he wrote Part II", "Concept", "Earlier book", "Famous phrase", "Persian prophet";
+  "Independent co-theorist", "Economist he read", "Former geology teacher", "Earlier evolutionist",
+  "Where papers were read". Saved as the samples `nietzsche-general-v3` and `darwin-general-v3`.
+  The first run's "Where he wrote Part II" (five words) is why the cap is five words, not four.
+- **The tree** (`radialTree` in `model.ts`, `radialLayout` built on it): a leaf hanging from the
+  centre (the author aside) goes on the second ring when there is one, freeing the centre.
+- **The small map's names** (`mapLabels`, `smallMap`): greedy, the centre, the author, the nodes
+  with children, then the leaves; each tries its outward side, the two across, inward, each also
+  wrapped narrow; a leaf with no clear place moves within its share of the circle or out a ring
+  (on the outer ring, a little into the margin); the least overlap wins otherwise. Widths from a
+  canvas in the UI font (`useTextMeasure`), an estimate in tests. The key stays.
+- **The card map** (`CardMap.tsx`; `cardText`, `cardLayout`, `routeEdge`, `relationSpot` in
+  `model.ts`): cards sized from their text (the role wraps to two lines rather than be cut);
+  rings on ovals between the centre card and the stage's edges; overlaps pushed apart along the
+  smaller overlap (at most 400 rounds, the stage growing 12% at a time if they can't fit); then
+  spread out from the centre to fill the stage (at most 1.7 times). Lines go straight, or round the
+  cards in their way: a quadratic or a flatter cubic through a point beside the middle or off a
+  corner of a card in the way, the least stray first. A tapped card's relations sit where their
+  words are clear of the cards and of each other, else not at all (the details list them).
+- **The stage** (`ContextPanel.tsx`): `MapStage` (the hint and full-screen button in a row, the map
+  as tall as the window below the sticky tabs); the details float in it. Timeline and Places keep
+  the card beside them in a fixed-height column with its own scroll (`GraphicStage` `beside`), so
+  their taps don't move the page either; the reader's panel keeps `below`. The full screen draws
+  the card map from 768 px. The detail card's header leads with the role.
+
+**Verified:**
+- `npm test` 247 pass (new: roles and their fallbacks, the ring rule, no small-map name on another
+  name, node or edge for all nine samples at 340 and 480 px and with pictures at 600, the screenshot's
+  overlaps gone at 490, card wrapping and sizes, no two cards closer than the gap and all inside the
+  stage for all samples at 1200×800, 1500×900 and 760×640, the same every time, no line under a card
+  it doesn't join, relation places); `npm run typecheck`, `npm run build`; `cargo test` (role
+  tidying, the schema, a focused draft's roles).
+- In a browser (CDP, scratch dev data, no key), at 1440 and 1920 px: Nietzsche's, Darwin's and
+  Austen's maps and the focused Malthus map with no card on another; six taps in a row while scrolled
+  to 354 left `scrollY` and the page's height alone (also on Timeline and Places); the details on the
+  far side, closed by ✕, Esc and a tap on the map; Esc in the full screen closes the details, then the
+  dialog; the dark theme; a 900 px page keeps the small map; the reader's panel with the old and new
+  Nietzsche briefings: no name boxes intersect.
+
+**Not verified:** a real device; the paid API's roles (only the agent runs).
+
+**Left:** nothing planned.

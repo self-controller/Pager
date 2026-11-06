@@ -1,0 +1,1058 @@
+{
+ "version": 3,
+ "docId": "01m6qy2tb8qk3nkma936",
+ "level": "general",
+ "focus": null,
+ "contentHash": "ddc83cf56810dab6d58e98bddbcaf705e217f944d496b976e932e088979bd76f",
+ "generatedAt": "2026-11-06T08:02:31.020Z",
+ "model": "draft (Claude Code agent)",
+ "littleKnown": false,
+ "sections": [
+  {
+   "kind": "overview",
+   "items": [
+    {
+     "heading": "The book in one paragraph",
+     "entity": "book",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Thus Spoke Zarathustra is a four-part work of speeches and episodes by Friedrich Nietzsche, published between 1883 and 1885 and listed in the standard reference account among his mature works.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/nietzsche/",
+         "title": "Friedrich Nietzsche (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "Thus Spoke Zarathustra (1883–5), Beyond Good and Evil (1886),",
+         "record": null,
+         "check": "quoted"
+        },
+        {
+         "kind": "record",
+         "url": "https://openlibrary.org/works/OL26442780W",
+         "title": "Thus spake Zarathustra",
+         "author": null,
+         "year": null,
+         "quote": null,
+         "record": {
+          "kind": "olid",
+          "value": "OL26442780W"
+         },
+         "check": "record"
+        }
+       ]
+      },
+      {
+       "text": "It is not a treatise: its hero is a prophet-figure whom Nietzsche had in mind from youth and finally identified with a Persian, to give a view of history in which each era has its prophet.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "book",
+         "url": null,
+         "title": "Introduction by Mrs Forster-Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "“but in the end,” he declares in a note on the subject, “I had to do a PERSIAN the honour of identifying him with this creature of my fancy.",
+         "record": null,
+         "check": "quoted"
+        },
+        {
+         "kind": "book",
+         "url": null,
+         "title": "Introduction by Mrs Forster-Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "Persians were the first to take a broad and comprehensive view of history.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      },
+      {
+       "text": "Nietzsche's sister Elisabeth, who wrote the introduction in this edition, calls it his most personal work, the history of his experiences, friendships, ideals and disappointments.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "book",
+         "url": null,
+         "title": "Introduction by Mrs Forster-Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "“Zarathustra” is my brother’s most personal work; it is the history of his most individual experiences, of his friendships, ideals, raptures, bitterest disappointments and sorrows.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "moment",
+   "items": [
+    {
+     "heading": "A Europe losing its Christian footing",
+     "entity": "god",
+     "relation": "reacts to",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Nietzsche's famous claim that \"God is dead\" is not simply atheism: it says that Christianity no longer gives Europe a shared basis for ethics, and that morality built on it is bound to collapse.",
+       "inferred": true,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/nietzsche/",
+         "title": "Friedrich Nietzsche (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "Christianity no longer commands society-wide cultural allegiance as a framework grounding ethical commitments",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      },
+      {
+       "text": "His sister's introduction sums up his target in the same terms: Christianity, as a product of the resentment of the weak, has undermined everything that promotes life.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "book",
+         "url": null,
+         "title": "Introduction by Mrs Forster-Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "He assumes that Christianity, as a product of the resentment of the botched and the weak, has put in ban all that is beautiful, strong, proud, and powerful",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "heading": "An older ideal of rearing great individuals",
+     "entity": "overman",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "The Superman was not invented for this book: his sister says the ideal appears in his writings of 1873-75, rooted in the youthful belief that the object of mankind should lie in its highest individuals.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "book",
+         "url": null,
+         "title": "Introduction by Mrs Forster-Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "The notion of rearing the Superman is only a new form of an ideal Nietzsche already had in his youth",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "situation",
+   "items": [
+    {
+     "heading": "A philosopher without a post, on the move",
+     "entity": "author",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Nietzsche became professor of classical philology at Basel in 1869 at age 24, but ill health forced him to resign the chair by 1879, which freed him to write.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/nietzsche/",
+         "title": "Friedrich Nietzsche (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "culminating in May 1869 when he was called to a chair in classical philology at Basel.",
+         "record": null,
+         "check": "quoted"
+        },
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/nietzsche/",
+         "title": "Friedrich Nietzsche (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "by 1879, he was forced to resign his professorship altogether.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      },
+      {
+       "text": "Afterwards he settled into spending winters near the Mediterranean, usually in Italy, and summers in Sils Maria, Switzerland.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/nietzsche/",
+         "title": "Friedrich Nietzsche (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "settling into a pattern of spending winters near the Mediterranean (usually in Italy) and summers in Sils Maria, Switzerland.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "heading": "Where the book was written",
+     "entity": "rapallo",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "The central idea, eternal recurrence, came to him on a walk at Sils Maria in August 1881.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://vishvasa.github.io/english/prose/nietzsche/ecce_homo/10_THUS_SPOKE_ZARATHUSTRA/",
+         "title": "Ecce Homo: Thus Spoke Zarathustra",
+         "author": "Friedrich Nietzsche",
+         "year": "1888",
+         "quote": "The basic conception of the work, the idea of eternal recurrence, the highest formula of affirmation that can possibly be attained − belongs to the August of the year 1881",
+         "record": null,
+         "check": "quoted"
+        },
+        {
+         "kind": "page",
+         "url": "https://nietzschehaus.ch/friedrich-nietzsche-in-sils-maria-en/the-first-summer-1881/",
+         "title": "The first summer: 1881",
+         "author": null,
+         "year": null,
+         "quote": "His first stay already prompted a key idea which turned his philosophy in a new direction: “the idea of eternal recurrence”",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      },
+      {
+       "text": "Part I came to him in the winter of 1882-83 at Rapallo, on the Italian coast near Genoa, in poor health and in a small hotel by the sea.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://vishvasa.github.io/english/prose/nietzsche/ecce_homo/10_THUS_SPOKE_ZARATHUSTRA/",
+         "title": "Ecce Homo: Thus Spoke Zarathustra",
+         "author": "Friedrich Nietzsche",
+         "year": "1888",
+         "quote": "it was during this winter and under these unfavourable conditions that my Zarathustra came into existence.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      },
+      {
+       "text": "He wrote Part II and drafted Part III at Sils Maria in the summer of 1883.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://nietzschehaus.ch/friedrich-nietzsche-in-sils-maria-en/the-following-summers-1884-1888/",
+         "title": "The following summers: 1884-1888",
+         "author": null,
+         "year": null,
+         "quote": "the 2nd and the draft for the 3rd book of “Thus spoke Zarathustra” in the summer of 1883",
+         "record": null,
+         "check": "quoted"
+        },
+        {
+         "kind": "page",
+         "url": "https://nietzschehaus.ch/friedrich-nietzsche-in-sils-maria-en/the-second-summer-1883/",
+         "title": "The second summer: 1883",
+         "author": null,
+         "year": null,
+         "quote": "he completed the second part of “Zarathustra” and started on the third part",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "heading": "Losses behind the book",
+     "entity": "salome",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "The Wagners' friendship with Nietzsche effectively ended when he sent them Human, All-too-human in early 1878.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/nietzsche/",
+         "title": "Friedrich Nietzsche (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "When he sent the book to the Wagners early in 1878, it effectively ended their friendship",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      },
+      {
+       "text": "Around the time of the book's start he had an intense but painful friendship with Paul Rée and Lou Salomé, a Russian student; after he unsuccessfully proposed marriage, Salomé and Rée left for Berlin.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/nietzsche/",
+         "title": "Friedrich Nietzsche (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "At the beginning of this period, Nietzsche enjoyed an intense but ultimately painful friendship with Rée and Lou Salomé",
+         "record": null,
+         "check": "quoted"
+        },
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/nietzsche/",
+         "title": "Friedrich Nietzsche (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "Nietzsche and Rée both developed romantic interest in Salomé, and after Nietzsche unsuccessfully proposed marriage, Salomé and Rée departed for Berlin.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      },
+      {
+       "text": "He says the closing section of the first part was finished at the hour of Richard Wagner's death in Venice, in February 1883.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://vishvasa.github.io/english/prose/nietzsche/ecce_homo/10_THUS_SPOKE_ZARATHUSTRA/",
+         "title": "Ecce Homo: Thus Spoke Zarathustra",
+         "author": "Friedrich Nietzsche",
+         "year": "1888",
+         "quote": "was completed precisely at that sacred hour when Richard Wagner died in Venice",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "conversation",
+   "items": [
+    {
+     "heading": "Richard Wagner",
+     "entity": "wagner",
+     "relation": "broke with",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Nietzsche was a frequent guest in the Wagner household from his early Basel years; the friendship lasted into the mid-1870s, and its break was a key touchstone in his life.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/nietzsche/",
+         "title": "Friedrich Nietzsche (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "Nietzsche’s friendship with Wagner (and Cosima Liszt Wagner) lasted into the mid-1870s",
+         "record": null,
+         "check": "quoted"
+        },
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/nietzsche/",
+         "title": "Friedrich Nietzsche (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "When he sent the book to the Wagners early in 1878, it effectively ended their friendship",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "heading": "Arthur Schopenhauer",
+     "entity": "schopenhauer",
+     "relation": "read",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Schopenhauer was one of the philosophers Nietzsche was already reading when he took his Basel chair.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://plato.stanford.edu/entries/nietzsche/",
+         "title": "Friedrich Nietzsche (Stanford Encyclopedia of Philosophy)",
+         "author": null,
+         "year": null,
+         "quote": "he was already interested in philosophy, particularly the work of Arthur Schopenhauer and Friedrich Albert Lange.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "heading": "The Gay Science",
+     "entity": "gayscience",
+     "relation": "builds on",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Nietzsche calls the period between The Gay Science and Zarathustra one pregnancy: the earlier book gives the opening of Zarathustra and its fundamental idea.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://vishvasa.github.io/english/prose/nietzsche/ecce_homo/10_THUS_SPOKE_ZARATHUSTRA/",
+         "title": "Ecce Homo: Thus Spoke Zarathustra",
+         "author": "Friedrich Nietzsche",
+         "year": "1888",
+         "quote": "finally it gives the opening of Zarathustra itself, it gives in the penultimate piece of the fourth book the fundamental idea of Zarathustra.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "heading": "Zoroaster",
+     "entity": "zoroaster",
+     "relation": "borrows name from",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Nietzsche explains that he gave his figure the name and identity of a Persian prophet.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "book",
+         "url": null,
+         "title": "Introduction by Mrs Forster-Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "“but in the end,” he declares in a note on the subject, “I had to do a PERSIAN the honour of identifying him with this creature of my fancy.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "terms",
+   "items": [
+    {
+     "heading": "The Superman",
+     "entity": "overman",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "The Superman is the ideal of a higher future humanity, not a person already existing; his sister says it cannot be understood apart from the Order of Rank, the Will to Power and the Transvaluation of all Values.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "book",
+         "url": null,
+         "title": "Introduction by Mrs Forster-Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "In general the doctrine of the Superman can only be understood correctly in conjunction with other ideas of the author’s, such as:—the Order of Rank, the Will to Power, and the Transvaluation of all Values.",
+         "record": null,
+         "check": "quoted"
+        },
+        {
+         "kind": "book",
+         "url": null,
+         "title": "Introduction by Mrs Forster-Nietzsche",
+         "author": null,
+         "year": null,
+         "quote": "Never yet hath there been a Superman.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "heading": "Eternal recurrence",
+     "entity": "recurrence",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Nietzsche calls the idea of eternal recurrence the basic conception of the work and the highest formula of affirmation attainable.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://vishvasa.github.io/english/prose/nietzsche/ecce_homo/10_THUS_SPOKE_ZARATHUSTRA/",
+         "title": "Ecce Homo: Thus Spoke Zarathustra",
+         "author": "Friedrich Nietzsche",
+         "year": "1888",
+         "quote": "The basic conception of the work, the idea of eternal recurrence, the highest formula of affirmation that can possibly be attained − belongs to the August of the year 1881",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "heading": "Great health",
+     "spoiler": false,
+     "claims": [
+      {
+       "text": "Nietzsche says the type of Zarathustra can only be grasped through what he calls great health.",
+       "inferred": false,
+       "spoiler": false,
+       "citations": [
+        {
+         "kind": "page",
+         "url": "https://vishvasa.github.io/english/prose/nietzsche/ecce_homo/10_THUS_SPOKE_ZARATHUSTRA/",
+         "title": "Ecce Homo: Thus Spoke Zarathustra",
+         "author": "Friedrich Nietzsche",
+         "year": "1888",
+         "quote": "To understand this type one has first to become clear as to its physiological presupposition: it is that which I call great health.",
+         "record": null,
+         "check": "quoted"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "id": "book",
+   "kind": "work",
+   "name": "Thus Spoke Zarathustra",
+   "wikidata": "Q199774",
+   "record": {
+    "kind": "olid",
+    "value": "OL26442780W"
+   },
+   "role": "This book",
+   "facts": {
+    "description": "philosophical novel by Friedrich Nietzsche",
+    "start": "1885",
+    "source": "https://www.wikidata.org/wiki/Q199774"
+   },
+   "resolvedUrl": "https://openlibrary.org/works/OL26442780W"
+  },
+  {
+   "id": "author",
+   "kind": "person",
+   "name": "Friedrich Nietzsche",
+   "wikidata": "Q9358",
+   "record": null,
+   "role": "Author",
+   "facts": {
+    "description": "German philosopher (1844-1900)",
+    "start": "1844",
+    "end": "1900",
+    "source": "https://www.wikidata.org/wiki/Q9358"
+   }
+  },
+  {
+   "id": "wagner",
+   "kind": "person",
+   "name": "Richard Wagner",
+   "wikidata": "Q1511",
+   "record": null,
+   "role": "Former friend",
+   "facts": {
+    "description": "German composer (1813–1883)",
+    "start": "1813",
+    "end": "1883",
+    "source": "https://www.wikidata.org/wiki/Q1511"
+   }
+  },
+  {
+   "id": "salome",
+   "kind": "person",
+   "name": "Lou Salomé",
+   "wikidata": "Q38873",
+   "record": null,
+   "role": "Friend",
+   "facts": {
+    "description": "German-Russian essayist, philosopher, and psychoanalyst (1861–1937)",
+    "start": "1861",
+    "end": "1937",
+    "source": "https://www.wikidata.org/wiki/Q38873"
+   }
+  },
+  {
+   "id": "ree",
+   "kind": "person",
+   "name": "Paul Rée",
+   "wikidata": "Q62596",
+   "record": null,
+   "role": "Friend",
+   "facts": {
+    "description": "Prussian Doctor (1849–1901)",
+    "start": "1849",
+    "end": "1901",
+    "source": "https://www.wikidata.org/wiki/Q62596"
+   }
+  },
+  {
+   "id": "schopenhauer",
+   "kind": "person",
+   "name": "Arthur Schopenhauer",
+   "wikidata": "Q38193",
+   "record": null,
+   "role": "Philosopher he read",
+   "facts": {
+    "description": "German philosopher (1788-1860)",
+    "start": "1788",
+    "end": "1860",
+    "source": "https://www.wikidata.org/wiki/Q38193"
+   }
+  },
+  {
+   "id": "sils",
+   "kind": "place",
+   "name": "Sils Maria",
+   "wikidata": "Q3483936",
+   "record": null,
+   "role": "Where he wrote Part II",
+   "facts": {
+    "description": "village in the canton of Graubünden, Switzerland",
+    "coordinates": [
+     46.4292,
+     9.76389
+    ],
+    "source": "https://www.wikidata.org/wiki/Q3483936"
+   }
+  },
+  {
+   "id": "rapallo",
+   "kind": "place",
+   "name": "Rapallo",
+   "wikidata": "Q210098",
+   "record": null,
+   "role": "Where he wrote Part I",
+   "facts": {
+    "description": "Italian comune",
+    "coordinates": [
+     44.35,
+     9.233333333
+    ],
+    "source": "https://www.wikidata.org/wiki/Q210098"
+   }
+  },
+  {
+   "id": "recurrence",
+   "kind": "idea",
+   "name": "Eternal recurrence",
+   "wikidata": "Q1074200",
+   "record": null,
+   "role": "Concept",
+   "facts": {
+    "description": "philosophical concept regarding infinite continuance of the universe",
+    "source": "https://www.wikidata.org/wiki/Q1074200"
+   }
+  },
+  {
+   "id": "overman",
+   "kind": "idea",
+   "name": "Superman",
+   "wikidata": "Q43484",
+   "record": null,
+   "role": "Concept",
+   "facts": {
+    "description": "concept in the philosophy of Friedrich Nietzsche",
+    "source": "https://www.wikidata.org/wiki/Q43484"
+   }
+  },
+  {
+   "id": "gayscience",
+   "kind": "work",
+   "name": "The Gay Science",
+   "wikidata": "Q1061693",
+   "record": null,
+   "role": "Earlier book",
+   "facts": {
+    "description": "book by Friedrich Nietzsche",
+    "start": "1882",
+    "source": "https://www.wikidata.org/wiki/Q1061693"
+   }
+  },
+  {
+   "id": "god",
+   "kind": "idea",
+   "name": "God is dead",
+   "wikidata": "Q192614",
+   "record": null,
+   "role": "Famous phrase",
+   "facts": {
+    "description": "statement by German philosopher Friedrich Nietzsche",
+    "source": "https://www.wikidata.org/wiki/Q192614"
+   }
+  },
+  {
+   "id": "zoroaster",
+   "kind": "person",
+   "name": "Zoroaster",
+   "wikidata": "Q35811",
+   "record": null,
+   "role": "Persian prophet",
+   "facts": {
+    "description": "founder of Zoroastrianism",
+    "source": "https://www.wikidata.org/wiki/Q35811"
+   }
+  }
+ ],
+ "links": [
+  {
+   "from": "author",
+   "to": "book",
+   "relation": "wrote",
+   "claim": {
+    "text": "Thus Spoke Zarathustra is among the mature works Nietzsche wrote in 1883-85.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://plato.stanford.edu/entries/nietzsche/",
+      "title": "Friedrich Nietzsche (Stanford Encyclopedia of Philosophy)",
+      "author": null,
+      "year": null,
+      "quote": "Thus Spoke Zarathustra (1883–5), Beyond Good and Evil (1886),",
+      "record": null,
+      "check": "quoted"
+     }
+    ]
+   }
+  },
+  {
+   "from": "author",
+   "to": "wagner",
+   "relation": "broke with",
+   "claim": {
+    "text": "His friendship with the Wagners effectively ended in early 1878.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://plato.stanford.edu/entries/nietzsche/",
+      "title": "Friedrich Nietzsche (Stanford Encyclopedia of Philosophy)",
+      "author": null,
+      "year": null,
+      "quote": "When he sent the book to the Wagners early in 1878, it effectively ended their friendship",
+      "record": null,
+      "check": "quoted"
+     }
+    ]
+   }
+  },
+  {
+   "from": "author",
+   "to": "salome",
+   "relation": "befriended",
+   "claim": {
+    "text": "Nietzsche was friendly with Lou Salomé and proposed marriage unsuccessfully.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://vishvasa.github.io/english/prose/nietzsche/ecce_homo/10_THUS_SPOKE_ZARATHUSTRA/",
+      "title": "Ecce Homo: Thus Spoke Zarathustra",
+      "author": "Friedrich Nietzsche",
+      "year": "1888",
+      "quote": "it is the astonishing inspiration of a young Russian lady with whom I was then friendly, Fräulein Lou von Salomé.",
+      "record": null,
+      "check": "quoted"
+     },
+     {
+      "kind": "page",
+      "url": "https://plato.stanford.edu/entries/nietzsche/",
+      "title": "Friedrich Nietzsche (Stanford Encyclopedia of Philosophy)",
+      "author": null,
+      "year": null,
+      "quote": "Nietzsche and Rée both developed romantic interest in Salomé, and after Nietzsche unsuccessfully proposed marriage, Salomé and Rée departed for Berlin.",
+      "record": null,
+      "check": "quoted"
+     }
+    ]
+   }
+  },
+  {
+   "from": "author",
+   "to": "ree",
+   "relation": "befriended",
+   "claim": {
+    "text": "His friendship with Paul Rée encouraged his naturalistic critique of morality, and later became an intense but painful one.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://plato.stanford.edu/entries/nietzsche/",
+      "title": "Friedrich Nietzsche (Stanford Encyclopedia of Philosophy)",
+      "author": null,
+      "year": null,
+      "quote": "an interest encouraged by his friendship with Paul Rée",
+      "record": null,
+      "check": "quoted"
+     },
+     {
+      "kind": "page",
+      "url": "https://plato.stanford.edu/entries/nietzsche/",
+      "title": "Friedrich Nietzsche (Stanford Encyclopedia of Philosophy)",
+      "author": null,
+      "year": null,
+      "quote": "At the beginning of this period, Nietzsche enjoyed an intense but ultimately painful friendship with Rée and Lou Salomé",
+      "record": null,
+      "check": "quoted"
+     }
+    ]
+   }
+  },
+  {
+   "from": "author",
+   "to": "schopenhauer",
+   "relation": "read",
+   "claim": {
+    "text": "Nietzsche was interested in Schopenhauer's work before taking up his Basel chair.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://plato.stanford.edu/entries/nietzsche/",
+      "title": "Friedrich Nietzsche (Stanford Encyclopedia of Philosophy)",
+      "author": null,
+      "year": null,
+      "quote": "he was already interested in philosophy, particularly the work of Arthur Schopenhauer and Friedrich Albert Lange.",
+      "record": null,
+      "check": "quoted"
+     }
+    ]
+   }
+  },
+  {
+   "from": "book",
+   "to": "sils",
+   "relation": "was partly written in",
+   "claim": {
+    "text": "Part II and a draft of Part III were created at Sils Maria in summer 1883.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://nietzschehaus.ch/friedrich-nietzsche-in-sils-maria-en/the-following-summers-1884-1888/",
+      "title": "The following summers: 1884-1888",
+      "author": null,
+      "year": null,
+      "quote": "the 2nd and the draft for the 3rd book of “Thus spoke Zarathustra” in the summer of 1883",
+      "record": null,
+      "check": "quoted"
+     }
+    ]
+   }
+  },
+  {
+   "from": "book",
+   "to": "rapallo",
+   "relation": "was partly written in",
+   "claim": {
+    "text": "Nietzsche says the first Zarathustra came into existence in the winter at Rapallo.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://vishvasa.github.io/english/prose/nietzsche/ecce_homo/10_THUS_SPOKE_ZARATHUSTRA/",
+      "title": "Ecce Homo: Thus Spoke Zarathustra",
+      "author": "Friedrich Nietzsche",
+      "year": "1888",
+      "quote": "it was during this winter and under these unfavourable conditions that my Zarathustra came into existence.",
+      "record": null,
+      "check": "quoted"
+     }
+    ]
+   }
+  },
+  {
+   "from": "book",
+   "to": "recurrence",
+   "relation": "is built on",
+   "claim": {
+    "text": "Eternal recurrence is the basic conception of the work.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://vishvasa.github.io/english/prose/nietzsche/ecce_homo/10_THUS_SPOKE_ZARATHUSTRA/",
+      "title": "Ecce Homo: Thus Spoke Zarathustra",
+      "author": "Friedrich Nietzsche",
+      "year": "1888",
+      "quote": "The basic conception of the work, the idea of eternal recurrence, the highest formula of affirmation that can possibly be attained − belongs to the August of the year 1881",
+      "record": null,
+      "check": "quoted"
+     }
+    ]
+   }
+  },
+  {
+   "from": "book",
+   "to": "overman",
+   "relation": "teaches",
+   "claim": {
+    "text": "The doctrine of the Superman runs through the book, and is read with the Will to Power and related ideas.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "book",
+      "url": null,
+      "title": "Introduction by Mrs Forster-Nietzsche",
+      "author": null,
+      "year": null,
+      "quote": "In general the doctrine of the Superman can only be understood correctly in conjunction with other ideas of the author’s, such as:—the Order of Rank, the Will to Power, and the Transvaluation of all Values.",
+      "record": null,
+      "check": "quoted"
+     }
+    ]
+   }
+  },
+  {
+   "from": "book",
+   "to": "gayscience",
+   "relation": "follows",
+   "claim": {
+    "text": "The Gay Science gives the opening and the fundamental idea of Zarathustra.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://vishvasa.github.io/english/prose/nietzsche/ecce_homo/10_THUS_SPOKE_ZARATHUSTRA/",
+      "title": "Ecce Homo: Thus Spoke Zarathustra",
+      "author": "Friedrich Nietzsche",
+      "year": "1888",
+      "quote": "finally it gives the opening of Zarathustra itself, it gives in the penultimate piece of the fourth book the fundamental idea of Zarathustra.",
+      "record": null,
+      "check": "quoted"
+     }
+    ]
+   }
+  },
+  {
+   "from": "author",
+   "to": "god",
+   "relation": "proclaimed",
+   "claim": {
+    "text": "Nietzsche made the pronouncement that God is dead, arguing Christianity no longer anchors European morality.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "page",
+      "url": "https://plato.stanford.edu/entries/nietzsche/",
+      "title": "Friedrich Nietzsche (Stanford Encyclopedia of Philosophy)",
+      "author": null,
+      "year": null,
+      "quote": "Christianity no longer commands society-wide cultural allegiance as a framework grounding ethical commitments",
+      "record": null,
+      "check": "quoted"
+     }
+    ]
+   }
+  },
+  {
+   "from": "book",
+   "to": "zoroaster",
+   "relation": "names its hero after",
+   "claim": {
+    "text": "Nietzsche identified his dream figure with a Persian.",
+    "inferred": false,
+    "spoiler": false,
+    "citations": [
+     {
+      "kind": "book",
+      "url": null,
+      "title": "Introduction by Mrs Forster-Nietzsche",
+      "author": null,
+      "year": null,
+      "quote": "“but in the end,” he declares in a note on the subject, “I had to do a PERSIAN the honour of identifying him with this creature of my fancy.",
+      "record": null,
+      "check": "quoted"
+     }
+    ]
+   }
+  }
+ ],
+ "stats": {
+  "claimsKept": 33,
+  "claimsDropped": 0,
+  "worksKept": 0,
+  "worksDropped": 0,
+  "linksKept": 12,
+  "linksDropped": 0,
+  "apiCalls": 0,
+  "searches": 0,
+  "fetches": 0,
+  "lookups": 8,
+  "inputTokens": 0,
+  "cacheReadTokens": 0,
+  "cacheWriteTokens": 0,
+  "outputTokens": 0,
+  "costUsd": 0.0,
+  "durationMs": 3151
+ }
+}
