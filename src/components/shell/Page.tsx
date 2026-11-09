@@ -29,7 +29,8 @@ export function FullColumn({ children, className }: { children: ReactNode; class
 }
 
 /**
- * Page title row. On phones it is a sticky 56px top bar; on larger screens it is a
+ * Page title row. On phones it is a sticky 56px top bar under the status bar (the app draws to the
+ * screen's top edge, so it pads by the safe area); on larger screens it is a
  * plain heading at the top of the column (or hidden, for pages that open straight into content).
  */
 export function PageHeader({
@@ -43,7 +44,7 @@ export function PageHeader({
 }) {
   return (
     <>
-      <header className="sticky top-0 z-10 flex h-14 items-center gap-2 border-b border-detail bg-surface px-4 md:hidden">
+      <header className="sticky top-0 z-10 flex h-[var(--size-phone-header)] items-center gap-2 border-b border-detail bg-surface px-4 pt-[env(safe-area-inset-top)] md:hidden">
         <h1 className="flex-1 truncate font-display text-[19px] leading-6 font-semibold">{title}</h1>
         {actions}
       </header>

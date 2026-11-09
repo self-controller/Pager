@@ -134,6 +134,7 @@
   --size-top-bar: 72px;
   --size-page-footer: 44px;
   --size-bottom-nav: 56px;
+  --size-phone-header: calc(56px + env(safe-area-inset-top)); /* the phone page header, below the status bar */
   --size-bottom-nav-effective: 0px;
   --size-tool-panel: 360px;
 }
