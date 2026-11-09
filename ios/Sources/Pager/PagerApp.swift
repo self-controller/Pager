@@ -32,6 +32,8 @@ final class AppModel: ObservableObject {
 
     let client = IrohClient()
     private(set) lazy var handler = PagerSchemeHandler(client: client)
+    /// The tab bar around the web view, once made (Diagnostics reads its layout).
+    weak var tabs: TabsController?
 
     /// A `pager://pair` link, from the Camera or pasted: keep where the computer is, dial it afresh,
     /// and open the pairing page with the code filled in. The computer then asks "Allow?".
@@ -66,16 +68,20 @@ struct RootView: View {
     var body: some View {
         Group {
             if model.hasComputer {
-                WebView(start: model.start, reload: model.reload, handler: model.handler) {
-                    model.showDiagnostics = true
-                }
+                PagerTabs(
+                    start: model.start,
+                    reload: model.reload,
+                    handler: model.handler,
+                    onDiagnostics: { model.showDiagnostics = true },
+                    onMake: { model.tabs = $0 }
+                )
                 .ignoresSafeArea()
             } else {
                 FirstRunView()
             }
         }
         .sheet(isPresented: $model.showDiagnostics) {
-            DiagnosticsView(client: model.client)
+            DiagnosticsView(client: model.client, tabs: model.tabs)
         }
     }
 }

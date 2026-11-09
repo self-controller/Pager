@@ -1,56 +1,37 @@
 import SwiftUI
 import WebKit
 
-/// The Pager UI in a web view (PagerWebView) on the app's own scheme. It loads nothing else: a link
-/// elsewhere opens in Safari, so no outside page can ever send requests through the scheme handler.
-struct WebView: UIViewRepresentable {
+/// The Pager UI in one web view (PagerWebView) on the app's own scheme, inside the system tab bar
+/// (TabsController). It loads nothing else: a link elsewhere opens in Safari, so no outside page can
+/// ever send requests through the scheme handler. The tab bar controller is made once: making it
+/// again while a full-screen modal covers it breaks the glass (Apple forums 824566).
+struct PagerTabs: UIViewControllerRepresentable {
     let start: URL
     /// A new value loads `start` again (a pairing link was opened).
     let reload: UUID
     let handler: PagerSchemeHandler
     let onDiagnostics: () -> Void
+    /// The controller, once made (Diagnostics reads its layout).
+    let onMake: (TabsController) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onDiagnostics: onDiagnostics)
     }
 
-    func makeUIView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        config.setURLSchemeHandler(handler, forURLScheme: PagerSchemeHandler.scheme)
-        config.websiteDataStore = .default()
-        let view = PagerWebView(configuration: config)
-        view.navigationDelegate = context.coordinator
-        view.uiDelegate = context.coordinator
-        // A swipe in from the edge goes back, except while the reader is open (PagerWebView).
-        view.allowsBackForwardNavigationGestures = true
-        // A long press on a link doesn't preview the page it leads to.
-        view.allowsLinkPreview = false
-        // The library and settings scroll the whole page and bounce as usual; the reader, a fixed page
-        // that turns sideways, doesn't (PagerWebView, while the reader is open).
-        view.scrollView.alwaysBounceHorizontal = false
-        // The page lays itself out around the notch and home indicator (viewport-fit=cover).
-        view.scrollView.contentInsetAdjustmentBehavior = .never
-        // Clear until the page paints, over the page colour PagerWebView set.
-        view.isOpaque = false
-        #if DEBUG
-        // Safari's Web Inspector on a Mac, or ios-webkit-debug-proxy, can attach to debug builds.
-        view.isInspectable = true
-        #endif
-        // Two fingers, three taps: this app's diagnostics.
-        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.showDiagnostics))
-        tap.numberOfTouchesRequired = 2
-        tap.numberOfTapsRequired = 3
-        view.addGestureRecognizer(tap)
+    func makeUIViewController(context: Context) -> TabsController {
+        let view = PagerWebView.make(handler: handler, coordinator: context.coordinator)
+        let tabs = TabsController(webView: view, start: start)
         context.coordinator.loaded = reload
         view.load(URLRequest(url: start))
-        return view
+        onMake(tabs)
+        return tabs
     }
 
-    func updateUIView(_ view: WKWebView, context: Context) {
+    func updateUIViewController(_ tabs: TabsController, context: Context) {
         context.coordinator.onDiagnostics = onDiagnostics
         if context.coordinator.loaded != reload {
             context.coordinator.loaded = reload
-            view.load(URLRequest(url: start))
+            tabs.webView.load(URLRequest(url: start))
         }
     }
 
@@ -95,5 +76,39 @@ struct WebView: UIViewRepresentable {
             guard let scheme = url.scheme?.lowercased(), ["http", "https", "mailto"].contains(scheme) else { return }
             UIApplication.shared.open(url)
         }
+    }
+}
+
+extension PagerWebView {
+    /// The app's web view, set up once: the scheme handler, the coordinator's navigation policy, no
+    /// link previews, the edge swipe back, and the two-finger triple tap for Diagnostics.
+    static func make(handler: PagerSchemeHandler, coordinator: PagerTabs.Coordinator) -> PagerWebView {
+        let config = WKWebViewConfiguration()
+        config.setURLSchemeHandler(handler, forURLScheme: PagerSchemeHandler.scheme)
+        config.websiteDataStore = .default()
+        let view = PagerWebView(configuration: config)
+        view.navigationDelegate = coordinator
+        view.uiDelegate = coordinator
+        // A swipe in from the edge goes back, except while the reader is open (PagerWebView).
+        view.allowsBackForwardNavigationGestures = true
+        // A long press on a link doesn't preview the page it leads to.
+        view.allowsLinkPreview = false
+        // The library and settings scroll the whole page and bounce as usual; the reader, a fixed page
+        // that turns sideways, doesn't (PagerWebView, while the reader is open).
+        view.scrollView.alwaysBounceHorizontal = false
+        // The page lays itself out around the notch and home indicator (viewport-fit=cover).
+        view.scrollView.contentInsetAdjustmentBehavior = .never
+        // Clear until the page paints, over the page colour PagerWebView set.
+        view.isOpaque = false
+        #if DEBUG
+        // Safari's Web Inspector on a Mac, or ios-webkit-debug-proxy, can attach to debug builds.
+        view.isInspectable = true
+        #endif
+        // Two fingers, three taps: this app's diagnostics.
+        let tap = UITapGestureRecognizer(target: coordinator, action: #selector(PagerTabs.Coordinator.showDiagnostics))
+        tap.numberOfTouchesRequired = 2
+        tap.numberOfTapsRequired = 3
+        view.addGestureRecognizer(tap)
+        return view
     }
 }

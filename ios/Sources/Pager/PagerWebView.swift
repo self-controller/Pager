@@ -2,9 +2,10 @@ import UIKit
 import WebKit
 
 /// The WKWebView the UI runs in, and its bridge to the page. The page posts small messages on
-/// `window.webkit.messageHandlers.pager` (src/lib/native.ts): haptics, its page colour, whether the
-/// reader is open, and which of Pager's items the text menu gets for the current selection. Those
-/// items are added here, not in a view controller: since iOS 18.2 the menu is built by the web view.
+/// `window.webkit.messageHandlers.pager` (src/lib/native.ts): haptics, its page colour and scheme,
+/// whether the reader is open, which of Pager's items the text menu gets for the current selection,
+/// and its tab (TabsController). The menu items are added here, not in a view controller: since
+/// iOS 18.2 the menu is built by the web view.
 @MainActor
 final class PagerWebView: WKWebView {
     /// Pager's items in the text menu. Their names are the page's (`NativeMenuItem` in native.ts).
@@ -34,6 +35,13 @@ final class PagerWebView: WKWebView {
     /// Pager's items for the current selection: none unless it's in the reader's text.
     private var menuItems: [MenuItem] = []
 
+    /// The page's `tabs` message: its tab (nil keeps the bar's selection) and whether the bar hides.
+    var onTabs: ((PagerTab?, Bool) -> Void)?
+    /// The page's colour and, once the page has said, its scheme.
+    var onTheme: ((UIColor, UIUserInterfaceStyle?) -> Void)?
+    /// A new page load, at this URL.
+    var onPageLoaded: ((URL?) -> Void)?
+
     init(configuration: WKWebViewConfiguration) {
         // Registered before the view takes the configuration. The controller keeps its handlers
         // strongly and the view keeps the controller, so the handler holds the view weakly.
@@ -54,6 +62,22 @@ final class PagerWebView: WKWebView {
         allowsBackForwardNavigationGestures = true
         scrollView.bounces = true
         menuItems = []
+        onPageLoaded?(url)
+    }
+
+    // MARK: The safe area
+
+    /// The page's safe area is the screen's. Inside the tab bar controller UIKit grows this view's
+    /// bottom inset by the bar and shrinks it when the bar hides; WebKit would pass that on to
+    /// `env(safe-area-inset-bottom)`, and every time the reader's chrome hid or showed, the page box
+    /// would change and the book repaginate. The page keeps the bar's space itself (`--native-tab-bar`).
+    override var safeAreaInsets: UIEdgeInsets {
+        window?.safeAreaInsets ?? super.safeAreaInsets
+    }
+
+    /// UIKit's own safe area for this view, the bar included (Diagnostics).
+    var systemSafeAreaInsets: UIEdgeInsets {
+        super.safeAreaInsets
     }
 
     // MARK: Messages from the page
@@ -77,6 +101,12 @@ final class PagerWebView: WKWebView {
                 Store.pageColor = hex
             }
             paint(color)
+            let scheme: UIUserInterfaceStyle? = switch body["scheme"] as? String {
+            case "dark": .dark
+            case "light": .light
+            default: nil
+            }
+            onTheme?(color, scheme)
         case "reader":
             // While a book is open, swipes from the edge belong to the page, and the fixed page doesn't bounce.
             let open = body["open"] as? Bool ?? false
@@ -84,6 +114,10 @@ final class PagerWebView: WKWebView {
             scrollView.bounces = !open
         case "selection":
             menuItems = (body["items"] as? [String] ?? []).compactMap { MenuItem(rawValue: $0) }
+        case "tabs":
+            // `tab` is null off the shell's pages; a name this app doesn't know keeps the selection too.
+            let tab = (body["tab"] as? String).flatMap { PagerTab(rawValue: $0) }
+            onTabs?(tab, body["hidden"] as? Bool ?? false)
         default:
             break
         }
@@ -123,7 +157,7 @@ final class PagerWebView: WKWebView {
     }
 
     /// `#rrggbb`, as the page sends it; nil for anything else.
-    private static func color(_ hex: String) -> UIColor? {
+    static func color(_ hex: String) -> UIColor? {
         let digits = hex.dropFirst()
         guard hex.first == "#", digits.count == 6, digits.allSatisfy(\.isHexDigit), let rgb = UInt32(digits, radix: 16) else {
             return nil

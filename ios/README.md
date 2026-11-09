@@ -15,8 +15,9 @@ It's built on Linux with [xtool](https://github.com/xtool-org/xtool) and
 | `Sources/Pager/IrohClient.swift` | The endpoint (the key from the Keychain), dialling the saved ticket, the relay and token from health |
 | `Sources/Pager/Frame.swift` | `pager/1` framing (mirrors `server/src/remote/protocol.rs`) |
 | `Sources/Pager/Store.swift` | The ticket and the last page colour in UserDefaults; the key, the token and the relay token in the Keychain |
-| `Sources/Pager/WebView.swift` | The web view's setup: it loads only `pager-app:` (other links open in Safari), doesn't rubber-band, and has no link previews |
-| `Sources/Pager/PagerWebView.swift` | The WKWebView subclass: the page's messages, haptics, the page colour, and Highlight and Note in the text menu |
+| `Sources/Pager/WebView.swift` | `PagerTabs`, the tab bar in SwiftUI, made once; the web view's setup: it loads only `pager-app:` (other links open in Safari), doesn't rubber-band, and has no link previews |
+| `Sources/Pager/TabsController.swift` | The system tab bar (Liquid Glass on iOS 26 and later) around the one web view, which moves into the tab about to show; the bar's footprint for the page; the Layout diagnostics |
+| `Sources/Pager/PagerWebView.swift` | The WKWebView subclass: the page's messages, haptics, the page colour, Highlight and Note in the text menu, and the page's safe area pinned to the screen's |
 | `Sources/Pager/FirstRunView.swift`, `DiagnosticsView.swift` | Before pairing; the IDs, the path, and a timed download |
 
 ### The bridge to the page
@@ -28,14 +29,27 @@ from its own page only (the main frame on `pager-app:`) and ignores anything els
 |---|---|
 | `{t: "haptic.prepare", kind}` | Readies the generator for `kind`: `selection`, `light`, `soft`, `success` or `error` |
 | `{t: "haptic.fire", kind}` | Plays it. The page spaces haptics 75 ms apart and skips them when Settings → Haptics is off |
-| `{t: "theme", background: "#rrggbb"}` | Paints the web view and its edges that colour, and keeps it for the next cold start |
+| `{t: "theme", background: "#rrggbb", scheme}` | Paints the web view and its edges that colour, and keeps it for the next cold start. `scheme` (`light` or `dark`, the page's theme) sets the tab bar's style, so the bar matches the page even against the phone's setting |
 | `{t: "reader", open}` | While the reader is open: the edge swipe back is off, so the page gets edge swipes, and the app does not bounce |
 | `{t: "selection", items}` | Which of `highlight`, `note` and `reattach` the text menu adds; `[]` outside the reader's text |
+| `{t: "tabs", tab, hidden}` | Selects `tab` (`library`, `highlights`, `assistant` or `settings`; `null` keeps the selection), then shows or hides the bar, animated. The page sends it when either changes; `hidden` follows the reader's chrome, and the pairing page sends `{tab: null, hidden: true}` |
 
 The text menu keeps the system's Copy, Look Up, Translate and Share, with Pager's items first. Choosing
 one calls `window.__pager.menu("highlight")` (or `"note"`, `"reattach"`), which the reader handles
 (`src/components/reader/useNativeMenu.ts`). In the app the reader doesn't show its own floating
 selection bar. A new page load turns the swipe back on and clears the items.
+
+The app calls the page on `window.__pager`, with names from its own code only:
+
+| Call | When | What the page does |
+|---|---|---|
+| `__pager.menu("highlight")` | One of Pager's items in the text menu was chosen | Runs it on the selection |
+| `__pager.tab("highlights")` | A tab was tapped, the selected one included | Tab memory (`src/components/shell/tabMemory.ts`): another tab opens at its last page and scroll; the current tab goes to its top page, then scrolls to the top |
+| `__pager.tabBar(83)` | After the page's first `tabs` message of a page load, and whenever the bar's footprint changes (a rotation) | Keeps the bar's space: `--native-tab-bar` is the footprint less `env(safe-area-inset-bottom)` |
+
+The footprint is the distance in points from the top of the bar to the bottom of the screen. The page
+keeps it while the bar hides, so the reader never reflows. In the app the page draws no tab bar or
+side nav of its own (`data-native-tabs` on `<html>`).
 
 ## 1. Tools, once
 
@@ -126,6 +140,25 @@ Try each of these, and note what Diagnostics says:
   uses your last colour, with a soft tap;
 - in a book, a swipe in from the left edge doesn't go back; in the library it does;
 - after switching to the dark theme and reopening the app, its first frame is already dark.
+
+**The tab bar**, on iOS 26 or later, in light and in dark. Take screenshots of **Diagnostics → Layout**
+and of anything that looks wrong:
+- Library: the glass capsule floats over the list, the list shows through blurred as it scrolls,
+  and the last item can be scrolled clear of the bar;
+- labels under the icons; the current tab is black (light) or white (dark);
+- set the page theme to dark while the phone is in light mode: the bar is dark too;
+- Highlights → scroll down → Library → Highlights: the same place;
+- open a book from Highlights: Highlights stays selected. Library, then Highlights: the book
+  reopens with its bar showing;
+- tap the current tab: its top page. Tap again: it scrolls to the top;
+- in a book, Pages: a centre tap hides and shows the bar, and the page and its text don't move or
+  repaginate. Scroll: the bar follows the scroll, with the footer riding down with it;
+- Diagnostics → Layout: `env(bottom)` is the same (34 on Face ID iPhones) with the bar shown and
+  hidden (show and hide it in a book, then open Diagnostics);
+- a toast sits above the bar; the pairing page has no bar;
+- landscape: no web side nav, the bar at the bottom, nothing important under it;
+- VoiceOver reads four tabs and which one is selected; Reduce Transparency makes the bar frosted;
+- the edge swipe back still works in the library and is still off in a book.
 
 ## When it doesn't work
 
