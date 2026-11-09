@@ -32,7 +32,7 @@ from its own page only (the main frame on `pager-app:`) and ignores anything els
 | `{t: "theme", background: "#rrggbb", scheme}` | Paints the web view and its edges that colour, and keeps it for the next cold start. `scheme` (`light` or `dark`, the page's theme) sets the tab bar's style, so the bar matches the page even against the phone's setting |
 | `{t: "reader", open}` | While the reader is open: the edge swipe back is off, so the page gets edge swipes, and the app does not bounce |
 | `{t: "selection", items}` | Which of `highlight`, `note` and `reattach` the text menu adds; `[]` outside the reader's text |
-| `{t: "tabs", tab, hidden}` | Selects `tab` (`library`, `highlights`, `assistant` or `settings`; `null` keeps the selection), then shows or hides the bar, animated. The page sends it when either changes; `hidden` follows the reader's chrome, and the pairing page sends `{tab: null, hidden: true}` |
+| `{t: "tabs", tab, hidden}` | Selects `tab` (`library`, `book`, `highlights`, `assistant` or `settings`; `null` keeps the selection), then shows or hides the bar, animated. The page sends it when either changes; any open book is `book`; `hidden` follows the reader's chrome, and the pairing page sends `{tab: null, hidden: true}` |
 
 The text menu keeps the system's Copy, Look Up, Translate and Share, with Pager's items first. Choosing
 one calls `window.__pager.menu("highlight")` (or `"note"`, `"reattach"`), which the reader handles
@@ -44,7 +44,7 @@ The app calls the page on `window.__pager`, with names from its own code only:
 | Call | When | What the page does |
 |---|---|---|
 | `__pager.menu("highlight")` | One of Pager's items in the text menu was chosen | Runs it on the selection |
-| `__pager.tab("highlights")` | A tab was tapped, the selected one included | Tab memory (`src/components/shell/tabMemory.ts`): another tab opens at its last page and scroll; the current tab goes to its top page, then scrolls to the top |
+| `__pager.tab("highlights")` | A tab was tapped, the selected one included | Tab memory (`src/components/shell/tabMemory.ts`): another tab opens at its last page and scroll; the current tab goes to its top page, then scrolls to the top. Book opens the book read last at its saved place (the library before any book), and does nothing when tapped in the book |
 | `__pager.tabBar(83)` | After the page's first `tabs` message of a page load, and whenever the bar's footprint changes (a rotation) | Keeps the bar's space: `--native-tab-bar` is the footprint less `env(safe-area-inset-bottom)` |
 
 The footprint is the distance in points from the top of the bar to the bottom of the screen. The page
@@ -148,8 +148,10 @@ and of anything that looks wrong:
 - labels under the icons; the current tab is black (light) or white (dark);
 - set the page theme to dark while the phone is in light mode: the bar is dark too;
 - Highlights → scroll down → Library → Highlights: the same place;
-- open a book from Highlights: Highlights stays selected. Library, then Highlights: the book
-  reopens with its bar showing;
+- open a book from Highlights: Book is selected. Highlights: its list, where you left it. Book: the
+  book reopens at your place, with its bar showing. Tapping Book in the book does nothing;
+- five tabs fit, with labels: Library, Book, Highlights, Assistant, Settings; no "More";
+- switching tabs is instant (no crossfade in the app);
 - tap the current tab: its top page. Tap again: it scrolls to the top;
 - in a book, Pages: a centre tap hides and shows the bar, and the page and its text don't move or
   repaginate. Scroll: the bar follows the scroll, with the footer riding down with it;

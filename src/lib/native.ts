@@ -18,7 +18,7 @@ export type NativeMenuItem = "highlight" | "note" | "reattach";
  * The tabs of the app's tab bar (`PagerTab` in ios/Sources/Pager/TabsController.swift names the same
  * ones). Their order is NAV's (src/components/shell/nav.ts).
  */
-export type NativeTab = "library" | "highlights" | "assistant" | "settings";
+export type NativeTab = "library" | "book" | "highlights" | "assistant" | "settings";
 
 /**
  * What the page tells the app, on `window.webkit.messageHandlers.pager`. PagerWebView.swift reads the

@@ -1,8 +1,9 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { isNativeApp, onNativeTab, onNativeTabBar, setNativeTabBar, setNativeTabs } from "@/lib/native";
-import { NATIVE_TABS } from "./nav";
+import { NATIVE_TABS, NAV } from "./nav";
 import { TabMemory } from "./tabMemory";
+import { useNavTargets } from "./useBookTab";
 
 function chromeHidden(): boolean {
   return document.documentElement.dataset.readerChrome === "hidden";
@@ -13,16 +14,26 @@ function chromeHidden(): boolean {
  * tells the app which tab the page is in and whether the bar hides (with the reader's chrome), answers
  * its taps with tab memory (tabMemory.ts), and keeps the bar's space. Leaving the shell (the pairing
  * page) hides the bar. Does nothing in a browser.
+ *
+ * Tab switches in the app don't crossfade (no `viewTransition`), as the system's tabs don't.
  */
 export function useNativeTabs(): void {
   const location = useLocation();
   const navigate = useNavigate();
   const navigateRef = useRef(navigate);
   navigateRef.current = navigate;
+  // The Book tab's link: the book read last.
+  const target = useNavTargets();
+  const targetRef = useRef(target);
+  targetRef.current = target;
   const [memory] = useState(() =>
     isNativeApp()
       ? new TabMemory({
           tabs: NATIVE_TABS,
+          link: (tab) => {
+            const item = NAV.find((n) => n.tab === tab);
+            return item ? targetRef.current(item) : "/";
+          },
           navigate: (to, options) => void navigateRef.current(to, options),
           scrollY: () => window.scrollY,
           scrollTo: (top, smooth) => window.scrollTo({ top, behavior: smooth ? "smooth" : "instant" }),

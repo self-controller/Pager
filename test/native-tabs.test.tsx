@@ -5,6 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // The hook's wiring, in a router, as the iPhone app runs it: messages out, the app's calls in.
 
+// The Book tab's link without the documents query: the book read last is "doc".
+vi.mock("@/components/shell/useBookTab", () => ({
+  useNavTargets: () => (item: { to: string }) => (item.to === "/read" ? "/read/doc" : item.to),
+}));
+
 const happyDOM = (window as unknown as { happyDOM: { setURL(url: string): void } }).happyDOM;
 const browserUrl = window.location.href;
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -74,13 +79,15 @@ describe("useNativeTabs", () => {
     expect(seen.at(-1)?.state).toEqual({ tabSwitch: true });
     expect(tabs().at(-1)).toEqual({ t: "tabs", tab: "highlights", hidden: false });
 
-    // A book from Highlights stays in Highlights; back in Library, then Highlights: the book.
+    // A book from Highlights selects Book; Highlights opens its list again.
     await act(async () => router.navigate("/read/doc/s1"));
-    expect(tabs()).toHaveLength(2);
-    await act(async () => pager().tab("library"));
-    expect(router.state.location.pathname).toBe("/");
+    expect(tabs().at(-1)).toEqual({ t: "tabs", tab: "book", hidden: false });
     await act(async () => pager().tab("highlights"));
-    expect(router.state.location.pathname).toBe("/read/doc/s1");
+    expect(router.state.location.pathname).toBe("/highlights");
+    // Book: the book read last, by its link.
+    await act(async () => pager().tab("book"));
+    expect(router.state.location.pathname).toBe("/read/doc");
+    expect(tabs().at(-1)).toEqual({ t: "tabs", tab: "book", hidden: false });
   });
 
   it("hides the bar with the reader's chrome", async () => {
@@ -88,10 +95,10 @@ describe("useNativeTabs", () => {
     const html = document.documentElement;
     html.dataset.readerChrome = "hidden";
     await act(async () => {});
-    expect(tabs().at(-1)).toEqual({ t: "tabs", tab: "library", hidden: true });
+    expect(tabs().at(-1)).toEqual({ t: "tabs", tab: "book", hidden: true });
     delete html.dataset.readerChrome;
     await act(async () => {});
-    expect(tabs().at(-1)).toEqual({ t: "tabs", tab: "library", hidden: false });
+    expect(tabs().at(-1)).toEqual({ t: "tabs", tab: "book", hidden: false });
   });
 
   it("keeps the bar's footprint the app sends", async () => {

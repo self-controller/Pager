@@ -6,10 +6,19 @@ export interface TabPlace {
   scrollY: number;
 }
 
+/** A tab in the bar: its top page, and for the Book tab (`match`) every page under that prefix. */
+export interface TabEntry {
+  tab: NativeTab;
+  root: string;
+  match?: string;
+}
+
 /** What tab memory needs from the page: the router, the window's scroll, and the clock of frames. */
 export interface TabMemoryDeps {
-  /** Each tab with its top page, in the bar's order. */
-  tabs: readonly { tab: NativeTab; root: string }[];
+  /** Each tab, in the bar's order. */
+  tabs: readonly TabEntry[];
+  /** Where a tap on the Book tab goes: the book read last, or the library before any (useBookTab). */
+  link(tab: NativeTab): string;
   navigate(to: string, options?: { state?: unknown }): void;
   scrollY(): number;
   scrollTo(top: number, smooth: boolean): void;
@@ -28,14 +37,20 @@ export function isTabSwitch(state: unknown): boolean {
   return typeof state === "object" && state !== null && (state as Partial<TabSwitchState>).tabSwitch === true;
 }
 
+function owns(entry: TabEntry, pathname: string): boolean {
+  return entry.match ? pathname === entry.match || pathname.startsWith(`${entry.match}/`) : pathname === entry.root;
+}
+
 /**
  * The iPhone app's tabs remember where they were left, as iOS tabs do:
- *  - a tab's top page (`/`, `/highlights`, …) makes that tab current; any other page (a book, a 404)
- *    belongs to the tab that is current, so a book opened from Highlights stays in Highlights;
+ *  - a tab's top page (`/`, `/highlights`, …) makes that tab current, and any open book makes the
+ *    Book tab current; any other page (a 404) belongs to the tab that is current. So a book opened
+ *    from Highlights selects Book, and Highlights keeps its list and its scroll;
  *  - tapping another tab saves this tab's scroll, opens that tab's last page (or its top page) and
- *    scrolls it back to where it was;
- *  - tapping the current tab opens its top page, at the top; tapping it again there scrolls to the top.
- * A book's place is the reader's own (its saved progress), so a book is remembered without its `#target`.
+ *    scrolls it back to where it was. The Book tab always opens the book read last, with no section,
+ *    so the reader resumes at its saved place, which may have moved on another device;
+ *  - tapping the current tab opens its top page, at the top; tapping it again there scrolls to the
+ *    top. On the Book tab it does nothing: the book is already open.
  * The memory lasts as long as the page: a cold start opens the library.
  */
 export class TabMemory {
@@ -60,10 +75,9 @@ export class TabMemory {
 
   /** The location changed (a tap, a link, the back swipe): find its tab and record it as that tab's last. */
   locate({ pathname, search, hash }: { pathname: string; search: string; hash: string }): NativeTab {
-    const root = this.deps.tabs.find((t) => t.root === pathname);
-    if (root) this.tab = root.tab;
-    const book = pathname.startsWith("/read/");
-    this.places.set(this.tab, { location: pathname + search + (book ? "" : hash), scrollY: 0 });
+    const owner = this.deps.tabs.find((t) => owns(t, pathname));
+    if (owner) this.tab = owner.tab;
+    this.places.set(this.tab, { location: pathname + search + hash, scrollY: 0 });
     return this.tab;
   }
 
@@ -76,11 +90,17 @@ export class TabMemory {
       if (leaving) leaving.scrollY = this.deps.scrollY();
       const place = this.places.get(tab);
       this.tab = tab;
-      this.pending = place?.scrollY ?? 0;
       const state: TabSwitchState = { tabSwitch: true };
+      if (entry.match) {
+        this.pending = 0;
+        this.deps.navigate(this.deps.link(tab), { state });
+        return;
+      }
+      this.pending = place?.scrollY ?? 0;
       this.deps.navigate(place?.location ?? entry.root, { state });
       return;
     }
+    if (entry.match) return;
     const here = this.places.get(tab)?.location ?? entry.root;
     if (here !== entry.root) {
       this.pending = 0;

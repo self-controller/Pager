@@ -4,11 +4,12 @@ import WebKit
 /// The app's tabs, in the bar's order. Their names are the page's (`NativeTab` in src/lib/native.ts)
 /// and their order is NAV's (src/components/shell/nav.ts): keep the three in step.
 enum PagerTab: String, CaseIterable {
-    case library, highlights, assistant, settings
+    case library, book, highlights, assistant, settings
 
     var title: String {
         switch self {
         case .library: return "Library"
+        case .book: return "Book"
         case .highlights: return "Highlights"
         case .assistant: return "Assistant"
         case .settings: return "Settings"
@@ -19,6 +20,7 @@ enum PagerTab: String, CaseIterable {
     var symbols: (normal: String, selected: String) {
         switch self {
         case .library: return ("books.vertical", "books.vertical.fill")
+        case .book: return ("book", "book.fill")
         case .highlights: return ("highlighter", "highlighter")
         case .assistant: return ("sparkles", "sparkles")
         case .settings: return ("gearshape", "gearshape.fill")
@@ -171,7 +173,8 @@ final class TabsController: UITabBarController, UITabBarControllerDelegate {
 
     // MARK: Taps
 
-    /// A tap on a tab, the selected one included: the page decides what it opens (tab memory).
+    /// A tap on a tab, the selected one included: the page decides what it opens (tab memory). Book
+    /// opens the book read last; before any, the library, and the page then selects Library.
     func tabBarController(_ tabBarController: UITabBarController, didSelect viewController: UIViewController) {
         guard let page = viewController as? TabPage else { return }
         webView.evaluateJavaScript("window.__pager?.tab?.(\"\(page.pagerTab.rawValue)\")", completionHandler: nil)

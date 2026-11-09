@@ -13,6 +13,8 @@ function page() {
       scroll = Math.min(top, p.max);
     }),
     reduced: false,
+    /** The Book tab's link: the book read last, or the library before any. */
+    book: "/read/doc",
     get scroll() {
       return scroll;
     },
@@ -28,6 +30,7 @@ function page() {
   };
   p.memory = new TabMemory({
     tabs: NATIVE_TABS,
+    link: () => p.book,
     navigate: p.navigate,
     scrollY: () => scroll,
     scrollTo: p.scrollTo,
@@ -59,11 +62,13 @@ function follow() {
 
 describe("the tabs", () => {
   it("are NAV's mobile entries with a tab, in the bar's order (PagerTab in TabsController.swift)", () => {
-    expect(NATIVE_TABS.map((t) => t.tab)).toEqual(["library", "highlights", "assistant", "settings"]);
-    expect(NATIVE_TABS.map((t) => t.root)).toEqual(["/", "/highlights", "/assistant", "/settings"]);
+    const order = ["library", "book", "highlights", "assistant", "settings"];
+    expect(NATIVE_TABS.map((t) => t.tab)).toEqual(order);
+    expect(NATIVE_TABS.map((t) => t.root)).toEqual(["/", "/read", "/highlights", "/assistant", "/settings"]);
+    expect(NATIVE_TABS.filter((t) => t.match).map((t) => t.tab)).toEqual(["book"]);
     // Only mobile entries are app tabs; a browser-only entry (no `tab`) isn't one.
     expect(NAV.filter((n) => n.tab && !n.mobile)).toEqual([]);
-    expect(NAV.filter((n) => n.mobile && n.tab).map((n) => n.tab)).toEqual(["library", "highlights", "assistant", "settings"]);
+    expect(NAV.filter((n) => n.mobile && n.tab).map((n) => n.tab)).toEqual(order);
   });
 });
 
@@ -72,21 +77,17 @@ describe("tab memory", () => {
     expect(p.memory.current).toBe("library");
   });
 
-  it("puts a tab's top page in that tab and any other page in the current tab", () => {
+  it("puts a tab's top page in that tab, a book in Book, and any other page in the current tab", () => {
     expect(p.memory.locate(at("/highlights?tag=x"))).toBe("highlights");
-    expect(p.memory.locate(at("/read/doc/s2"))).toBe("highlights");
     expect(p.memory.locate(at("/nowhere"))).toBe("highlights");
-    expect(p.memory.locate(at("/settings"))).toBe("settings");
+    expect(p.memory.locate(at("/read/doc/s2#note-4"))).toBe("book");
+    expect(p.memory.locate(at("/readme"))).toBe("book"); // a 404 in the book's tab, not a book
+    expect(p.memory.locate(at("/settings#phone"))).toBe("settings");
     expect(p.memory.locate(at("/?path=Essays"))).toBe("library");
     expect(p.memory.place("highlights")?.location).toBe("/nowhere");
-    expect(p.memory.place("library")?.location).toBe("/?path=Essays");
-  });
-
-  it("remembers a book without its link target: the reader resumes at its saved place", () => {
-    p.memory.locate(at("/read/doc/s3#note-4"));
-    expect(p.memory.place("library")?.location).toBe("/read/doc/s3");
-    p.memory.locate(at("/settings#phone"));
+    expect(p.memory.place("book")?.location).toBe("/readme");
     expect(p.memory.place("settings")?.location).toBe("/settings#phone");
+    expect(p.memory.place("library")?.location).toBe("/?path=Essays");
   });
 
   it("switches to another tab's last page and scroll, and back", () => {
@@ -121,22 +122,51 @@ describe("tab memory", () => {
     expect(p.scroll).toBe(900);
   });
 
-  it("keeps a book opened from Highlights in Highlights", () => {
+  it("selects Book for a book opened from Highlights, and Highlights keeps its list and scroll", () => {
     p.memory.locate(at("/"));
     p.memory.select("highlights");
     follow();
-    p.memory.locate(at("/read/doc/s1")); // a link on the Highlights page
-    expect(p.memory.current).toBe("highlights");
+    p.scroll = 700;
+    // A link on the Highlights page; the reader is a fixed page.
+    p.memory.locate(at("/read/doc/s1"));
+    expect(p.memory.current).toBe("book");
 
-    p.memory.select("library");
-    follow();
+    p.scroll = 0;
     p.memory.select("highlights");
-    expect(follow()).toEqual({ tab: "highlights", to: "/read/doc/s1", state: { tabSwitch: true } });
+    expect(follow()).toEqual({ tab: "highlights", to: "/highlights", state: { tabSwitch: true } });
+    expect(p.scroll).toBe(0); // the scroll is saved when a tap leaves a tab, not by a link
+  });
+
+  it("opens the book read last on a tap of Book, with no section, at the top", () => {
+    p.memory.locate(at("/"));
+    p.scroll = 300;
+    p.book = "/read/other";
+    p.memory.select("book");
+    expect(follow()).toEqual({ tab: "book", to: "/read/other", state: { tabSwitch: true } });
+    expect(p.scroll).toBe(0);
+    p.memory.select("library");
+    expect(follow().to).toBe("/");
+    expect(p.scroll).toBe(300);
+  });
+
+  it("opens the library on a tap of Book before any book was read", () => {
+    p.memory.locate(at("/settings"));
+    p.book = "/";
+    p.memory.select("book");
+    expect(follow()).toEqual({ tab: "library", to: "/", state: { tabSwitch: true } });
+  });
+
+  it("does nothing on a tap of Book in the book", () => {
+    p.memory.locate(at("/read/doc/s4"));
+    p.memory.select("book");
+    expect(p.navigate).not.toHaveBeenCalled();
+    expect(p.scrollTo).not.toHaveBeenCalled();
   });
 
   it("goes to a tab's top page on a tap of the current tab, then scrolls to the top", () => {
     p.memory.locate(at("/"));
-    p.memory.locate(at("/read/doc/s1"));
+    p.memory.locate(at("/?path=Essays"));
+    p.memory.locate(at("/nowhere"));
     p.scroll = 0;
     p.memory.select("library");
     expect(p.navigate).toHaveBeenLastCalledWith("/");
@@ -166,7 +196,7 @@ describe("tab memory", () => {
   it("restores nothing on a location it didn't ask for", () => {
     p.memory.locate(at("/"));
     p.scroll = 400;
-    p.memory.locate(at("/read/doc/s1"));
+    p.memory.locate(at("/?path=Essays"));
     p.memory.rendered();
     expect(p.scrollTo).not.toHaveBeenCalled();
   });

@@ -22,16 +22,18 @@ export const BOOK_PATH = "/read";
 /**
  * The library is home; the rest are the reader's own rooms. The mobile entries' order is the tab
  * bar's, in the browser and in the iPhone app (`PagerTab` in ios/Sources/Pager/TabsController.swift
- * lists the same tabs in the same order; the Book tab, with no `tab`, is the browser's only for now).
+ * lists the same tabs in the same order).
  */
 export const NAV: NavEntry[] = [
   { to: "/", label: "Library", icon: LibraryBig, fill: false, end: true, mobile: true, tab: "library" },
   // `to` is a stand-in: the shell links to the book read last (useBookTab).
-  { to: BOOK_PATH, match: BOOK_PATH, label: "Book", icon: BookOpen, fill: false, mobile: true },
+  { to: BOOK_PATH, match: BOOK_PATH, label: "Book", icon: BookOpen, fill: false, mobile: true, tab: "book" },
   { to: "/highlights", label: "Highlights", icon: Highlighter, fill: false, mobile: true, tab: "highlights" },
   { to: "/assistant", label: "Assistant", icon: Sparkles, fill: true, mobile: true, tab: "assistant" },
   { to: "/settings", label: "Settings", icon: Settings, fill: false, mobile: true, tab: "settings" },
 ];
 
-/** The app's tabs in the bar's order, each with its top page. */
-export const NATIVE_TABS: { tab: NativeTab; root: string }[] = NAV.flatMap((n) => (n.tab ? [{ tab: n.tab, root: n.to }] : []));
+/** The app's tabs in the bar's order, each with its top page, and the Book tab with the pages it owns. */
+export const NATIVE_TABS: { tab: NativeTab; root: string; match?: string }[] = NAV.flatMap((n) =>
+  n.tab ? [{ tab: n.tab, root: n.to, match: n.match }] : [],
+);
