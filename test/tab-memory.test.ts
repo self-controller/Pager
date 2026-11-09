@@ -58,10 +58,12 @@ function follow() {
 }
 
 describe("the tabs", () => {
-  it("are NAV's mobile entries in the bar's order", () => {
+  it("are NAV's mobile entries with a tab, in the bar's order (PagerTab in TabsController.swift)", () => {
     expect(NATIVE_TABS.map((t) => t.tab)).toEqual(["library", "highlights", "assistant", "settings"]);
     expect(NATIVE_TABS.map((t) => t.root)).toEqual(["/", "/highlights", "/assistant", "/settings"]);
-    expect(NAV.filter((n) => n.mobile).map((n) => n.tab)).toEqual(["library", "highlights", "assistant", "settings"]);
+    // Only mobile entries are app tabs; a browser-only entry (no `tab`) isn't one.
+    expect(NAV.filter((n) => n.tab && !n.mobile)).toEqual([]);
+    expect(NAV.filter((n) => n.mobile && n.tab).map((n) => n.tab)).toEqual(["library", "highlights", "assistant", "settings"]);
   });
 });
 
