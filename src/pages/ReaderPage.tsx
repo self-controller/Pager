@@ -9,7 +9,7 @@ import { AnnotationPopover, FloatingPanel, NoteEditor } from "@/components/reade
 import { BackPill } from "@/components/reader/BackPill";
 import { FootnotePopover, useFootnotes } from "@/components/reader/FootnotePopover";
 import { PagedView } from "@/components/reader/PagedView";
-import { PageFooter } from "@/components/reader/PageFooter";
+import { PageFooter, ProgressLine } from "@/components/reader/PageFooter";
 import { usePageDwell, useSectionWords } from "@/components/reader/readingSpeed";
 import { ReaderBody, ReaderBodySkeleton, type InternalTarget } from "@/components/reader/ReaderBody";
 import { ReaderTopBar } from "@/components/reader/ReaderTopBar";
@@ -374,25 +374,20 @@ export function ReaderPage() {
   );
 
   const pill = jumps.pill && <BackPill pill={jumps.pill} onClick={jumps.go} />;
-  const footer = (
-    <PageFooter
-      chapter={isBook ? section?.title : undefined}
-      page={layout.page}
-      pageCount={layout.pageCount}
-      hasPrev={Boolean(section?.prevId)}
-      hasNext={Boolean(section?.nextId)}
-      atEnd={Boolean(section && !section.nextId)}
-      onTurn={turn}
-      words={sectionWords}
-      percent={percent}
-      isBook={isBook}
-      wordCount={doc?.wordCount}
-      estimatedMinutes={doc?.estimatedMinutes}
-      scroll={scrollMode}
-      chapterIndex={section?.index}
-      chapterCount={doc?.toc.length}
-    />
-  );
+  // What the reader is told about where they are: under the page in Pages, a line at the top in Scroll.
+  const progress = {
+    page: layout.page,
+    pageCount: layout.pageCount,
+    hasNext: Boolean(section?.nextId),
+    atEnd: Boolean(section && !section.nextId),
+    words: sectionWords,
+    percent,
+    isBook,
+    wordCount: doc?.wordCount,
+    estimatedMinutes: doc?.estimatedMinutes,
+    chapterIndex: section?.index,
+    chapterCount: doc?.toc.length,
+  };
   const controlsHidden =
     !chrome || Boolean(selection) || Boolean(notes.popover) || Boolean(notes.draft) || Boolean(footnotes.note);
 
@@ -419,7 +414,7 @@ export function ReaderPage() {
           role="status"
           className={cx(
             "shrink-0 border-b border-detail bg-elevated px-4 py-3",
-            scrollMode && "absolute inset-x-0 top-[var(--size-top-bar)] z-20",
+            scrollMode && "absolute inset-x-0 top-[calc(env(safe-area-inset-top)+var(--size-top-bar))] z-20",
           )}
         >
           <div className="mx-auto flex max-w-[var(--size-reader)] items-start gap-3">
@@ -437,7 +432,7 @@ export function ReaderPage() {
 
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
-          {scrollMode && (notFound || failure) && <div className="h-[var(--size-top-bar)] shrink-0" />}
+          {scrollMode && (notFound || failure) && <div className="h-[calc(env(safe-area-inset-top)+var(--size-top-bar))] shrink-0" />}
           {notFound ? (
             <EmptyState
               icon={FileQuestion}
@@ -472,7 +467,7 @@ export function ReaderPage() {
               onChrome={setChrome}
               controlsHidden={controlsHidden}
               pill={pill}
-              footer={footer}
+              progress={<ProgressLine {...progress} />}
             />
           ) : (
             <>
@@ -502,7 +497,12 @@ export function ReaderPage() {
                   </div>
                 </div>
               )}
-              {footer}
+              <PageFooter
+                {...progress}
+                chapter={isBook ? section?.title : undefined}
+                hasPrev={Boolean(section?.prevId)}
+                onTurn={turn}
+              />
             </>
           )}
         </div>
@@ -512,7 +512,7 @@ export function ReaderPage() {
             aria-label="Tools"
             className={cx(
               "h-full w-[var(--size-tool-panel)] shrink-0 border-l border-detail bg-surface",
-              scrollMode && "pt-[var(--size-top-bar)]",
+              scrollMode && "pt-[calc(env(safe-area-inset-top)+var(--size-top-bar))]",
             )}
           >
             {toolPanel}

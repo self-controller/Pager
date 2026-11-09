@@ -1,7 +1,6 @@
 import { useId } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { IconButton } from "@/components/ui/Button";
-import { cx } from "@/lib/cx";
 import { formatDuration, formatPercent } from "@/lib/format";
 import { haptic, prepareHaptic } from "@/lib/native";
 import { updateSettings, useSettings, type FooterFormat } from "@/state/settings";
@@ -106,121 +105,144 @@ function controlName(format: FooterFormat, isBook: boolean, scroll: boolean): st
   return `${what}. Tap to change`;
 }
 
-interface Props {
-  chapter?: string;
+/** What the progress readout needs to know: shared by the Pages footer and the Scroll line. */
+interface ProgressProps {
   page: number;
   pageCount: number;
-  /** Whether a previous/next chapter exists beyond this section's pages. */
-  hasPrev: boolean;
+  /** Whether a next chapter exists beyond this section's pages. */
   hasNext: boolean;
   atEnd: boolean;
-  onTurn: (direction: 1 | -1) => void;
   /** Words in the open section, for the time estimates. */
   words: number;
   percent: number;
   isBook: boolean;
   wordCount?: number;
   estimatedMinutes?: number;
-  /** In the scroll layout the chapter buttons float over the text, so the footer has none of its own. */
-  scroll?: boolean;
   chapterIndex?: number;
   chapterCount?: number;
 }
 
 /**
- * Page controls under the page, and one wide button between them that cycles what it shows: the
- * page (the chapter, in the scroll layout), time left in the chapter, time left in the book, percent
- * read, or nothing. The choice is a setting; a tap switches at once.
+ * The readout's state: the format shown, its text, its name for a screen reader, and the tap that
+ * moves to the next format (a haptic, then the setting).
  */
-export function PageFooter({
-  chapter,
-  page,
-  pageCount,
-  hasPrev,
-  hasNext,
-  atEnd,
-  onTurn,
-  words,
-  percent,
-  isBook,
-  wordCount,
-  estimatedMinutes,
-  scroll = false,
-  chapterIndex,
-  chapterCount,
-}: Props) {
+function useProgressReadout(p: ProgressProps & { scroll: boolean }) {
   const { footerFormat } = useSettings();
   const wpm = useReadingSpeed();
   const valueId = useId();
-  const first = page === 0 && !hasPrev;
-  const last = page >= pageCount - 1 && !hasNext;
-
+  const last = p.page >= p.pageCount - 1 && !p.hasNext;
   const facts: ProgressFacts = {
-    page,
-    pageCount,
-    theEnd: atEnd && last,
-    words,
-    percent,
-    isBook,
-    wordCount,
-    estimatedMinutes,
+    page: p.page,
+    pageCount: p.pageCount,
+    theEnd: p.atEnd && last,
+    words: p.words,
+    percent: p.percent,
+    isBook: p.isBook,
+    wordCount: p.wordCount,
+    estimatedMinutes: p.estimatedMinutes,
     wpm,
-    scroll,
-    chapterIndex,
-    chapterCount,
+    scroll: p.scroll,
+    chapterIndex: p.chapterIndex,
+    chapterCount: p.chapterCount,
   };
   const available = availableFormats(facts);
   const format = shownFormat(footerFormat, available);
   const { text, spoken } = progressLabel(format, facts);
-
-  const cycle = () => {
-    haptic("selection");
-    updateSettings({ footerFormat: nextFormat(format, available) });
+  return {
+    format,
+    text,
+    spoken,
+    valueId,
+    name: controlName(format, p.isBook, p.scroll),
+    prepare: () => prepareHaptic("selection"),
+    cycle: () => {
+      haptic("selection");
+      updateSettings({ footerFormat: nextFormat(format, available) });
+    },
   };
+}
+
+interface Props extends ProgressProps {
+  chapter?: string;
+  /** Whether a previous chapter exists before this section's pages. */
+  hasPrev: boolean;
+  onTurn: (direction: 1 | -1) => void;
+}
+
+/**
+ * Page controls under the page (the Pages layout), and one wide button between them that cycles what
+ * it shows: the page, time left in the chapter, time left in the book, percent read, or nothing. The
+ * choice is a setting; a tap switches at once.
+ */
+export function PageFooter({ chapter, hasPrev, onTurn, ...progress }: Props) {
+  const r = useProgressReadout({ ...progress, scroll: false });
+  const first = progress.page === 0 && !hasPrev;
+  const last = progress.page >= progress.pageCount - 1 && !progress.hasNext;
 
   return (
     <footer
-      className={cx(
-        "flex h-[var(--size-page-footer)] shrink-0 items-center gap-2 px-2 md:px-4",
-        scroll && "page-footer-scroll relative z-10 box-content bg-surface pb-[env(safe-area-inset-bottom)]",
-      )}
-      aria-label={scroll ? "Reading progress" : "Pages"}
+      className="flex h-[var(--size-page-footer)] shrink-0 items-center gap-2 px-2 md:px-4"
+      aria-label="Pages"
     >
-      {!scroll && (
-        <IconButton
-          icon={ChevronLeft}
-          label="Previous page"
-          size="sm"
-          variant="quaternary"
-          disabled={first}
-          onClick={() => onTurn(-1)}
-        />
-      )}
+      <IconButton
+        icon={ChevronLeft}
+        label="Previous page"
+        size="sm"
+        variant="quaternary"
+        disabled={first}
+        onClick={() => onTurn(-1)}
+      />
       <button
         type="button"
-        aria-label={controlName(format, isBook, scroll)}
-        aria-describedby={valueId}
-        onPointerDown={() => prepareHaptic("selection")}
-        onClick={cycle}
+        aria-label={r.name}
+        aria-describedby={r.valueId}
+        onPointerDown={r.prepare}
+        onClick={r.cycle}
         className="flex h-full min-w-0 flex-1 items-center justify-center gap-3 rounded-sm font-byline text-[13px] leading-4 text-fg-2 transition-hover select-none hover:text-fg"
       >
         {chapter && <span className="hidden min-w-0 truncate md:block">{chapter}</span>}
-        {chapter && text && <span className="hidden text-fg-3 md:block">·</span>}
-        <span className="shrink-0 tabular-nums">{text}</span>
+        {chapter && r.text && <span className="hidden text-fg-3 md:block">·</span>}
+        <span className="shrink-0 tabular-nums">{r.text}</span>
       </button>
-      <span id={valueId} className="sr-only" aria-live="polite">
-        {spoken}
+      <span id={r.valueId} className="sr-only" aria-live="polite">
+        {r.spoken}
       </span>
-      {!scroll && (
-        <IconButton
-          icon={ChevronRight}
-          label="Next page"
-          size="sm"
-          variant="quaternary"
-          disabled={last}
-          onClick={() => onTurn(1)}
-        />
-      )}
+      <IconButton
+        icon={ChevronRight}
+        label="Next page"
+        size="sm"
+        variant="quaternary"
+        disabled={last}
+        onClick={() => onTurn(1)}
+      />
     </footer>
+  );
+}
+
+/**
+ * The Scroll layout's progress readout: a slim line in the page colour across the top of the
+ * chapter, under the top bar, which rides up under the status bar when the chrome hides (prose.css
+ * `.progress-line`). It is always there: text scrolling up passes under it. A tap cycles it as the
+ * footer does: "Chapter 3 of 12", time left in the chapter, in the book, percent, nothing. Set to
+ * nothing it stays, empty but tappable, so the text never moves.
+ */
+export function ProgressLine(props: ProgressProps) {
+  const r = useProgressReadout({ ...props, scroll: true });
+  return (
+    <div className="progress-line" role="group" aria-label="Reading progress">
+      <button
+        type="button"
+        aria-label={r.name}
+        aria-describedby={r.valueId}
+        onPointerDown={r.prepare}
+        onClick={r.cycle}
+        className="flex h-full w-full items-center justify-center px-4 font-byline text-[13px] leading-4 text-fg-2 transition-hover select-none hover:text-fg"
+      >
+        <span className="min-w-0 truncate tabular-nums">{r.text}</span>
+      </button>
+      <span id={r.valueId} className="sr-only" aria-live="polite">
+        {r.spoken}
+      </span>
+    </div>
   );
 }

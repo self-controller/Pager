@@ -34,7 +34,9 @@ export function ReaderTopBar({ doc, chapter, percent, onOpenToc, toolsOpen, onTo
   return (
     <header
       className={cx(
-        "reader-top-bar border-b border-detail bg-surface",
+        // Below the status bar on an iPhone (the app draws to the screen's top edge); hidden, it slides
+        // its full height, padding included, up behind the status bar's scrim.
+        "reader-top-bar border-b border-detail bg-surface pt-[env(safe-area-inset-top)]",
         overlay ? "absolute inset-x-0 top-0 z-20" : "relative z-10 shrink-0",
       )}
       inert={hidden}

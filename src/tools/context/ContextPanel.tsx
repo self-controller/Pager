@@ -224,8 +224,9 @@ export function ContextForDocument({
       {views.length > 1 && (
         <div
           className={cx(
-            "sticky z-10 border-b border-detail bg-surface px-3 py-2",
-            page ? "top-[var(--size-phone-header)] md:top-0" : "top-0",
+            "sticky z-10 border-b border-detail bg-surface py-2",
+            // On the Assistant page, in line with the page's title and the list.
+            page ? "top-[var(--size-phone-header)] px-4 md:top-0 md:px-3" : "top-0 px-3",
           )}
         >
           <div className={cx(wide && "max-w-[560px]")}>

@@ -14,11 +14,11 @@ export function AssistantPage() {
           When tools are added, they show up on this page and beside the text while you read.
         </EmptyState>
       ) : (
-        <div className="flex flex-col gap-6 px-3 pt-4">
+        // No box around a tool: its rows run the column's width, and it pads its text to line up with
+        // the page's title (16 px on a phone, 12 px inside the column from 768).
+        <div className="flex flex-col gap-6 pt-2">
           {tools.map((tool) => (
-            // A real border, clipped without making a scroll box: a tool's sticky rows and backgrounds
-            // would paint over an inset-shadow outline.
-            <section key={tool.id} aria-label={tool.label} className="overflow-clip rounded-md border border-detail">
+            <section key={tool.id} aria-label={tool.label}>
               {tool.Page ? (
                 <tool.Page />
               ) : (

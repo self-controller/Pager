@@ -3,11 +3,14 @@ import { ChevronRight } from "lucide-react";
 import { cx } from "@/lib/cx";
 import { breadcrumbsFor } from "./tree";
 
-/** "Library › Novels › Brontë": each earlier crumb goes back up. */
+/**
+ * "Library › Novels › Brontë": each earlier crumb goes back up. At the library's top level a phone
+ * hides the row, because its page header already says "Library"; on a desktop it is the only title.
+ */
 export function Breadcrumbs({ path, onNavigate, trailing }: { path: string; onNavigate: (path: string) => void; trailing?: ReactNode }) {
   const crumbs = [{ name: "Library", path: "" }, ...breadcrumbsFor(path)];
   return (
-    <div className="flex min-h-10 items-center gap-3 px-3">
+    <div className={cx("flex min-h-10 items-center gap-3 px-3", !path && "max-md:hidden")}>
       <nav aria-label="Folder" className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto scrollbar-hidden">
         {crumbs.map((c, i) => {
           const last = i === crumbs.length - 1;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TreeFile, TreeFolder } from "@/api/types";
-import { breadcrumbsFor, cleanRel, describeFolder, folderAt, progressOf, sortFiles, splitRanges, stemOf } from "@/components/library/tree";
+import { breadcrumbsFor, cleanRel, describeFolder, folderAt, progressOf, recentFiles, sortFiles, splitRanges, stemOf } from "@/components/library/tree";
 
 const file = (name: string, path: string, doc?: Partial<TreeFile["doc"]>): TreeFile => ({
   kind: "file",
@@ -82,5 +82,34 @@ describe("library tree helpers", () => {
     expect(stemOf("Jane Eyre.txt")).toEqual({ stem: "Jane Eyre", ext: ".txt" });
     expect(stemOf(".hidden")).toEqual({ stem: ".hidden", ext: "" });
     expect(stemOf("README")).toEqual({ stem: "README", ext: "" });
+  });
+});
+
+describe("recentFiles", () => {
+  const opened = (name: string, path: string, at: string, title = stemOf(name).stem) => file(name, path, { title, lastOpenedAt: at });
+
+  it("lists opened books from every folder, the last one read first", () => {
+    const a = opened("A.md", "A.md", "2026-10-02T00:00:00.000Z");
+    const b = opened("B.md", "Novels/B.md", "2026-10-05T00:00:00.000Z");
+    const c = opened("C.md", "Novels/Brontë/C.md", "2026-10-03T00:00:00.000Z");
+    const root = folder("", "", [folder("Novels", "Novels", [folder("Brontë", "Novels/Brontë", [], [c])], [b])], [a]);
+    expect(recentFiles(root).map((f) => f.path)).toEqual(["Novels/B.md", "Novels/Brontë/C.md", "A.md"]);
+  });
+
+  it("leaves out books never opened and files not indexed yet", () => {
+    const read = opened("Read.md", "Read.md", "2026-10-02T00:00:00.000Z");
+    const unread = file("Unread.md", "Unread.md", { title: "Unread" });
+    const pending = file("Pending.md", "Pending.md");
+    expect(recentFiles(folder("", "", [], [unread, read, pending])).map((f) => f.name)).toEqual(["Read.md"]);
+    expect(recentFiles(folder("", "", [], [unread, pending]))).toEqual([]);
+  });
+
+  it("breaks ties by title", () => {
+    const at = "2026-10-02T00:00:00.000Z";
+    const z = opened("z.md", "z.md", at, "Zeta");
+    const a = opened("a.md", "x/a.md", at, "alpha");
+    const b = opened("b.md", "b.md", at, "Beta");
+    const root = folder("", "", [folder("x", "x", [], [a])], [z, b]);
+    expect(recentFiles(root).map((f) => f.doc?.title)).toEqual(["alpha", "Beta", "Zeta"]);
   });
 });

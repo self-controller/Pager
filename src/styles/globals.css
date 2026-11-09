@@ -225,6 +225,43 @@
   }
 }
 
+/* Switching tabs: the screen crossfades, barely (the tab links ask react-router for a view
+   transition; nothing else does). It is the root's crossfade, a snapshot of the screen, so a page
+   scrolled down fades out where it was. The tab bar and the side nav are in it too, but they are
+   the same in both snapshots and both fades use the same curve, so they hold still; only the old
+   tab's state fades, while the live bubble slides. (Lifting the glass pill out on its own snapshot
+   drew its backdrop as a square box during the fade.) Without the View Transitions API the page
+   just switches. */
+:root {
+  --tab-fade-duration: 150ms;
+}
+::view-transition-old(root) {
+  animation: tab-fade-out var(--tab-fade-duration) ease-out both;
+}
+::view-transition-new(root) {
+  animation: tab-fade-in var(--tab-fade-duration) ease-out both;
+}
+@keyframes tab-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes tab-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+  ::view-transition-old(root) {
+    display: none;
+  }
+}
+
 /* The scroll layout lets the chapter run under the bars: the tab bar's space isn't kept, so text
    shows where it was once it hides (the reader pads for it instead, prose.css "Scroll"). */
 :root[data-reader-layout="scroll"] #content {

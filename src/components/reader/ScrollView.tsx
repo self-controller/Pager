@@ -63,7 +63,8 @@ interface Props {
   controlsHidden: boolean;
   /** The back pill, between the chapter buttons. */
   pill?: ReactNode;
-  footer: ReactNode;
+  /** The progress line across the top of the chapter, under the top bar (PageFooter's ProgressLine). */
+  progress?: ReactNode;
 }
 
 /** A chapter drag in progress, from pointerdown. */
@@ -140,7 +141,7 @@ export function ScrollView({
   onChrome,
   controlsHidden,
   pill,
-  footer,
+  progress,
 }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -408,13 +409,13 @@ export function ScrollView({
           ))}
         </div>
       </div>
+      {progress}
       <div className="chapter-dock">
         <div className="chapter-controls">
           <ChapterButton direction={-1} section={prev} hidden={controlsHidden} onClick={() => turn(-1)} />
           <div className="flex min-w-0 flex-1 justify-center">{pill}</div>
           <ChapterButton direction={1} section={next} hidden={controlsHidden} onClick={() => turn(1)} />
         </div>
-        {footer}
       </div>
     </div>
   );

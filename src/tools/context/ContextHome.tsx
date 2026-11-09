@@ -102,7 +102,7 @@ function BriefingList({ show }: { show: Show }) {
 
   return (
     <div className="flex flex-col">
-      <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-2">
+      <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-2 md:px-3">
         <h3 className="font-sans text-[12px] leading-4 font-semibold tracking-wide text-fg-3 uppercase">Your briefings</h3>
         <Button size="sm" variant="tertiary" icon={Library} onClick={() => setChoosing(true)}>
           Choose a book
@@ -117,7 +117,7 @@ function BriefingList({ show }: { show: Show }) {
               <button
                 type="button"
                 onClick={() => show(b.docId)}
-                className="flex w-full items-center gap-3 px-4 pt-3 pb-1 text-left transition-hover hover:bg-surface-hover"
+                className="flex w-full items-center gap-3 px-4 pt-3 pb-1 text-left transition-hover hover:bg-surface-hover md:px-3"
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-display text-[16px] leading-6 font-semibold">
@@ -128,7 +128,7 @@ function BriefingList({ show }: { show: Show }) {
                 <ChevronRight size={18} className="shrink-0 text-fg-3" aria-hidden />
               </button>
               {b.focuses.length > 0 ? (
-                <p className="px-4 pt-1 pb-3 font-sans text-[13px] leading-[20px] text-fg-2">
+                <p className="px-4 pt-1 pb-3 font-sans text-[13px] leading-[20px] text-fg-2 md:px-3">
                   Context for this:{" "}
                   {b.focuses.map((f, i) => (
                     <span key={f.focus}>
@@ -176,7 +176,7 @@ function BookContext({ docId, focus, show, wide }: { docId: string; focus: strin
   if (doc.error) {
     const missing = doc.error instanceof ApiError && doc.error.code === ErrorCodes.notFound;
     return (
-      <div className="px-4 pt-2">
+      <div className="px-4 pt-2 md:px-3">
         {back}
         {missing ? (
           <EmptyState icon={Landmark} title="This isn't in your library" />
@@ -196,7 +196,7 @@ function BookContext({ docId, focus, show, wide }: { docId: string; focus: strin
 
   return (
     <div className="flex flex-col">
-      <div className="border-b border-detail px-5 pt-2 pb-4">
+      <div className="border-b border-detail px-4 pt-2 pb-4 md:px-3">
         {back}
         <h3 className="mt-1 font-display text-[22px] leading-7 font-semibold">{d.title}</h3>
         {d.author && <p className="font-sans text-[13.5px] leading-5 text-fg-2">{d.author}</p>}
@@ -294,7 +294,7 @@ function ChooseBook({
 
 function ListSkeleton() {
   return (
-    <div className="flex flex-col gap-3 px-5 py-6" aria-busy="true" aria-label="Loading">
+    <div className="flex flex-col gap-3 px-4 py-6 md:px-3" aria-busy="true" aria-label="Loading">
       <div className="h-5 w-1/2 animate-pulse rounded-xs bg-surface-2" />
       <div className="h-4 w-1/3 animate-pulse rounded-xs bg-surface-2" />
       <div className="h-5 w-2/3 animate-pulse rounded-xs bg-surface-2" />

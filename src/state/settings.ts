@@ -5,6 +5,8 @@ export type ThemeSetting = "system" | "light" | "dark";
 export type Typeface = "serif" | "sans";
 export type LibraryView = "compact" | "detailed";
 export type LibrarySort = "name" | "recent" | "added" | "progress";
+/** What the library opens on: the books read lately, or the folders. */
+export type LibraryMode = "recent" | "folders";
 /** How a book is laid out: each chapter one long scroll with sideways chapter turns, or pages. */
 export type LayoutSetting = "scroll" | "paged";
 /** How a tap or key turns the page; a swipe always follows the finger. */
@@ -24,6 +26,8 @@ export interface Settings {
   /** How the library lists books: dense rows or cards with covers. */
   libraryView: LibraryView;
   librarySort: LibrarySort;
+  /** Recent lists every opened book, last read first; Folders browses the reads folder. */
+  libraryMode: LibraryMode;
   /** Scroll: a chapter scrolls top to bottom and a sideways swipe turns to the next. Paged: CSS-column pages. */
   layout: LayoutSetting;
   /** Page-turn motion for taps and keys in the paged layout: slide, fade, or a cut. Reduced motion always cuts. */
@@ -48,6 +52,7 @@ const DEFAULTS: Settings = {
   highlightColor: "yellow",
   libraryView: "detailed",
   librarySort: "recent",
+  libraryMode: "recent",
   layout: "scroll",
   pageTurn: "slide",
   footerFormat: "page",

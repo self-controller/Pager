@@ -8,8 +8,9 @@ import { DeleteDialog, MoveDialog, NewFileDialog, NewFolderDialog, RenameDialog 
 import { FolderSkeleton, FolderView, type Target } from "@/components/library/FolderView";
 import type { ItemCommand, Point } from "@/components/library/items";
 import { LibraryToolbar } from "@/components/library/LibraryToolbar";
+import { RecentView } from "@/components/library/RecentView";
 import { SearchResults } from "@/components/library/SearchResults";
-import { cleanRel, describeFolder, folderAt, parentOf } from "@/components/library/tree";
+import { cleanRel, describeFolder, folderAt, parentOf, recentFiles } from "@/components/library/tree";
 import { useFileDrop } from "@/components/library/useFileDrop";
 import { PageHeader, WideColumn } from "@/components/shell/Page";
 import { Button } from "@/components/ui/Button";
@@ -17,7 +18,7 @@ import { ContextMenu, type MenuEntry, type MenuState } from "@/components/ui/Con
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ServiceError } from "@/components/ui/ServiceError";
 import { readHref } from "@/lib/links";
-import { updateSettings, useSettings } from "@/state/settings";
+import { updateSettings, useSettings, type LibraryMode } from "@/state/settings";
 
 type DialogState =
   | { kind: "add"; files: File[] }
@@ -31,7 +32,7 @@ function isTyping(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest("input, textarea, select, [contenteditable='true'], dialog[open]"));
 }
 
-/** The library: your reads folder, browsed folder by folder, with search across every file. */
+/** The library: the books read lately, or your reads folder browsed folder by folder, with search across every file. */
 export function LibraryPage() {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
@@ -48,7 +49,13 @@ export function LibraryPage() {
   const tree = useTree();
   const searching = q.trim().length > 0;
   const search = useSearchDocuments(q);
+  // The saved mode wins: in Recent, ?path= stays in the URL unused, so Folders returns to that folder.
+  const mode: LibraryMode = settings.libraryMode;
+  const recent = mode === "recent";
+  // New files and folders land in the folder being looked at; in Recent, the library's root.
+  const dir = recent ? "" : path;
   const folder = tree.data ? folderAt(tree.data.root, path) : undefined;
+  const recentList = useMemo(() => (tree.data ? recentFiles(tree.data.root) : []), [tree.data]);
 
   // Typing goes into ?q= after a pause; the folder stays in the URL for when the search is cleared.
   useEffect(() => {
@@ -96,21 +103,23 @@ export function LibraryPage() {
       if (e.key === "/" && !isTyping(e.target)) {
         e.preventDefault();
         searchRef.current?.focus();
-      } else if (e.key === "Backspace" && !isTyping(e.target) && path && !searching) {
+      } else if (e.key === "Backspace" && !isTyping(e.target) && path && !searching && !recent) {
         e.preventDefault();
         goTo(parentOf(path));
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [menu, dialog, path, searching, goTo]);
+  }, [menu, dialog, path, searching, recent, goTo]);
 
   useEffect(() => {
-    document.title = path ? `${path.split("/").pop()} · Pager` : "Pager";
+    document.title = path && !recent ? `${path.split("/").pop()} · Pager` : "Pager";
     return () => {
       document.title = "Pager";
     };
-  }, [path]);
+  }, [path, recent]);
+
+  const setMode = useCallback((libraryMode: LibraryMode) => updateSettings({ libraryMode }), []);
 
   const closeMenu = useCallback(() => setMenu(null), []);
 
@@ -189,6 +198,8 @@ export function LibraryPage() {
         onView={(view) => updateSettings({ libraryView: view })}
         sort={settings.librarySort}
         onSort={(sort) => updateSettings({ librarySort: sort })}
+        mode={mode}
+        onMode={setMode}
         searchRef={searchRef}
       />
 
@@ -198,9 +209,17 @@ export function LibraryPage() {
         <ServiceError error={tree.error} onRetry={() => void tree.refetch()} />
       ) : tree.isPending ? (
         <>
-          <Breadcrumbs path={path} onNavigate={goTo} />
+          {!recent && <Breadcrumbs path={path} onNavigate={goTo} />}
           <FolderSkeleton view={settings.libraryView} />
         </>
+      ) : recent ? (
+        <RecentView
+          files={recentList}
+          view={settings.libraryView}
+          onCommand={onCommand}
+          onBackgroundMenu={(at) => setMenu({ label: "Library", at, items: backgroundItems })}
+          onBrowse={() => setMode("folders")}
+        />
       ) : !folder ? (
         <EmptyState
           icon={FolderX}
@@ -235,12 +254,12 @@ export function LibraryPage() {
           <AddBookDialog
             open={dialog?.kind === "add"}
             onClose={() => setDialog(null)}
-            dir={path}
+            dir={dir}
             pendingFiles={dialog?.kind === "add" ? dialog.files : []}
             onPendingTaken={() => setDialog((d) => (d?.kind === "add" ? { kind: "add", files: [] } : d))}
           />
-          <NewFileDialog open={dialog?.kind === "newFile"} dir={path} onClose={() => setDialog(null)} />
-          <NewFolderDialog open={dialog?.kind === "newFolder"} dir={path} onClose={() => setDialog(null)} />
+          <NewFileDialog open={dialog?.kind === "newFile"} dir={dir} onClose={() => setDialog(null)} />
+          <NewFolderDialog open={dialog?.kind === "newFolder"} dir={dir} onClose={() => setDialog(null)} />
           <RenameDialog open={dialog?.kind === "rename"} target={dialogTarget} onClose={() => setDialog(null)} />
           <MoveDialog open={dialog?.kind === "move"} target={dialogTarget} root={tree.data?.root} onClose={() => setDialog(null)} />
           <DeleteDialog open={dialog?.kind === "delete"} target={dialogTarget} onClose={() => setDialog(null)} />
@@ -250,7 +269,7 @@ export function LibraryPage() {
       {dragging && dialog?.kind !== "add" && (
         <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-scrim">
           <div className="rounded-md bg-elevated px-6 py-4 text-[15px] font-semibold elevation">
-            Drop to add to {path ? `“${path.split("/").pop()}”` : "your library"}
+            Drop to add to {dir ? `“${dir.split("/").pop()}”` : "your library"}
           </div>
         </div>
       )}

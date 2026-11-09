@@ -256,8 +256,11 @@
    what they cover, and scroll-padding tells the browser (and useChapterScroll) where text shows. ---- */
 
 .chapter-view {
-  --reader-inset-top: var(--size-top-bar);
-  --reader-inset-bottom: calc(var(--size-page-footer) + var(--size-bottom-nav-effective) + env(safe-area-inset-bottom));
+  --progress-line-h: 28px;
+  /* The status bar, the top bar and the progress line under it. The line stays when the chrome
+     hides, and the inset doesn't change with the chrome, so hiding the bars never moves the text. */
+  --reader-inset-top: calc(env(safe-area-inset-top) + var(--size-top-bar) + var(--progress-line-h));
+  --reader-inset-bottom: calc(var(--size-bottom-nav-effective) + env(safe-area-inset-bottom));
 }
 /* Clip, not hidden: nothing (find-in-page, scrollIntoView) can scroll the stage onto a neighbour. */
 .chapter-stage {
@@ -333,19 +336,47 @@
   break-after: auto;
 }
 
-/* The ‹ › circles float over the text, 24px in from the corners, above the footer; the back pill
-   sits between them. Hidden with the chrome, they slide down behind the footer. */
+/* The progress line (PageFooter's ProgressLine): under the top bar, in the page colour, so text
+   scrolling up passes under it. When the chrome hides it rides up with the bar to sit just under the
+   status bar, and stays. Above the text, below the top bar (z-20) and the status scrim (z-30). */
+.progress-line {
+  position: absolute;
+  inset-inline: 0;
+  top: calc(env(safe-area-inset-top) + var(--size-top-bar));
+  z-index: 15;
+  height: var(--progress-line-h);
+  background: var(--bg-primary);
+  transition: transform 250ms cubic-bezier(0.19, 1, 0.22, 1);
+}
+/* A soft edge below it, so lines of text fade in under it instead of being cut. */
+.progress-line::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+  height: 8px;
+  background: linear-gradient(var(--bg-primary), transparent);
+  pointer-events: none;
+}
+:root[data-reader-chrome="hidden"] .progress-line {
+  transform: translateY(calc(-1 * var(--size-top-bar)));
+}
+
+/* The ‹ › circles float over the text, 24px in from the corners (12px above the phone's tab pill);
+   the back pill sits between them. Nothing opaque: the text runs under them to the screen's edge.
+   Hidden with the chrome, the circles slide down out of sight; the back pill stays, above the home
+   indicator. */
 .chapter-dock {
   position: absolute;
   inset-inline: 0;
   bottom: 0;
   z-index: 10;
   pointer-events: none;
-  transform: translateY(calc(-1 * var(--size-bottom-nav-effective)));
+  transform: translateY(calc(-1 * (var(--size-bottom-nav-effective) + env(safe-area-inset-bottom))));
   transition: transform 250ms cubic-bezier(0.19, 1, 0.22, 1);
 }
 :root[data-reader-chrome="hidden"] .chapter-dock {
-  transform: none;
+  transform: translateY(calc(-1 * env(safe-area-inset-bottom)));
 }
 .chapter-dock > * {
   pointer-events: auto;
@@ -363,6 +394,12 @@
   align-items: center;
   gap: 8px;
   padding: 0 24px 24px;
+}
+/* The tab bar's box is taller than its pill: sit just above the pill, not the box. */
+@media (max-width: 767px) {
+  .chapter-controls {
+    padding-bottom: 12px;
+  }
 }
 .chapter-controls > * > * {
   pointer-events: auto;
@@ -395,7 +432,8 @@
   transition-delay: 0s, 0s, 300ms;
 }
 @media (prefers-reduced-motion: reduce) {
-  .chapter-dock {
+  .chapter-dock,
+  .progress-line {
     transition: none;
   }
   .chapter-button {

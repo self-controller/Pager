@@ -65,6 +65,14 @@ export function sortFiles(files: TreeFile[], sort: LibrarySort): TreeFile[] {
   }
 }
 
+/** Every book that has been opened, anywhere in the tree: the last one read first, ties by title. */
+export function recentFiles(root: TreeFolder): TreeFile[] {
+  return allFolders(root)
+    .flatMap((f) => f.files)
+    .filter((f) => f.doc?.lastOpenedAt)
+    .sort((a, b) => (b.doc?.lastOpenedAt ?? "").localeCompare(a.doc?.lastOpenedAt ?? "") || byName(titleOf(a), titleOf(b)));
+}
+
 /** How far a document has been read, as the library shows it. */
 export function progressOf(doc: DocumentSummary | undefined): { percent?: number; label: string } {
   const pct = doc?.progress?.percent;

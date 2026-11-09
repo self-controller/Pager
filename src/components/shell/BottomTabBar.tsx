@@ -1,6 +1,7 @@
-import { matchPath, NavLink, useLocation } from "react-router";
+import { Link, useLocation } from "react-router";
 import { isNativeApp } from "@/lib/native";
 import { NAV } from "./nav";
+import { isNavActive, useNavTargets } from "./useBookTab";
 
 /** Width of one tab in the pill, in px. The bubble moves by this much per tab. */
 const TAB_WIDTH = 64;
@@ -18,8 +19,9 @@ export function BottomTabBar() {
 function GlassTabBar() {
   const items = NAV.filter((n) => n.mobile);
   const { pathname } = useLocation();
-  // Same matching as NavLink: "/" only exactly, the others as a prefix.
-  const active = items.findIndex((item) => matchPath({ path: item.to, end: item.end ?? false }, pathname));
+  const target = useNavTargets();
+  // "/" only exactly, the others as a prefix; the Book tab on any open book.
+  const active = items.findIndex((item) => isNavActive(item, pathname));
   return (
     <nav
       aria-label="Main navigation"
@@ -36,27 +38,30 @@ function GlassTabBar() {
             opacity: active < 0 ? 0 : 1,
           }}
         />
-        {items.map((item) => {
+        {items.map((item, i) => {
           const Icon = item.icon;
+          const on = i === active;
           return (
-            <NavLink
+            // A Link, not a NavLink: the state comes from `active`, which knows the Book tab's routes.
+            <Link
               key={item.to}
-              to={item.to}
-              end={item.end}
+              to={target(item)}
+              viewTransition // the tabs' faint crossfade (globals.css)
               aria-label={item.label}
+              aria-current={on ? "page" : undefined}
+              // The Book tab on an open book: already there, so the reader isn't sent anywhere.
+              onClick={item.match && on ? (e) => e.preventDefault() : undefined}
               className="relative flex h-11 items-center justify-center rounded-full"
               style={{ width: TAB_WIDTH }}
             >
-              {({ isActive }) => (
-                <Icon
-                  size={24}
-                  strokeWidth={isActive ? 2 : 1.75}
-                  fill={isActive && item.fill ? "currentColor" : "none"}
-                  className={isActive ? "text-fg" : "text-fg-2"}
-                  aria-hidden
-                />
-              )}
-            </NavLink>
+              <Icon
+                size={24}
+                strokeWidth={on ? 2 : 1.75}
+                fill={on && item.fill ? "currentColor" : "none"}
+                className={on ? "text-fg" : "text-fg-2"}
+                aria-hidden
+              />
+            </Link>
           );
         })}
       </div>

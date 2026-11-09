@@ -22,7 +22,7 @@ interface Props {
   readOnly?: boolean;
 }
 
-const listClass = (view: LibraryView) =>
+export const listClass = (view: LibraryView) =>
   view === "compact" ? "flex flex-col" : "grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-1 max-md:grid-cols-[repeat(auto-fill,minmax(130px,1fr))]";
 
 /** One folder's contents: folders first, then books in the chosen order. */

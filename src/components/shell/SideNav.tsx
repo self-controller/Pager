@@ -1,40 +1,41 @@
-import { NavLink } from "react-router";
+import { Link, useLocation } from "react-router";
 import { cx } from "@/lib/cx";
 import { isNativeApp } from "@/lib/native";
 import { NAV, type NavEntry } from "./nav";
+import { isNavActive, useNavTargets } from "./useBookTab";
 
-function NavItem({ item }: { item: NavEntry }) {
+function NavItem({ item, to, active }: { item: NavEntry; to: string; active: boolean }) {
   const Icon = item.icon;
   return (
-    <NavLink
-      to={item.to}
-      end={item.end}
+    // A Link, not a NavLink: `active` knows the Book tab's routes (any open book), as the tab bar does.
+    <Link
+      to={to}
+      viewTransition // the tabs' faint crossfade (globals.css)
       aria-label={item.label}
+      aria-current={active ? "page" : undefined}
+      // The Book entry on an open book: already there, so the reader isn't sent anywhere.
+      onClick={item.match && active ? (e) => e.preventDefault() : undefined}
       title={item.label}
       className="flex min-h-12 min-w-12 items-center gap-1 rounded-md transition-hover select-none pressable hover:bg-surface-hover"
     >
-      {({ isActive }) => (
-        <>
-          <span className="flex size-12 shrink-0 items-center justify-center">
-            <Icon
-              size={24}
-              strokeWidth={isActive ? 2 : 1.75}
-              fill={isActive && item.fill ? "currentColor" : "none"}
-              className={isActive ? "text-fg" : "text-fg-2"}
-              aria-hidden
-            />
-          </span>
-          <span
-            className={cx(
-              "hidden flex-1 text-[15px] leading-5 lg:block",
-              isActive ? "font-semibold text-fg" : "font-medium text-fg-2",
-            )}
-          >
-            {item.label}
-          </span>
-        </>
-      )}
-    </NavLink>
+      <span className="flex size-12 shrink-0 items-center justify-center">
+        <Icon
+          size={24}
+          strokeWidth={active ? 2 : 1.75}
+          fill={active && item.fill ? "currentColor" : "none"}
+          className={active ? "text-fg" : "text-fg-2"}
+          aria-hidden
+        />
+      </span>
+      <span
+        className={cx(
+          "hidden flex-1 text-[15px] leading-5 lg:block",
+          active ? "font-semibold text-fg" : "font-medium text-fg-2",
+        )}
+      >
+        {item.label}
+      </span>
+    </Link>
   );
 }
 
@@ -43,7 +44,12 @@ function NavItem({ item }: { item: NavEntry }) {
  * iPhone app, which keeps its tab bar at every width.
  */
 export function SideNav() {
-  if (isNativeApp()) return null;
+  return isNativeApp() ? null : <SideNavBar />;
+}
+
+function SideNavBar() {
+  const { pathname } = useLocation();
+  const target = useNavTargets();
   return (
     <nav
       aria-label="Main navigation"
@@ -56,7 +62,7 @@ export function SideNav() {
       </div>
       <div className="flex flex-1 flex-col gap-2 p-2">
         {NAV.map((item) => (
-          <NavItem key={item.to} item={item} />
+          <NavItem key={item.to} item={item} to={target(item)} active={isNavActive(item, pathname)} />
         ))}
       </div>
     </nav>
