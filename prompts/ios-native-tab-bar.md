@@ -317,3 +317,26 @@ Then fix what the user reports, using the fallbacks below. Commit.
 - Liquid glass on the web, the Safari limits: https://dev.to/devyatov/liquid-glass-on-the-web-6-ways-to-build-it-with-css-and-svg-3m07
 - Headers checked: `UITabBarController.h`, `UIGlassEffect.h`, `UIScrollView.h`,
   `UIScrollEdgeElementContainerInteraction.h`, `WKWebView.h` in the local iPhoneOS27.2.sdk
+
+## Progress (2026-11-09)
+
+Phases 1 and 2 (the page's side of the tab bar and the system tab bar around the one web view) and
+the native Book tab were built earlier and are committed on this branch.
+
+This round answered four findings from the user's iPhone. First, the app's binary is now stamped
+SDK 27.2: a linker flag in `ios/Package.swift` replaces the Linux link's stamp of 17.5, so iOS 26
+draws the Liquid Glass tab bar instead of the flat compatibility bar. Diagnostics → Layout shows the
+stamp ("Built for SDK"). Second, on phones (below 768px, and in the app at every width) every
+dialog, popover and context menu is a bottom sheet (`src/components/ui/Sheet.tsx`). Contents and
+Tools are tall, the rest fit their content, and a sheet closes with a swipe down on its grip, the
+close button, Esc or the scrim. Third, while a sheet is open `<html data-sheet-open>` holds the page
+still and hides the tab bar, the app's included through `tabs.hidden`; with the sheet's single scroller,
+this is meant to stop the jump when the Contents list is dragged. Fourth, tab
+switches in the app crossfade for 200 ms, as the browser's do for 150 ms.
+
+The tests, the typecheck, the web build and `xtool dev build` pass, and the binary reads `sdk 27.2`,
+`minos 17.5`. An automated web check was tried and dropped, because it cannot see the iOS app.
+
+Still open: the device run. Phase 3 is the user's, with the lists in ios/README.md under "Check it"
+(the earlier list and the new one for the glass bar and the sheets). Nothing in this round has run
+on a phone yet, so the glass bar, the Contents drag and the sheets over the keyboard are unconfirmed.

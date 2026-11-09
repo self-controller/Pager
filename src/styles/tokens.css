@@ -161,6 +161,8 @@
   --size-left-nav: 0px;
   --size-bottom-nav: var(--native-tab-bar, 56px);
   --size-bottom-nav-effective: var(--size-bottom-nav);
+  /* The tabs' crossfade (globals.css): a touch longer than the browser's 150 ms. */
+  --tab-fade-duration: 200ms;
 }
 
 @media (prefers-reduced-motion: reduce) {

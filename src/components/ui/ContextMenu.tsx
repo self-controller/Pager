@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import type { LucideIcon } from "lucide-react";
 import { Check } from "lucide-react";
 import { cx } from "@/lib/cx";
+import { useIsPhone } from "@/lib/useIsPhone";
+import { Sheet, useSheet } from "./Sheet";
 
 export interface MenuItem {
   id: string;
@@ -29,10 +31,32 @@ interface Props extends MenuState {
 }
 
 /**
- * A right-click menu: fixed at the pointer, clamped to the viewport, keyboard-navigable, closed by
- * Esc, an outside press, a resize or a page turn. Also opened from a "⋯" button or a long press.
+ * A menu of actions: on phones (and in the iPhone app) a bottom sheet, otherwise a right-click menu
+ * at the pointer. Opened from a right click, a "⋯" button or a long press.
  */
-export function ContextMenu({ label, at, items, onClose }: Props) {
+export function ContextMenu(props: Props) {
+  return useIsPhone() ? <MenuSheet {...props} /> : <PointerMenu {...props} />;
+}
+
+/** The phone menu: a sheet whose pick slides it away before the action runs (and what it opens rises). */
+function MenuSheet({ label, items, onClose }: Props) {
+  return (
+    <Sheet open onClose={onClose} title={label} size="content">
+      <SheetMenuList label={label} items={items} />
+    </Sheet>
+  );
+}
+
+function SheetMenuList({ label, items }: { label: string; items: MenuEntry[] }) {
+  const sheet = useSheet();
+  return <MenuList label={label} items={items} phone onPick={(item) => sheet?.close(() => item.onSelect())} />;
+}
+
+/**
+ * A right-click menu: fixed at the pointer, clamped to the viewport, keyboard-navigable, closed by
+ * Esc, an outside press, a resize or a page turn.
+ */
+function PointerMenu({ label, at, items, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<CSSProperties>({ left: -9999, top: -9999 });
 
@@ -62,7 +86,13 @@ export function ContextMenu({ label, at, items, onClose }: Props) {
       if (!nodes.length) return;
       const i = nodes.indexOf(document.activeElement as HTMLElement);
       const next =
-        e.key === "Home" ? 0 : e.key === "End" ? nodes.length - 1 : e.key === "ArrowDown" ? (i + 1) % nodes.length : (i - 1 + nodes.length) % nodes.length;
+        e.key === "Home"
+          ? 0
+          : e.key === "End"
+            ? nodes.length - 1
+            : e.key === "ArrowDown"
+              ? (i + 1) % nodes.length
+              : (i - 1 + nodes.length) % nodes.length;
       nodes[next]?.focus();
     };
     const t = window.setTimeout(() => document.addEventListener("pointerdown", onDown));
@@ -83,12 +113,37 @@ export function ContextMenu({ label, at, items, onClose }: Props) {
   return (
     <div
       ref={ref}
-      role="menu"
-      aria-label={label}
       className="fixed z-40 min-w-[220px] rounded-md bg-elevated p-1.5 elevation"
       style={style}
       onContextMenu={(e) => e.preventDefault()}
     >
+      <MenuList
+        label={label}
+        items={items}
+        phone={false}
+        onPick={(item) => {
+          onClose();
+          item.onSelect();
+        }}
+      />
+    </div>
+  );
+}
+
+/** The menu's entries; rows grow to a finger's size on phones, where key hints mean nothing. */
+function MenuList({
+  label,
+  items,
+  onPick,
+  phone,
+}: {
+  label?: string;
+  items: MenuEntry[];
+  onPick: (item: MenuItem) => void;
+  phone: boolean;
+}) {
+  return (
+    <div role="menu" aria-label={label} className={cx(phone && "px-2 pb-2")}>
       {items.map((item, i) =>
         item === "separator" ? (
           <div key={`sep-${i}`} role="separator" className="my-1.5 h-px bg-detail" />
@@ -100,22 +155,24 @@ export function ContextMenu({ label, at, items, onClose }: Props) {
             aria-disabled={item.disabled || undefined}
             aria-checked={item.checked}
             disabled={item.disabled}
-            onClick={() => {
-              onClose();
-              item.onSelect();
-            }}
+            onClick={() => onPick(item)}
             className={cx(
-              "flex h-9 w-full items-center gap-3 rounded-sm px-2.5 text-left text-[14px] leading-5 font-medium transition-hover",
+              "flex w-full items-center gap-3 rounded-sm px-2.5 text-left leading-5 font-medium transition-hover",
+              phone ? "h-12 text-[16px]" : "h-9 text-[14px]",
               item.danger ? "text-error" : "text-fg",
               "hover:bg-surface-2",
               item.disabled && "opacity-50",
             )}
           >
             <span className="flex size-5 shrink-0 items-center justify-center text-fg-2">
-              {item.checked ? <Check size={16} aria-hidden /> : item.icon ? <item.icon size={16} strokeWidth={1.75} aria-hidden /> : null}
+              {item.checked ? (
+                <Check size={16} aria-hidden />
+              ) : item.icon ? (
+                <item.icon size={16} strokeWidth={1.75} aria-hidden />
+              ) : null}
             </span>
             <span className="flex-1 truncate">{item.label}</span>
-            {item.hint && <span className="font-byline text-[11px] text-fg-3">{item.hint}</span>}
+            {item.hint && !phone && <span className="font-byline text-[11px] text-fg-3">{item.hint}</span>}
           </button>
         ),
       )}

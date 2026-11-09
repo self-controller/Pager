@@ -148,8 +148,9 @@
 }
 
 /* Reader chrome: on touch screens a tap in the middle of the page hides the reader's top bar and the
-   phone tab bar (useReaderChrome sets data-reader-chrome on <html>). Transform and opacity only, so
-   their space stays and the page never reflows; hidden, they can't be focused or clicked. */
+   phone tab bar (useReaderChrome sets data-reader-chrome on <html>). An open sheet hides the tab bar
+   the same way (Sheet.tsx sets data-sheet-open), as it covers the bottom edge. Transform and opacity
+   only, so their space stays and the page never reflows; hidden, they can't be focused or clicked. */
 .reader-top-bar,
 [data-tab-bar] {
   transition:
@@ -160,10 +161,11 @@
 :root[data-reader-chrome="hidden"] .reader-top-bar {
   transform: translateY(-100%);
 }
-:root[data-reader-chrome="hidden"] [data-tab-bar] {
+:root:is([data-reader-chrome="hidden"], [data-sheet-open]) [data-tab-bar] {
   transform: translateY(100%);
 }
-:root[data-reader-chrome="hidden"] :is(.reader-top-bar, [data-tab-bar]) {
+:root[data-reader-chrome="hidden"] .reader-top-bar,
+:root:is([data-reader-chrome="hidden"], [data-sheet-open]) [data-tab-bar] {
   opacity: 0;
   visibility: hidden;
   transition-delay: 0s, 0s, 250ms;
@@ -223,6 +225,96 @@
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
+}
+
+/* Sheets: on phones every popup is a bottom sheet (ui/Sheet.tsx), a <dialog> in the top layer, so
+   the page behind is inert; data-sheet-open holds it still too. The sheet itself never scrolls (the
+   UA's `dialog:modal { overflow: auto }` would make a second scroller under the finger); only its
+   body does, and keeps its scroll to itself. It rides above the on-screen keyboard (--sheet-kb), and
+   leaves from wherever a drag let go of it (--sheet-y). The way in has no fill, so a drag's inline
+   transform isn't held under the finished animation. */
+.sheet {
+  position: fixed;
+  inset: auto 0 var(--sheet-kb, 0px) 0;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  width: 100%;
+  max-width: none;
+  max-height: 92dvh;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  box-shadow:
+    0 -1px 0 var(--detail),
+    0 -8px 24px rgb(0 0 0 / 0.12);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+.sheet:not([open]) {
+  display: none;
+}
+.sheet[data-size="tall"] {
+  height: 92dvh;
+}
+.sheet::backdrop {
+  background: var(--modal-scrim);
+}
+.sheet [data-sheet-body] {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.sheet[open] {
+  animation: sheet-in 300ms cubic-bezier(0.19, 1, 0.22, 1);
+}
+.sheet[open]::backdrop {
+  animation: sheet-scrim-in 300ms ease-out both;
+}
+.sheet[data-closing] {
+  animation: sheet-out 250ms cubic-bezier(0.19, 1, 0.22, 1) both;
+}
+.sheet[data-closing]::backdrop {
+  animation: sheet-scrim-out 250ms ease-out both;
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes sheet-out {
+  from {
+    transform: translateY(var(--sheet-y, 0px));
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+@keyframes sheet-scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sheet-scrim-out {
+  to {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet,
+  .sheet::backdrop {
+    animation: none !important;
+  }
+}
+/* The page behind a sheet holds still: neither the document nor the reader's chapter scrolls. */
+:root[data-sheet-open],
+:root[data-sheet-open] body {
+  overflow: hidden;
+}
+:root[data-sheet-open] .chapter-pane[data-role="live"] {
+  overflow-y: hidden;
 }
 
 /* Switching tabs: the screen crossfades, barely (the tab links ask react-router for a view

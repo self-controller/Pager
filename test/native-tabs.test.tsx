@@ -65,6 +65,7 @@ afterEach(async () => {
   delete (window as unknown as { webkit?: unknown }).webkit;
   delete (window as unknown as { __pager?: unknown }).__pager;
   delete document.documentElement.dataset.readerChrome;
+  delete document.documentElement.dataset.sheetOpen;
   document.documentElement.style.removeProperty("--native-tab-bar");
   happyDOM.setURL(browserUrl);
 });
@@ -94,6 +95,36 @@ describe("useNativeTabs", () => {
     await mount("/read/doc/s1");
     const html = document.documentElement;
     html.dataset.readerChrome = "hidden";
+    await act(async () => {});
+    expect(tabs().at(-1)).toEqual({ t: "tabs", tab: "book", hidden: true });
+    delete html.dataset.readerChrome;
+    await act(async () => {});
+    expect(tabs().at(-1)).toEqual({ t: "tabs", tab: "book", hidden: false });
+  });
+
+  it("hides the bar while a sheet is open", async () => {
+    await mount("/");
+    const html = document.documentElement;
+    html.dataset.sheetOpen = "";
+    await act(async () => {});
+    expect(tabs().at(-1)).toEqual({ t: "tabs", tab: "library", hidden: true });
+    delete html.dataset.sheetOpen;
+    await act(async () => {});
+    expect(tabs().at(-1)).toEqual({ t: "tabs", tab: "library", hidden: false });
+  });
+
+  it("brings the bar back only when both the chrome and a sheet clear", async () => {
+    await mount("/read/doc/s1");
+    const html = document.documentElement;
+    html.dataset.readerChrome = "hidden";
+    html.dataset.sheetOpen = "";
+    await act(async () => {});
+    expect(tabs().at(-1)).toEqual({ t: "tabs", tab: "book", hidden: true });
+    delete html.dataset.readerChrome;
+    await act(async () => {});
+    expect(tabs().at(-1)).toEqual({ t: "tabs", tab: "book", hidden: true });
+    html.dataset.readerChrome = "hidden";
+    delete html.dataset.sheetOpen;
     await act(async () => {});
     expect(tabs().at(-1)).toEqual({ t: "tabs", tab: "book", hidden: true });
     delete html.dataset.readerChrome;

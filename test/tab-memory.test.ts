@@ -8,7 +8,7 @@ function page() {
   let frames: (() => void)[] = [];
   const p = {
     max: 10_000,
-    navigate: vi.fn<(to: string, options?: { state?: unknown }) => void>(),
+    navigate: vi.fn<(to: string, options?: { state?: unknown; viewTransition?: boolean }) => void>(),
     scrollTo: vi.fn((top: number, _smooth: boolean) => {
       scroll = Math.min(top, p.max);
     }),
@@ -108,6 +108,15 @@ describe("tab memory", () => {
     expect(p.scroll).toBe(640);
   });
 
+  it("crossfades every tab switch, the Book tab's included", () => {
+    p.memory.locate(at("/"));
+    p.memory.select("highlights");
+    expect(p.navigate).toHaveBeenLastCalledWith("/highlights", { state: { tabSwitch: true }, viewTransition: true });
+    follow();
+    p.memory.select("book");
+    expect(p.navigate).toHaveBeenLastCalledWith("/read/doc", { state: { tabSwitch: true }, viewTransition: true });
+  });
+
   it("restores the scroll before paint, and again after if the page was still short", () => {
     p.memory.locate(at("/"));
     p.scroll = 900;
@@ -169,7 +178,7 @@ describe("tab memory", () => {
     p.memory.locate(at("/nowhere"));
     p.scroll = 0;
     p.memory.select("library");
-    expect(p.navigate).toHaveBeenLastCalledWith("/");
+    expect(p.navigate).toHaveBeenLastCalledWith("/", { viewTransition: true });
     expect(follow().tab).toBe("library");
 
     p.scroll = 2000;

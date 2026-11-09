@@ -56,12 +56,13 @@ no paper grain or texture: the page is flat.
 | Element | Measurement | Where |
 |---|---|---|
 | Left nav | 232px fixed, 80px icon rail between 768 and 1023px, hidden under 768px; wordmark "Pager" at the top (no logo) | `components/shell/SideNav.tsx` |
-| Mobile bar | 56px bottom bar, four items | `BottomTabBar.tsx` |
+| Mobile bar | below 768px in a browser, a floating pill of frosted glass with five items and a bubble that slides to the current one; in the iPhone app, the system Liquid Glass tab bar instead. Both hide with the reader's chrome and under an open sheet | `shell/BottomTabBar.tsx`, `.glass-tab-bar`, `ios/Sources/Pager/TabsController.swift` |
 | Library column | 1040px (`--size-library`) inside 20px gutters | `shell/Page.tsx` `WideColumn` |
 | Toolbar | search bar (always), view toggle (compact / detailed), sort | `library/LibraryToolbar.tsx` |
 | Compact row | 40px: 20×28 cover, title, author, 96px progress bar + label, date, `⋯` | `library/items.tsx` |
 | Detailed card | `minmax(150px, 1fr)` grid: full-width 5:7 cover, title (2 lines), author, progress bar | `library/items.tsx` |
 | Context menu | 220px min, fixed at the pointer, clamped to the viewport | `ui/ContextMenu.tsx` |
+| Sheet | phones only (below 768px, and always in the iPhone app): every menu, panel and dialog (Contents, Reading settings, Tools, the library's menus, every dialog but a full-window view) rises from the bottom edge over the tab bar. Full width, `--radius-lg` top corners, `bg-elevated` on the scrim; a 36×5 grip in a 28px band, then a 48px title row with ✕ (none for Tools). 92dvh tall for Contents and Tools, as tall as its content otherwise (92dvh at most); only its body scrolls. In 300ms, out 250ms, `cubic-bezier(.19,1,.22,1)`. Closes with a swipe down on the grip or title row (past 30% of its height, or a flick), ✕, Esc or a tap on the scrim | `ui/Sheet.tsx`, `ui/sheetDrag.ts`, `.sheet` |
 | Reader | top bar 72px (56px on phones) with a 2px progress line. Pages: hidden by a centre tap with its space kept; the page box fills the rest minus a 44px footer; the page is 728px wide at most, 20/32px of vertical breathing room, 64px between pages. Scroll: the bars float over the chapter, which runs under them and under the tab bar; the column is 728px at most, 20/32px below the bar, 84px of room past the footer for the chapter buttons | `reader/PagedView.tsx`, `reader/ScrollView.tsx`, `--size-page-footer` |
 | Chapter buttons (Scroll) | 44px circles in the page colour, 1px detail ring and a 2px shadow, 16px chevrons, 24px in from the bottom corners of the reading area (above the footer), the back pill between them; none on a side with no chapter. They hide with the chrome and while a selection, popover, note or footnote is open: down 200px over 300ms ease-in-out, behind the footer (a fade under reduced motion) | `reader/ScrollView.tsx`, `.chapter-button` |
 | Page footer | 44px: ‹ and › at the sides (Pages only; Scroll has the chapter buttons, and its footer is opaque and rides down with the tab bar); between them one full-height button (13px meta, chapter title first on md+) that cycles on tap, instantly: "p. 4 of 17" ("Chapter 3 of 12" in Scroll) → "6 min left in chapter" → "3 h 12 min left in book" (books only) → "42%" → hidden; the choice is the `footerFormat` setting. Times use a reading speed learned from page dwell (median of the last 30 pages read at 4 s–3 min and 60–1000 wpm); until 5 samples, an average 238 wpm marked "~" ("~6 min left in chapter") | `reader/PageFooter.tsx`, `reader/readingSpeed.ts` |
@@ -72,7 +73,7 @@ no paper grain or texture: the page is flat.
 | Context card map | The Assistant page's Map, and every full-screen map from 768px (Phase 6): each node a card (`bg-elevated`, 1px detail ring, rounded) with what it is to the author over its name ("Concept:" 12px secondary, the name 14.5px semibold, two lines at most) and a 44px round picture on the right, the book's cover as a small portrait; the book's and the author's cards ringed darker. Laid on ovals filling the stage, overlaps pushed apart, lines routed round other cards. A tap rings the card in accent, lights its lines and relations and fades the unrelated cards' contents (the cards stay opaque); its details float over the map (360px, the footnote popover's entrance, own scroll) on the side away from it, closing with ✕, Esc or a tap on the map, so the page never moves. No key: the role says what each node is | `tools/context/CardMap.tsx`, `cardLayout`/`routeEdge` in `model.ts` |
 | Context card | "Context for this" on a selection (web only): the footnote popover's box and entrance, beside the selection, at most as tall as the roomier side so it never covers the words; "Context" and ✕ at the top, "Open in Context →" at the bottom. Shows a focused briefing already made, else what the book's briefing says about the name (with "Go deeper"), else an offer with its cost. Closes on a tap outside, ✕, Esc, a page turn, a scroll or a resize. The selection menu stays 8px inside the viewport | `tools/context/ContextCard.tsx`, `reader/SelectionMenu.tsx` |
 | Landing flash | the block a jump lands on: 20% accent wash with an 8px halo, held 2s then faded over 1s (`3s ease-out forwards`); a still wash for 3s under reduced motion. A class only, so text offsets hold | `.is-landing`, `flashLanding` |
-| Tool panel | 360px, side by side at 1280px and up, a sheet below that | `ReaderPage.tsx` |
+| Tool panel | 360px, side by side at 1280px and up, a right drawer from 768px, a bottom sheet on phones | `ReaderPage.tsx` |
 
 ## Pages
 
@@ -113,6 +114,16 @@ hidden (a centre tap shows them); with a mouse they show. A centre tap or a swip
 250 ms `cubic-bezier(.19,1,.22,1)` (instant under reduced motion): they slide and fade out of their
 own space, which stays, so the page never changes size or reflows. Hidden, they are `inert`; any mouse
 movement or the Tab key brings them back. The page footer always stays.
+
+**Sheets.** On phones a sheet rises in 300 ms and falls away in 250 ms, both
+`cubic-bezier(.19,1,.22,1)`, the chrome's curve; the scrim fades with it. A drag on the grip or title
+row moves it with the finger (never up); let go past 30% of its height, or flicked down at 0.5 px/ms
+over 40 px, it slides the rest of the way out from there, otherwise back in 250 ms. While one is open
+the tab bar hides as with the chrome and the page behind holds still. Under reduced motion it opens
+and closes at once.
+
+**Switching tabs** crossfades the whole screen: 150 ms in a browser, 200 ms in the iPhone app
+(`--tab-fade-duration`), a cut where the web view has no View Transitions API.
 
 ## Scroll
 

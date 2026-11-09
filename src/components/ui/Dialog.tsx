@@ -1,14 +1,20 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { cx } from "@/lib/cx";
+import { useIsPhone } from "@/lib/useIsPhone";
 import { IconButton } from "./Button";
+import { Sheet, useSheetOpenMark } from "./Sheet";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
-  /** "center" for modals, "left"/"right" for side sheets (table of contents, tools on mobile), "full" for the whole window. */
+  /**
+   * "center" for modals, "left"/"right" for side drawers (table of contents, tools below 1280px), "full"
+   * for the whole window. On phones every one but "full" is a bottom sheet: content-sized for "center",
+   * tall for the drawers.
+   */
   placement?: "center" | "left" | "right" | "full";
   className?: string;
   /** Hide the visible header (title is still announced). */
@@ -16,10 +22,30 @@ interface Props {
 }
 
 /**
+ * A modal: on phones (and always in the iPhone app) a bottom sheet, except a full-window view;
+ * otherwise a window of the given placement.
+ */
+export function Dialog(props: Props) {
+  const phone = useIsPhone();
+  const { open, onClose, title, children, placement = "center", bare } = props;
+  if (phone && placement !== "full") {
+    return (
+      <Sheet open={open} onClose={onClose} title={title} bare={bare} size={placement === "center" ? "content" : "tall"}>
+        {children}
+      </Sheet>
+    );
+  }
+  return <WindowDialog {...props} />;
+}
+
+/**
  * Native <dialog> with showModal(): focus trapping, Esc to close and inert background for free.
  */
-export function Dialog({ open, onClose, title, children, placement = "center", className, bare }: Props) {
+function WindowDialog({ open, onClose, title, children, placement = "center", className, bare }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
+  const phone = useIsPhone();
+  // A full-window view on a phone covers the tab bar too: the app hides its own, as for a sheet.
+  useSheetOpenMark(open && phone && placement === "full");
 
   useEffect(() => {
     const el = ref.current;
@@ -35,6 +61,8 @@ export function Dialog({ open, onClose, title, children, placement = "center", c
   return (
     <dialog
       ref={ref}
+      role="dialog"
+      data-reader-overlay=""
       aria-label={title}
       // React passes a nested dialog's close and cancel up to this one's handlers (a full-screen view
       // inside the tool sheet would close the sheet too): answer only this dialog's own.

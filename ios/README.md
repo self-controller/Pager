@@ -32,7 +32,7 @@ from its own page only (the main frame on `pager-app:`) and ignores anything els
 | `{t: "theme", background: "#rrggbb", scheme}` | Paints the web view and its edges that colour, and keeps it for the next cold start. `scheme` (`light` or `dark`, the page's theme) sets the tab bar's style, so the bar matches the page even against the phone's setting |
 | `{t: "reader", open}` | While the reader is open: the edge swipe back is off, so the page gets edge swipes, and the app does not bounce |
 | `{t: "selection", items}` | Which of `highlight`, `note` and `reattach` the text menu adds; `[]` outside the reader's text |
-| `{t: "tabs", tab, hidden}` | Selects `tab` (`library`, `book`, `highlights`, `assistant` or `settings`; `null` keeps the selection), then shows or hides the bar, animated. The page sends it when either changes; any open book is `book`; `hidden` follows the reader's chrome, and the pairing page sends `{tab: null, hidden: true}` |
+| `{t: "tabs", tab, hidden}` | Selects `tab` (`library`, `book`, `highlights`, `assistant` or `settings`; `null` keeps the selection), then shows or hides the bar, animated. The page sends it when either changes; any open book is `book`; `hidden` follows the reader's chrome and any open sheet (on phones the Contents and Tools panels, the type settings, the library menus and every dialog are bottom sheets, `src/components/ui/Sheet.tsx`, which mark `<html data-sheet-open>`), and the pairing page sends `{tab: null, hidden: true}` |
 
 The text menu keeps the system's Copy, Look Up, Translate and Share, with Pager's items first. Choosing
 one calls `window.__pager.menu("highlight")` (or `"note"`, `"reattach"`), which the reader handles
@@ -50,6 +50,14 @@ The app calls the page on `window.__pager`, with names from its own code only:
 The footprint is the distance in points from the top of the bar to the bottom of the screen. The page
 keeps it while the bar hides, so the reader never reflows. In the app the page draws no tab bar or
 side nav of its own (`data-native-tabs` on `<html>`).
+
+The bar looks new only because of how the binary is stamped. iOS 26 draws the new design for a binary
+built against SDK 26 or later, and keeps anything older in compatibility mode: a flat, full-width bar.
+A Linux build stamps the deployment target (17.5) as the SDK, so `Package.swift` passes the linker
+the real one (27.2). With that stamp the bar is the floating glass capsule, and its scroll-edge blur
+covers the web view's scroll view, which `setContentScrollView(for: .bottom)` already wires up. The
+SwiftUI Diagnostics sheet takes the new look too. **Diagnostics → Layout → Built for SDK** shows the
+stamp.
 
 ## 1. Tools, once
 
@@ -81,7 +89,8 @@ None of these needs `sudo`, unless a step below says so.
 3. **usbmuxd**, which lets xtool reach the phone over USB. It's already installed on this PC
    (`rpm -q usbmuxd`).
 
-4. **Xcode 27.1**: download `Xcode_27.1.xip` from <https://developer.apple.com/download/all/?q=Xcode>
+4. **Xcode 27.2** (the SDK the app is stamped with; `Package.swift` names it): download
+   `Xcode_27.2.xip` from <https://developer.apple.com/download/all/?q=Xcode>
    in your browser, signed in with your Apple ID. Only its iOS SDK is used; xtool doesn't run Xcode.
 
 5. **`xtool setup`**. It asks how to sign in:
@@ -151,7 +160,7 @@ and of anything that looks wrong:
 - open a book from Highlights: Book is selected. Highlights: its list, where you left it. Book: the
   book reopens at your place, with its bar showing. Tapping Book in the book does nothing;
 - five tabs fit, with labels: Library, Book, Highlights, Assistant, Settings; no "More";
-- switching tabs is instant (no crossfade in the app);
+- switching tabs crossfades for 200 ms (iOS 18 and later; a cut on 17.5);
 - tap the current tab: its top page. Tap again: it scrolls to the top;
 - in a book, Pages: a centre tap hides and shows the bar, and the page and its text don't move or
   repaginate. Scroll: the bar follows the scroll, with the footer riding down with it;
@@ -159,8 +168,26 @@ and of anything that looks wrong:
   hidden (show and hide it in a book, then open Diagnostics);
 - a toast sits above the bar; the pairing page has no bar;
 - landscape: no web side nav, the bar at the bottom, nothing important under it;
-- VoiceOver reads four tabs and which one is selected; Reduce Transparency makes the bar frosted;
+- VoiceOver reads five tabs and which one is selected; Reduce Transparency makes the bar frosted;
 - the edge swipe back still works in the library and is still off in a book.
+
+### Check it: the glass bar and the sheets
+
+1. Diagnostics → Layout shows **Built for SDK 27.2**.
+2. Library: a floating glass capsule; the list blurs through it while scrolling; the selection bubble
+   animates between tabs; the current tab is black (light) or white (dark).
+3. Highlights → Library: a short crossfade, with no flash of the wrong scroll.
+4. A book: Contents rises from the bottom with the dimmed strip above it. Drag the list starting on a
+   chapter row: no jump. A tap jumps to the chapter. A swipe down on the grip closes it. The bar is
+   gone while it's open and slides back when it closes.
+5. The same in the Scroll layout. After opening, scrolling and closing Contents, the chapter hasn't
+   moved and the chrome didn't hide.
+6. AA and Tools open as sheets. Tools is tall, and its own header closes it.
+7. Library: long-press a book, the menu sheet opens; choose **Rename…**: the rename sheet sits above
+   the keyboard.
+8. Landscape with a sheet open: the sheet is full width, and nothing is under the home indicator.
+9. With Reduce Motion on, sheets and tab switches are instant.
+10. Diagnostics → Layout: `env(safe-area-inset-bottom)` is the same with the bar shown and hidden.
 
 ## When it doesn't work
 
@@ -172,3 +199,4 @@ and of anything that looks wrong:
 | The app won't open after a week | A free Apple ID's signing lasts 7 days | `xtool dev` again |
 | "Pager can't reach your computer right now" | Pager isn't running, remote access is off, or neither side can reach the relay | Diagnostics' last error; Settings → Phone on the computer |
 | **Pair this phone** right after Allow | The pairing answer didn't reach the app | Pair again; then Diagnostics should say Paired: yes |
+| The bar is a flat grey bar on iOS 26 | The binary is stamped `sdk 17.5` (compatibility mode) | `~/.local/share/swiftly/toolchains/6.4.2/usr/bin/llvm-objdump --macho --private-headers ios/xtool/Pager.app/Pager \| grep -A3 LC_BUILD_VERSION` should say `sdk 27.2`; see the linker flag in `Package.swift` |

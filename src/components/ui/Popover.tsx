@@ -1,22 +1,29 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { cx } from "@/lib/cx";
+import { useIsPhone } from "@/lib/useIsPhone";
+import { Sheet } from "./Sheet";
 
 interface Props {
   /** Renders the trigger; spread the props onto a button. */
   trigger: (props: { "aria-expanded": boolean; "aria-controls": string; onClick: () => void }) => ReactNode;
+  /** The sheet's title on phones, and the panel's announced name. */
+  title: string;
   children: ReactNode;
   align?: "start" | "end";
+  /** The floating panel's classes (not the phone sheet's). */
   className?: string;
 }
 
-/** Anchored panel that closes on outside click and Esc. */
-export function Popover({ trigger, children, align = "end", className }: Props) {
+/** Anchored panel that closes on outside click and Esc; a bottom sheet on phones. */
+export function Popover({ trigger, title, children, align = "end", className }: Props) {
   const [open, setOpen] = useState(false);
   const id = useId();
   const ref = useRef<HTMLDivElement>(null);
+  const phone = useIsPhone();
 
   useEffect(() => {
-    if (!open) return;
+    // A sheet closes itself (✕, Esc, the scrim, a drag down).
+    if (!open || phone) return;
     const onDown = (e: PointerEvent) => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
@@ -32,23 +39,30 @@ export function Popover({ trigger, children, align = "end", className }: Props) 
       document.removeEventListener("pointerdown", onDown);
       document.removeEventListener("keydown", onKey, true);
     };
-  }, [open]);
+  }, [open, phone]);
 
   return (
     <div ref={ref} className="relative">
       {trigger({ "aria-expanded": open, "aria-controls": id, onClick: () => setOpen((o) => !o) })}
-      {open && (
-        <div
-          id={id}
-          role="dialog"
-          className={cx(
-            "absolute top-full z-30 mt-2 rounded-md bg-elevated elevation",
-            align === "end" ? "right-0" : "left-0",
-            className,
-          )}
-        >
-          {children}
-        </div>
+      {phone ? (
+        <Sheet id={id} open={open} onClose={() => setOpen(false)} title={title} size="content">
+          <div className="px-5 pt-1 pb-4">{children}</div>
+        </Sheet>
+      ) : (
+        open && (
+          <div
+            id={id}
+            role="dialog"
+            aria-label={title}
+            className={cx(
+              "absolute top-full z-30 mt-2 rounded-md bg-elevated elevation",
+              align === "end" ? "right-0" : "left-0",
+              className,
+            )}
+          >
+            {children}
+          </div>
+        )
       )}
     </div>
   );

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Link } from "react-router";
 import type { DocumentDetail } from "@/api/types";
 import { Dialog } from "@/components/ui/Dialog";
@@ -21,13 +22,23 @@ export function TocDrawer({
   /** Called just before going to another chapter, so the reader can remember where it was. */
   onJump?: (sectionId: string) => void;
 }) {
+  const list = useRef<HTMLOListElement>(null);
+
+  // Open on the chapter being read, not the top of a long list. Before any touch, so a scroll from
+  // script is safe here.
+  useEffect(() => {
+    if (!open) return;
+    const row = list.current?.querySelector<HTMLElement>("[aria-current=page]");
+    if (typeof row?.scrollIntoView === "function") row.scrollIntoView({ block: "center" });
+  }, [open]);
+
   return (
     <Dialog open={open} onClose={onClose} title="Contents" placement="left">
       <div className="px-5 pt-4 pb-2">
         <div className="font-display text-[15px] leading-5 font-semibold">{doc.title}</div>
         {doc.author && <div className="text-[13px] leading-[18px] text-fg-2">{doc.author}</div>}
       </div>
-      <ol className="flex flex-col p-2" data-reader-overlay>
+      <ol ref={list} className="flex flex-col p-2" data-reader-overlay>
         {doc.toc.map((entry) => {
           const current = entry.id === currentId;
           return (

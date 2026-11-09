@@ -33,13 +33,14 @@ struct DiagnosticsView: View {
                 if tabs != nil {
                     Section {
                         row("iOS", UIDevice.current.systemVersion)
+                        row("Built for SDK", BuildInfo.linkedSDK ?? "—")
                         row("Tab bar now", barHidden ? "hidden" : "shown")
                         layoutRows("shown", layout[false])
                         layoutRows("hidden", layout[true])
                     } header: {
                         Text("Layout")
                     } footer: {
-                        Text("Each set is taken as the bar last showed or hid. With the bar shown and hidden, env(bottom) should be the same (34 on Face ID iPhones), or the reader repaginates when its chrome hides.")
+                        Text("Each set is taken as the bar last showed or hid. With the bar shown and hidden, env(bottom) should be the same (34 on Face ID iPhones), or the reader repaginates when its chrome hides. Built for SDK below 26 means iOS 26 shows the old, flat compatibility bar, not the glass one.")
                     }
                 }
                 Section {

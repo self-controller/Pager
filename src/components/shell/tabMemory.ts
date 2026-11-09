@@ -19,7 +19,7 @@ export interface TabMemoryDeps {
   tabs: readonly TabEntry[];
   /** Where a tap on the Book tab goes: the book read last, or the library before any (useBookTab). */
   link(tab: NativeTab): string;
-  navigate(to: string, options?: { state?: unknown }): void;
+  navigate(to: string, options?: { state?: unknown; viewTransition?: boolean }): void;
   scrollY(): number;
   scrollTo(top: number, smooth: boolean): void;
   /** Runs `run` once the page has painted (two animation frames). */
@@ -51,6 +51,9 @@ function owns(entry: TabEntry, pathname: string): boolean {
  *    so the reader resumes at its saved place, which may have moved on another device;
  *  - tapping the current tab opens its top page, at the top; tapping it again there scrolls to the
  *    top. On the Book tab it does nothing: the book is already open.
+ * Each of these navigations crossfades, as the browser's pill links do (a view transition, which
+ * react-router skips where the WebView has none). `rendered()` runs inside the transition's update,
+ * so the new page is already scrolled back when it fades in.
  * The memory lasts as long as the page: a cold start opens the library.
  */
 export class TabMemory {
@@ -93,18 +96,18 @@ export class TabMemory {
       const state: TabSwitchState = { tabSwitch: true };
       if (entry.match) {
         this.pending = 0;
-        this.deps.navigate(this.deps.link(tab), { state });
+        this.deps.navigate(this.deps.link(tab), { state, viewTransition: true });
         return;
       }
       this.pending = place?.scrollY ?? 0;
-      this.deps.navigate(place?.location ?? entry.root, { state });
+      this.deps.navigate(place?.location ?? entry.root, { state, viewTransition: true });
       return;
     }
     if (entry.match) return;
     const here = this.places.get(tab)?.location ?? entry.root;
     if (here !== entry.root) {
       this.pending = 0;
-      this.deps.navigate(entry.root);
+      this.deps.navigate(entry.root, { viewTransition: true });
       return;
     }
     this.deps.scrollTo(0, !this.deps.reducedMotion());

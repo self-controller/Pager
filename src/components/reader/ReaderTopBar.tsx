@@ -56,6 +56,7 @@ export function ReaderTopBar({ doc, chapter, percent, onOpenToc, toolsOpen, onTo
         <div className="flex items-center gap-1">
           {onOpenToc && <IconButton icon={ListTree} label="Contents" onClick={onOpenToc} />}
           <Popover
+            title="Reading settings"
             className="w-[300px] p-4"
             trigger={(props) => <IconButton icon={ALargeSmall} label="Reading settings" {...props} />}
           >

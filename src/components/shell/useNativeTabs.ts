@@ -5,17 +5,20 @@ import { NATIVE_TABS, NAV } from "./nav";
 import { TabMemory } from "./tabMemory";
 import { useNavTargets } from "./useBookTab";
 
-function chromeHidden(): boolean {
-  return document.documentElement.dataset.readerChrome === "hidden";
+/** The bar hides with the reader's chrome, and under a sheet: ui/Sheet.tsx marks `<html data-sheet-open>`. */
+function barHidden(): boolean {
+  const d = document.documentElement.dataset;
+  return d.readerChrome === "hidden" || d.sheetOpen !== undefined;
 }
 
 /**
  * In the iPhone app, the shell's half of the system tab bar (ios/Sources/Pager/TabsController.swift):
- * tells the app which tab the page is in and whether the bar hides (with the reader's chrome), answers
- * its taps with tab memory (tabMemory.ts), and keeps the bar's space. Leaving the shell (the pairing
- * page) hides the bar. Does nothing in a browser.
+ * tells the app which tab the page is in and whether the bar hides (with the reader's chrome, or under
+ * a sheet), answers its taps with tab memory (tabMemory.ts), and keeps the bar's space. Leaving the
+ * shell (the pairing page) hides the bar. Does nothing in a browser.
  *
- * Tab switches in the app don't crossfade (no `viewTransition`), as the system's tabs don't.
+ * Tab switches in the app crossfade like the browser's: tab memory asks for a view transition, and
+ * tokens.css makes it 200 ms there.
  */
 export function useNativeTabs(): void {
   const location = useLocation();
@@ -43,13 +46,13 @@ export function useNativeTabs(): void {
       : null,
   );
 
-  // The app's calls, and the reader's chrome. Layout effects run in order, so these are in place
-  // before the first `tabs` message below, which the app answers with the bar's footprint.
+  // The app's calls, the reader's chrome and the sheets. Layout effects run in order, so these are in
+  // place before the first `tabs` message below, which the app answers with the bar's footprint.
   useLayoutEffect(() => {
     if (!memory) return;
     const root = document.documentElement;
-    const chrome = new MutationObserver(() => setNativeTabs(memory.current, chromeHidden()));
-    chrome.observe(root, { attributes: true, attributeFilter: ["data-reader-chrome"] });
+    const chrome = new MutationObserver(() => setNativeTabs(memory.current, barHidden()));
+    chrome.observe(root, { attributes: true, attributeFilter: ["data-reader-chrome", "data-sheet-open"] });
     const stopTab = onNativeTab((name) => {
       const entry = NATIVE_TABS.find((t) => t.tab === name);
       if (entry) memory.select(entry.tab);
@@ -66,7 +69,7 @@ export function useNativeTabs(): void {
   // Each new location: its tab, told to the app; and the scroll a tap asked for, before it paints.
   useLayoutEffect(() => {
     if (!memory) return;
-    setNativeTabs(memory.locate(location), chromeHidden());
+    setNativeTabs(memory.locate(location), barHidden());
     memory.rendered();
   }, [memory, location]);
 }
