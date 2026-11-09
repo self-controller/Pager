@@ -1,5 +1,6 @@
 import { NavLink } from "react-router";
 import { cx } from "@/lib/cx";
+import { isNativeApp } from "@/lib/native";
 import { NAV, type NavEntry } from "./nav";
 
 function NavItem({ item }: { item: NavEntry }) {
@@ -37,8 +38,12 @@ function NavItem({ item }: { item: NavEntry }) {
   );
 }
 
-/** Left navigation: a 232px column, an icon rail between 768 and 1023px, hidden on phones. */
+/**
+ * Left navigation: a 232px column, an icon rail between 768 and 1023px, hidden on phones. Never in the
+ * iPhone app, which keeps its tab bar at every width.
+ */
 export function SideNav() {
+  if (isNativeApp()) return null;
   return (
     <nav
       aria-label="Main navigation"

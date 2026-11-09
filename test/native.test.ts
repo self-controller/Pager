@@ -39,7 +39,9 @@ afterEach(() => {
   delete (window as unknown as { __pager?: unknown }).__pager;
   happyDOM.setURL(browserUrl);
   document.documentElement.removeAttribute("data-theme");
+  document.documentElement.removeAttribute("data-native-tabs");
   document.documentElement.style.removeProperty("--bg-primary");
+  document.documentElement.style.removeProperty("--native-tab-bar");
 });
 
 describe("haptics", () => {
@@ -123,26 +125,119 @@ describe("toHex", () => {
 });
 
 describe("the page colour", () => {
-  it("sends --bg-primary at start and when data-theme changes, once per colour", async () => {
+  it("sends --bg-primary and the scheme at start and when data-theme changes, once per change", async () => {
     vi.useRealTimers();
     const root = document.documentElement;
     root.dataset.theme = "light";
     root.style.setProperty("--bg-primary", "#FFFFFF");
     native.startNativeShell();
-    expect(sent()).toEqual([{ t: "theme", background: "#ffffff" }]);
+    expect(sent()).toEqual([{ t: "theme", background: "#ffffff", scheme: "light" }]);
 
     root.style.setProperty("--bg-primary", "#121212");
     root.dataset.theme = "dark";
     await new Promise((r) => setTimeout(r, 0));
     expect(sent()).toEqual([
-      { t: "theme", background: "#ffffff" },
-      { t: "theme", background: "#121212" },
+      { t: "theme", background: "#ffffff", scheme: "light" },
+      { t: "theme", background: "#121212", scheme: "dark" },
     ]);
 
     // The same theme set again (useApplySettings does this on mount): no message.
     root.dataset.theme = "dark";
     await new Promise((r) => setTimeout(r, 0));
     expect(sent()).toHaveLength(2);
+
+    // The scheme alone changing, on the same colour.
+    root.dataset.theme = "light";
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sent().at(-1)).toEqual({ t: "theme", background: "#121212", scheme: "light" });
+    expect(sent()).toHaveLength(3);
+  });
+
+  it("marks <html> for the app's tab bar, only in the app", () => {
+    vi.useRealTimers();
+    native.startNativeShell();
+    expect(document.documentElement.hasAttribute("data-native-tabs")).toBe(true);
+
+    document.documentElement.removeAttribute("data-native-tabs");
+    happyDOM.setURL(browserUrl);
+    native.startNativeShell();
+    expect(document.documentElement.hasAttribute("data-native-tabs")).toBe(false);
+  });
+});
+
+describe("the app's tab bar", () => {
+  type Pager = { tab?: (tab: string) => void; tabBar?: (points: number) => void; menu?: (item: string) => void };
+  const pager = () => (window as unknown as { __pager?: Pager }).__pager;
+
+  it("sends the tab and whether the bar hides only when either changes", () => {
+    native.setNativeTabs("library", false);
+    native.setNativeTabs("library", false);
+    native.setNativeTabs("library", true);
+    native.setNativeTabs("highlights", true);
+    native.setNativeTabs("highlights", true);
+    native.setNativeTabs(null, true);
+    expect(sent()).toEqual([
+      { t: "tabs", tab: "library", hidden: false },
+      { t: "tabs", tab: "library", hidden: true },
+      { t: "tabs", tab: "highlights", hidden: true },
+      { t: "tabs", tab: null, hidden: true },
+    ]);
+  });
+
+  it("sends nothing in a browser", () => {
+    happyDOM.setURL(browserUrl);
+    native.setNativeTabs("library", false);
+    expect(sent()).toEqual([]);
+  });
+
+  it("lets the app call the tab handlers until they stop, next to the menu's", () => {
+    const menu = vi.fn();
+    const tab = vi.fn();
+    const tabBar = vi.fn();
+    const stopMenu = native.onNativeMenu(menu);
+    const stopTab = native.onNativeTab(tab);
+    const stopTabBar = native.onNativeTabBar(tabBar);
+    pager()?.tab?.("highlights");
+    pager()?.tabBar?.(83);
+    pager()?.menu?.("note");
+    expect(tab).toHaveBeenCalledWith("highlights");
+    expect(tabBar).toHaveBeenCalledWith(83);
+    expect(menu).toHaveBeenCalledWith("note");
+
+    stopTab();
+    stopTabBar();
+    expect(pager()?.tab).toBeUndefined();
+    expect(pager()?.tabBar).toBeUndefined();
+    expect(pager()?.menu).toBe(menu);
+    stopMenu();
+  });
+
+  it("keeps a newer tab handler when an older one stops", () => {
+    const stopOld = native.onNativeTab(vi.fn());
+    const newer = vi.fn();
+    native.onNativeTab(newer);
+    stopOld();
+    pager()?.tab?.("settings");
+    expect(newer).toHaveBeenCalledWith("settings");
+  });
+
+  it("keeps the bar's footprint, above the home indicator, as --native-tab-bar", () => {
+    const root = document.documentElement;
+    const changed = vi.fn();
+    window.addEventListener(native.TAB_BAR_EVENT, changed);
+    try {
+      // No safe area in the test DOM: the footprint is all bar.
+      native.setNativeTabBar(83);
+      expect(root.style.getPropertyValue("--native-tab-bar")).toBe("83px");
+      native.setNativeTabBar(83);
+      native.setNativeTabBar(Number.NaN);
+      expect(changed).toHaveBeenCalledTimes(1);
+      native.setNativeTabBar(-4);
+      expect(root.style.getPropertyValue("--native-tab-bar")).toBe("0px");
+      expect(changed).toHaveBeenCalledTimes(2);
+    } finally {
+      window.removeEventListener(native.TAB_BAR_EVENT, changed);
+    }
   });
 });
 

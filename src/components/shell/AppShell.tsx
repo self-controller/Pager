@@ -1,12 +1,18 @@
 import { Outlet } from "react-router";
 import { useLiveUpdates } from "@/api/hooks";
 import { ToastProvider } from "@/components/ui/Toast";
+import { cx } from "@/lib/cx";
+import { isNativeApp } from "@/lib/native";
 import { BottomTabBar } from "./BottomTabBar";
 import { SideNav } from "./SideNav";
+import { useNativeTabs } from "./useNativeTabs";
 
 export function AppShell() {
   // Files edited on disk, re-anchored highlights, other tabs: refetch what changed.
   useLiveUpdates();
+  // In the iPhone app the tab bar is the system's, at every width.
+  useNativeTabs();
+  const native = isNativeApp();
   return (
     <ToastProvider>
       <a
@@ -18,7 +24,11 @@ export function AppShell() {
       <SideNav />
       <main
         id="content"
-        className="min-h-dvh pb-[calc(var(--size-bottom-nav)+env(safe-area-inset-bottom))] md:ml-[var(--size-left-nav)] md:pb-0"
+        className={cx(
+          "min-h-dvh pb-[calc(var(--size-bottom-nav)+env(safe-area-inset-bottom))] md:ml-[var(--size-left-nav)]",
+          // From 768px a browser has the side nav instead; the app keeps its tab bar (an iPhone in landscape).
+          !native && "md:pb-0",
+        )}
       >
         <Outlet />
       </main>

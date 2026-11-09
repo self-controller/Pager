@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { API_VERSION, type Health } from "@/api/types";
+import { setNativeTabs } from "@/lib/native";
 
 /** Which side is behind when this UI and the server speak different API versions, or null when they match. */
 export function outdatedSide(health: Pick<Health, "apiVersion"> | undefined): "app" | "computer" | null {
@@ -11,6 +13,8 @@ export function outdatedSide(health: Pick<Health, "apiVersion"> | undefined): "a
  * carries its own copy of this UI, can meet that; the computer serves the UI that matches it.
  */
 export function UpdateNeeded({ side }: { side: "app" | "computer" }) {
+  // No tabs to go to: the app's tab bar hides.
+  useEffect(() => setNativeTabs(null, true), []);
   return (
     <main className="flex min-h-dvh justify-center px-5 pt-[max(48px,env(safe-area-inset-top))] pb-[max(32px,env(safe-area-inset-bottom))]">
       <div className="flex w-full max-w-[400px] flex-col gap-4" role="alert">

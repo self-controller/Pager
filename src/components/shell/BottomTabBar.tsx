@@ -1,4 +1,5 @@
 import { matchPath, NavLink, useLocation } from "react-router";
+import { isNativeApp } from "@/lib/native";
 import { NAV } from "./nav";
 
 /** Width of one tab in the pill, in px. The bubble moves by this much per tab. */
@@ -7,9 +8,14 @@ const TAB_WIDTH = 64;
 /**
  * Below 768px the side nav becomes a floating glass pill of icons near the bottom of the screen.
  * The outer box keeps the old bar's size and place (the reader hides it, the page pads for it),
- * but it is see-through and lets taps through around the pill.
+ * but it is see-through and lets taps through around the pill. The iPhone app draws the system tab
+ * bar instead (useNativeTabs).
  */
 export function BottomTabBar() {
+  return isNativeApp() ? null : <GlassTabBar />;
+}
+
+function GlassTabBar() {
   const items = NAV.filter((n) => n.mobile);
   const { pathname } = useLocation();
   // Same matching as NavLink: "/" only exactly, the others as a prefix.

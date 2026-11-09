@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router";
+import { isTabSwitch } from "@/components/shell/tabMemory";
 import type { LayoutKind } from "./layout";
 import { chromeStep, holdChrome, initialChromeScroll } from "./scrollChrome";
 
@@ -13,13 +15,17 @@ function startsVisible(): boolean {
  * page hide it (PagedView); a mouse or the Tab key brings it back, so neither is ever left without it. While hidden, <html data-reader-chrome="hidden"> lets the tab
  * bar, which lives outside the reader, hide too (globals.css). Cleared when the reader closes.
  * <html data-reader-layout> names the layout, so the shell can let a scrolling chapter run under
- * the tab bar.
+ * the tab bar. A book reopened by a tap on the iPhone app's tab bar (tabMemory.ts) starts with its
+ * chrome showing, so the bar just tapped doesn't vanish under the finger.
  */
 export function useReaderChrome(docId: string | undefined, layout: LayoutKind = "paged"): [boolean, (visible: boolean) => void] {
-  const [visible, setVisible] = useState(startsVisible);
+  const tabSwitch = isTabSwitch(useLocation().state);
+  const tabSwitchRef = useRef(tabSwitch);
+  tabSwitchRef.current = tabSwitch;
+  const [visible, setVisible] = useState(() => tabSwitch || startsVisible());
 
   // Another book opens as the first did.
-  useEffect(() => setVisible(startsVisible()), [docId]);
+  useEffect(() => setVisible(tabSwitchRef.current || startsVisible()), [docId]);
 
   useEffect(() => {
     const root = document.documentElement;

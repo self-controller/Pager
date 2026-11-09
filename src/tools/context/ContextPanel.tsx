@@ -16,6 +16,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
 import { ServiceError } from "@/components/ui/ServiceError";
 import { cx } from "@/lib/cx";
+import { TAB_BAR_EVENT } from "@/lib/native";
 import { updateSettings, useSettings } from "@/state/settings";
 import type { ToolPanelProps } from "@/tools/types";
 import { BriefingView } from "./BriefingView";
@@ -284,7 +285,7 @@ export function ContextForDocument({
           <MapStage
             height={
               phone
-                ? windowHeight - PHONE_HEADER - safe.top - TABS_HEIGHT - PHONE_TAB_BAR - safe.bottom
+                ? windowHeight - PHONE_HEADER - safe.top - TABS_HEIGHT - safe.tabBar - safe.bottom
                 : windowHeight - TABS_HEIGHT
             }
             minHeight={phone ? 320 : 420}
@@ -567,28 +568,33 @@ function usePhone(): boolean {
 }
 
 /**
- * The safe-area insets (the iPhone's status bar and home indicator) in pixels: CSS knows them only as
- * `env()`, so a hidden probe is padded with them and measured, again on each resize (a rotation).
+ * The safe-area insets (the iPhone's status bar and home indicator) and the phone tab bar's height
+ * above the home indicator (`--size-bottom-nav`, the system bar's own in the iPhone app), in pixels:
+ * CSS knows them only as `env()` and a variable, so a hidden probe is padded with them and measured,
+ * again on each resize (a rotation) and when the app's tab bar changed.
  */
-function useSafeArea(): { top: number; bottom: number } {
-  const [insets, setInsets] = useState({ top: 0, bottom: 0 });
+function useSafeArea(): { top: number; bottom: number; tabBar: number } {
+  const [insets, setInsets] = useState({ top: 0, bottom: 0, tabBar: 56 });
   useEffect(() => {
     const probe = document.createElement("div");
     probe.setAttribute("aria-hidden", "true");
     probe.style.cssText =
       "position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;" +
-      "padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)";
+      "padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);margin-bottom:var(--size-bottom-nav)";
     document.body.appendChild(probe);
     const read = () => {
       const cs = getComputedStyle(probe);
       const top = parseFloat(cs.paddingTop) || 0;
       const bottom = parseFloat(cs.paddingBottom) || 0;
-      setInsets((p) => (p.top === top && p.bottom === bottom ? p : { top, bottom }));
+      const tabBar = parseFloat(cs.marginBottom) || 0;
+      setInsets((p) => (p.top === top && p.bottom === bottom && p.tabBar === tabBar ? p : { top, bottom, tabBar }));
     };
     read();
     window.addEventListener("resize", read);
+    window.addEventListener(TAB_BAR_EVENT, read);
     return () => {
       window.removeEventListener("resize", read);
+      window.removeEventListener(TAB_BAR_EVENT, read);
       probe.remove();
     };
   }, []);
@@ -610,8 +616,6 @@ const TABS_HEIGHT = 53;
 const MAP_TOOLBAR = 36;
 /** The phone's page header, less the status bar's inset (`--size-phone-header` is both). */
 const PHONE_HEADER = 56;
-/** The phone's tab bar, less the home indicator's inset (`--size-bottom-nav`). */
-const PHONE_TAB_BAR = 56;
 
 /**
  * The card map's stage (Phase 6): the hint and the full-screen button in a row above it, then the map

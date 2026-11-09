@@ -1,4 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { cx } from "@/lib/cx";
+import { isNativeApp } from "@/lib/native";
 
 export interface ToastOptions {
   message: string;
@@ -36,7 +38,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div
         role="status"
         aria-live="polite"
-        className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--size-bottom-nav)+env(safe-area-inset-bottom)+12px)] z-50 flex justify-center px-4 md:bottom-6"
+        className={cx(
+          "pointer-events-none fixed inset-x-0 bottom-[calc(var(--size-bottom-nav)+env(safe-area-inset-bottom)+12px)] z-50 flex justify-center px-4",
+          // Above the tab bar; from 768px a browser has none, but the iPhone app keeps it (landscape).
+          !isNativeApp() && "md:bottom-6",
+        )}
       >
         {current && (
           <div

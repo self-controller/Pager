@@ -15,18 +15,32 @@ export type HapticKind = "selection" | "light" | "soft" | "success" | "error";
 export type NativeMenuItem = "highlight" | "note" | "reattach";
 
 /**
+ * The tabs of the app's tab bar (`PagerTab` in ios/Sources/Pager/TabsController.swift names the same
+ * ones). Their order is NAV's (src/components/shell/nav.ts).
+ */
+export type NativeTab = "library" | "highlights" | "assistant" | "settings";
+
+/**
  * What the page tells the app, on `window.webkit.messageHandlers.pager`. PagerWebView.swift reads the
  * same `t`s and ignores any other.
  */
 export type ShellMessage =
   | { t: "haptic.prepare"; kind: HapticKind }
   | { t: "haptic.fire"; kind: HapticKind }
-  /** The page colour under the current theme, so the app's edges and cold start match it. */
-  | { t: "theme"; background: string }
+  /**
+   * The page colour under the current theme, so the app's edges and cold start match it, and whether
+   * the theme is light or dark, so the app's tab bar matches the page even against the phone's setting.
+   */
+  | { t: "theme"; background: string; scheme: "light" | "dark" }
   /** While the reader is open the app turns its edge swipe back and its bounce off, so edge swipes reach the page. */
   | { t: "reader"; open: boolean }
   /** The items the app adds to its menu for the current selection: none unless it is in the reader's text. */
-  | { t: "selection"; items: NativeMenuItem[] };
+  | { t: "selection"; items: NativeMenuItem[] }
+  /**
+   * The tab the page is in (null keeps the bar's selection), and whether the tab bar hides: with the
+   * reader's chrome, and on pages outside the app's shell (pairing).
+   */
+  | { t: "tabs"; tab: NativeTab | null; hidden: boolean };
 
 interface PagerMessageHandler {
   postMessage(message: ShellMessage): void;
@@ -129,24 +143,30 @@ export function toHex(css: string): string | null {
   return typeof ctx.fillStyle === "string" ? parseColor(ctx.fillStyle) : null;
 }
 
-let lastBackground: string | null = null;
+let lastTheme = "";
 
-/** Sends the app the page colour (`--bg-primary` under the current theme) when it changed. */
+/** Sends the app the page colour (`--bg-primary` under the current theme) and the scheme when either changed. */
 function sendTheme(): void {
   if (!shell()) return;
-  const background = toHex(getComputedStyle(document.documentElement).getPropertyValue("--bg-primary"));
-  if (!background || background === lastBackground) return;
-  lastBackground = background;
-  post({ t: "theme", background });
+  const root = document.documentElement;
+  const background = toHex(getComputedStyle(root).getPropertyValue("--bg-primary"));
+  if (!background) return;
+  const scheme = root.dataset.theme === "dark" ? "dark" : "light";
+  const key = `${background}:${scheme}`;
+  if (key === lastTheme) return;
+  lastTheme = key;
+  post({ t: "theme", background, scheme });
 }
 
 /**
  * In the iPhone app, keeps the app told the page colour: now, and whenever the theme changes
- * (`data-theme` on <html>, set before first paint and by useApplySettings). Call once at startup; a
- * no-op in a browser.
+ * (`data-theme` on <html>, set before first paint and by useApplySettings). Marks <html> with
+ * `data-native-tabs`: the app draws the tab bar, so the page hides its own (globals.css, tokens.css).
+ * Call once at startup, before the first render; a no-op in a browser.
  */
 export function startNativeShell(): void {
   if (!shell()) return;
+  document.documentElement.dataset.nativeTabs = "";
   sendTheme();
   new MutationObserver(sendTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
   // The stylesheet may not have applied at the first read.
@@ -171,18 +191,98 @@ export function setNativeMenuItems(items: NativeMenuItem[]): void {
   post({ t: "selection", items });
 }
 
-type MenuHandler = (item: string) => void;
-type PagerGlobal = { __pager?: { menu?: MenuHandler } };
+/** What the app calls on `window.__pager`. Each takes only names or a number from the app's own code. */
+interface PagerCalls {
+  /** One of Pager's items in the app's menu was chosen. */
+  menu: (item: string) => void;
+  /** A tab in the app's bar was tapped, the selected one included. */
+  tab: (tab: string) => void;
+  /** The tab bar's footprint: points from its top to the bottom of the screen. */
+  tabBar: (points: number) => void;
+}
+
+type PagerGlobal = { __pager?: Partial<PagerCalls> };
+
+/** Puts `handler` on `window.__pager[name]`; the returned function takes it off, unless a newer one replaced it. */
+function onNative<K extends keyof PagerCalls>(name: K, handler: PagerCalls[K]): () => void {
+  const w = window as PagerGlobal;
+  w.__pager ??= {};
+  w.__pager[name] = handler;
+  return () => {
+    if (w.__pager?.[name] === handler) delete w.__pager[name];
+  };
+}
 
 /**
  * Runs `handler` when one of Pager's items in the app's menu is chosen: the app calls
  * `window.__pager.menu("highlight")`. Returns the function that stops it.
  */
-export function onNativeMenu(handler: MenuHandler): () => void {
-  const w = window as PagerGlobal;
-  w.__pager ??= {};
-  w.__pager.menu = handler;
-  return () => {
-    if (w.__pager?.menu === handler) delete w.__pager.menu;
-  };
+export function onNativeMenu(handler: PagerCalls["menu"]): () => void {
+  return onNative("menu", handler);
+}
+
+// --- The app's tab bar ---
+
+let lastTabs = "";
+
+/**
+ * Tells the app which tab the page is in (null keeps its selection) and whether to hide the tab bar,
+ * when either changed.
+ */
+export function setNativeTabs(tab: NativeTab | null, hidden: boolean): void {
+  if (!shell()) return;
+  const key = `${tab}:${hidden}`;
+  if (key === lastTabs) return;
+  lastTabs = key;
+  post({ t: "tabs", tab, hidden });
+}
+
+/** Runs `handler` when a tab in the app's bar is tapped: the app calls `window.__pager.tab("highlights")`. */
+export function onNativeTab(handler: PagerCalls["tab"]): () => void {
+  return onNative("tab", handler);
+}
+
+/** Runs `handler` with the tab bar's footprint in points: the app calls `window.__pager.tabBar(83)`. */
+export function onNativeTabBar(handler: PagerCalls["tabBar"]): () => void {
+  return onNative("tabBar", handler);
+}
+
+/** The event the page gets when the tab bar's space (`--size-bottom-nav`) changed in the app. */
+export const TAB_BAR_EVENT = "pager:tab-bar";
+
+let tabBarPoints: number | null = null;
+
+/** `env(safe-area-inset-bottom)` in px, read off a hidden probe (CSS has it only as `env()`). */
+function safeAreaBottom(): number {
+  const probe = document.createElement("div");
+  probe.setAttribute("aria-hidden", "true");
+  probe.style.cssText =
+    "position:fixed;left:0;bottom:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-bottom:env(safe-area-inset-bottom)";
+  document.body.appendChild(probe);
+  const bottom = Number.parseFloat(getComputedStyle(probe).paddingBottom) || 0;
+  probe.remove();
+  return bottom;
+}
+
+function applyTabBar(): void {
+  if (tabBarPoints === null) return;
+  const root = document.documentElement;
+  const value = `${Math.max(0, tabBarPoints - safeAreaBottom())}px`;
+  if (root.style.getPropertyValue("--native-tab-bar") === value) return;
+  root.style.setProperty("--native-tab-bar", value);
+  window.dispatchEvent(new Event(TAB_BAR_EVENT));
+}
+
+/**
+ * The app's tab bar covers `points` from the bottom of the screen. The page keeps that space as
+ * `--native-tab-bar` (which `--size-bottom-nav` takes in the app, tokens.css), less the home
+ * indicator's inset, which the CSS adds itself. Measured again on a resize (a rotation), as the
+ * inset may change after the app's number arrives. It stays set when the bar hides: the page keeps
+ * the bar's space, so the reader never reflows.
+ */
+export function setNativeTabBar(points: number): void {
+  if (!Number.isFinite(points)) return;
+  if (tabBarPoints === null) window.addEventListener("resize", applyTabBar);
+  tabBarPoints = points;
+  applyTabBar();
 }

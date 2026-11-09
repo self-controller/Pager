@@ -154,6 +154,15 @@
   }
 }
 
+/* In the iPhone app the tab bar is the system's (ios/Sources/Pager/TabsController.swift) at every
+   width, an iPhone in landscape included: no side nav, and the page keeps the bar's space, which the
+   app measures (--native-tab-bar, set by setNativeTabBar in src/lib/native.ts). */
+:root[data-native-tabs] {
+  --size-left-nav: 0px;
+  --size-bottom-nav: var(--native-tab-bar, 56px);
+  --size-bottom-nav-effective: var(--size-bottom-nav);
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --duration-fast: 0s;
