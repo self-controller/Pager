@@ -75,6 +75,7 @@ export function ContextForDocument({
   onWholeBook = () => setPanelFocus(null),
   bookShown = false,
   wide = false,
+  page = false,
 }: {
   doc: DocumentDetail;
   focus: string | null;
@@ -86,6 +87,11 @@ export function ContextForDocument({
    * as tall as the window; the briefing's text stays a readable column.
    */
   wide?: boolean;
+  /**
+   * On the Assistant page, below its phone header: the map is the card map at every width, pinched to
+   * zoom on a phone with the tapped card's details below it, and the view tabs stick below the header.
+   */
+  page?: boolean;
 }) {
   const { contextLevel: level } = useSettings();
   const status = useContextStatus();
@@ -118,8 +124,13 @@ export function ContextForDocument({
   // Pictures and Wikipedia intros: free, looked up once per briefing; without them the map keeps its shapes.
   const ids = useMemo(() => (briefing ? mediaIds(briefing) : []), [briefing]);
   const media = useContextMedia(ids).data?.media;
-  const images = useMemo(() => (briefing ? nodeImages(briefing, media, doc.coverUrl) : undefined), [briefing, media, doc.coverUrl]);
+  const images = useMemo(
+    () => (briefing ? nodeImages(briefing, media, doc.coverUrl) : undefined),
+    [briefing, media, doc.coverUrl],
+  );
   const windowHeight = useWindowHeight();
+  const phone = usePhone();
+  const safe = useSafeArea();
   const shown: ContextView = views.includes(view) ? view : "briefing";
   const onMap = useMemo(
     () => new Set(views.includes("map") && briefing ? briefing.entities.map((e) => e.id) : []),
@@ -192,17 +203,30 @@ export function ContextForDocument({
   };
   // Beside or below a graphic: the details, or what to do on it.
   const card = (v: ContextView) => (briefing ? (detail(v) ?? <Hint view={v} briefing={briefing} />) : null);
-  // The card map, where there's room (the wide page, a full screen): the details float over it.
-  const cardMap = (height: number) =>
+  // The card map, where there's room (the page, a full screen): the details float over it, or with
+  // `below` (a phone) the stage shows them under it.
+  const cardMap = (height: number, below = false) =>
     briefing && (
-      <CardMap briefing={briefing} focus={picked} onFocus={setPicked} height={height} images={images} detail={detail("map")} />
+      <CardMap
+        briefing={briefing}
+        focus={picked}
+        onFocus={setPicked}
+        height={height}
+        images={images}
+        detail={below ? null : detail("map")}
+      />
     );
 
   return (
     <div className="flex min-h-full flex-col">
       {focus && <FocusHeader focus={focus} doc={bookShown ? null : doc} onWholeBook={onWholeBook} />}
       {views.length > 1 && (
-        <div className="sticky top-0 z-10 border-b border-detail bg-surface px-3 py-2">
+        <div
+          className={cx(
+            "sticky z-10 border-b border-detail bg-surface px-3 py-2",
+            page ? "top-[var(--size-phone-header)] md:top-0" : "top-0",
+          )}
+        >
           <div className={cx(wide && "max-w-[560px]")}>
             <SegmentedTabs
               label="Context view"
@@ -254,12 +278,22 @@ export function ContextForDocument({
         </div>
       ) : (
         briefing &&
-        (wide && shown === "map" ? (
-          // The map fills the window below the sticky tabs.
+        ((wide || page) && shown === "map" ? (
+          // The map fills the window below the sticky tabs; on a phone, also below the page's header and
+          // above the tab bar, so it fits one screen, with the tapped card's details below it.
           <MapStage
-            height={windowHeight - TABS_HEIGHT}
+            height={
+              phone
+                ? windowHeight - PHONE_HEADER - safe.top - TABS_HEIGHT - PHONE_TAB_BAR - safe.bottom
+                : windowHeight - TABS_HEIGHT
+            }
+            minHeight={phone ? 320 : 420}
+            scrollIn={phone}
             hint={<Hint view="map" briefing={briefing} cards />}
-            map={cardMap}
+            map={(h) => cardMap(h, phone)}
+            below={phone ? detail("map") : undefined}
+            picked={picked}
+            belowHeader
             onFull={() => setFull("map")}
           />
         ) : (
@@ -269,6 +303,7 @@ export function ContextForDocument({
             maxHeight={wide ? windowHeight - 140 : undefined}
             cardHeight={windowHeight - TABS_HEIGHT - 16}
             stickyCard={wide}
+            belowHeader={page}
             graphic={(h) => graphic(shown, h)}
             card={card(shown)}
             picked={picked}
@@ -297,6 +332,7 @@ export function ContextForDocument({
               view={full}
               graphic={(h) => graphic(full, h)}
               cardMap={cardMap}
+              mapDetail={detail("map")}
               card={card(full)}
               hint={<Hint view={full} briefing={briefing} cards />}
               picked={picked}
@@ -495,7 +531,9 @@ function RefreshDialog({
 function Hint({ view, briefing, cards = false }: { view: ContextView; briefing: ContextBriefing; cards?: boolean }) {
   const text =
     view === "map"
-      ? `Tap a ${cards ? "card" : "name"} to see how it connects to the book, with sources. ${usableLinks(briefing).length} sourced links.`
+      ? cards && coarsePointer()
+        ? "Pinch to zoom. Tap a card for its links."
+        : `Tap a ${cards ? "card" : "name"} to see how it connects to the book, with sources. ${usableLinks(briefing).length} sourced links.`
       : view === "timeline"
         ? "Dates from Wikidata. Tap a row for its sources."
         : "Places from Wikidata. Tap one for its sources.";
@@ -513,6 +551,55 @@ function useWindowHeight(): number {
   return height;
 }
 
+/** Below 768 px: the phone layout, with the page's header on top and the tab bar at the bottom. */
+function usePhone(): boolean {
+  const query = "(max-width: 767px)";
+  const [phone, setPhone] = useState(() => typeof window.matchMedia === "function" && window.matchMedia(query).matches);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia(query);
+    const on = () => setPhone(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return phone;
+}
+
+/**
+ * The safe-area insets (the iPhone's status bar and home indicator) in pixels: CSS knows them only as
+ * `env()`, so a hidden probe is padded with them and measured, again on each resize (a rotation).
+ */
+function useSafeArea(): { top: number; bottom: number } {
+  const [insets, setInsets] = useState({ top: 0, bottom: 0 });
+  useEffect(() => {
+    const probe = document.createElement("div");
+    probe.setAttribute("aria-hidden", "true");
+    probe.style.cssText =
+      "position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;" +
+      "padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)";
+    document.body.appendChild(probe);
+    const read = () => {
+      const cs = getComputedStyle(probe);
+      const top = parseFloat(cs.paddingTop) || 0;
+      const bottom = parseFloat(cs.paddingBottom) || 0;
+      setInsets((p) => (p.top === top && p.bottom === bottom ? p : { top, bottom }));
+    };
+    read();
+    window.addEventListener("resize", read);
+    return () => {
+      window.removeEventListener("resize", read);
+      probe.remove();
+    };
+  }, []);
+  return insets;
+}
+
+/** A finger, not a mouse: the hint says to pinch. */
+function coarsePointer(): boolean {
+  return typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+}
+
 function reducedMotion(): boolean {
   return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
@@ -521,32 +608,76 @@ function reducedMotion(): boolean {
 const TABS_HEIGHT = 53;
 /** The row above the card map: the hint and the full-screen button. */
 const MAP_TOOLBAR = 36;
+/** The phone's page header, less the status bar's inset (`--size-phone-header` is both). */
+const PHONE_HEADER = 56;
+/** The phone's tab bar, less the home indicator's inset (`--size-bottom-nav`). */
+const PHONE_TAB_BAR = 56;
 
 /**
  * The card map's stage (Phase 6): the hint and the full-screen button in a row above it, then the map
- * at `height` less that row. The tapped card's details float over the map, so a tap never changes the
- * page's height or its scroll.
+ * at `height` less that row. Where there's room the tapped card's details float over the map, so a tap
+ * never changes the page's height or its scroll. With `below` (a phone) they show under the map
+ * instead and a tap scrolls down to them, as on Timeline and Places; a drag on the map that it can't
+ * follow scrolls back up. With `scrollIn` (the phone's page), opening the map scrolls the page so the
+ * whole stage shows below the sticky tabs.
  */
 function MapStage({
   height,
+  minHeight = 420,
+  scrollIn = false,
   hint,
   map,
+  below,
+  picked = null,
+  belowHeader = false,
   onFull,
 }: {
   height: number;
+  minHeight?: number;
+  scrollIn?: boolean;
   hint: ReactNode;
   map: (height: number) => ReactNode;
+  /** The tapped card's details, shown under the map (null when nothing is tapped). */
+  below?: ReactNode;
+  picked?: string | null;
+  /** On the Assistant page: the phone's header and tab bar are over the page too. */
+  belowHeader?: boolean;
   onFull?: () => void;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const belowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (scrollIn) ref.current?.scrollIntoView({ block: "start", behavior: reducedMotion() ? "auto" : "smooth" });
+  }, [scrollIn]);
+  useEffect(() => {
+    if (!picked) return;
+    belowRef.current?.scrollIntoView({ block: "nearest", behavior: reducedMotion() ? "auto" : "smooth" });
+  }, [picked]);
   return (
-    <div className="flex flex-col px-3 pb-2">
+    <div ref={ref} className={cx("flex flex-col px-3 pb-2", scrollIn && "scroll-mt-[calc(var(--size-phone-header)+53px)]")}>
       <div className="flex shrink-0 items-center justify-between gap-3 px-1" style={{ height: MAP_TOOLBAR }}>
         <div className="min-w-0 truncate">{hint}</div>
         {onFull && <IconButton icon={Maximize2} label="Full screen" size="sm" onClick={onFull} />}
       </div>
-      {map(Math.max(420, height - MAP_TOOLBAR - 8))}
+      {map(Math.max(minHeight, height - MAP_TOOLBAR - 8))}
+      {/* The hint is in the row above, so nothing shows here until a card is tapped. */}
+      {below && picked && (
+        <div ref={belowRef} className={cx("px-2 pt-4 pb-6", belowScrollMargins(belowHeader))}>
+          {below}
+        </div>
+      )}
     </div>
   );
+}
+
+/**
+ * Where a card below a graphic stops when scrolled into view: below the sticky tabs, and on the
+ * Assistant page also below the phone's header and above its floating tab bar.
+ */
+function belowScrollMargins(belowHeader: boolean): string {
+  return belowHeader
+    ? "scroll-mt-[calc(var(--size-phone-header)+64px)] scroll-mb-[calc(var(--size-bottom-nav)+env(safe-area-inset-bottom)+16px)] md:scroll-mt-16 md:scroll-mb-4"
+    : "scroll-mt-16 scroll-mb-4";
 }
 
 /**
@@ -560,6 +691,7 @@ function GraphicStage({
   maxHeight,
   cardHeight,
   stickyCard = false,
+  belowHeader = false,
   graphic,
   card,
   picked,
@@ -570,6 +702,8 @@ function GraphicStage({
   /** The card column's height, beside the graphic. */
   cardHeight: number;
   stickyCard?: boolean;
+  /** On the Assistant page: the phone's header is over the page too. */
+  belowHeader?: boolean;
   graphic: (maxHeight?: number) => ReactNode;
   card: ReactNode;
   picked: string | null;
@@ -606,8 +740,8 @@ function GraphicStage({
     <div className="flex flex-col pt-2">
       {full}
       {graphic(maxHeight)}
-      {/* Scrolled to below the sticky tabs, not under them. */}
-      <div ref={cardRef} className="scroll-mt-16 scroll-mb-4 px-5 pt-4 pb-6">
+      {/* Scrolled to below the sticky tabs (and the phone's header), above the phone's tab bar. */}
+      <div ref={cardRef} className={cx("px-5 pt-4 pb-6", belowScrollMargins(belowHeader))}>
         {card}
       </div>
     </div>
@@ -615,25 +749,30 @@ function GraphicStage({
 }
 
 /**
- * A graphic on the whole screen. From 768 px: the card map with its floating details, or a timeline
- * or places map beside its card; narrower, the card below.
+ * A graphic on the whole screen: the card map at every width (pinched to zoom on a phone, its details
+ * below it). From 768 px a timeline or places map beside its card; narrower, the card below.
  */
 function FullView({
   view,
   graphic,
   cardMap,
+  mapDetail,
   card,
   hint,
   picked,
 }: {
   view: ContextView;
   graphic: (maxHeight?: number) => ReactNode;
-  cardMap: (height: number) => ReactNode;
+  cardMap: (height: number, below?: boolean) => ReactNode;
+  /** The tapped card's details on the map, shown under it when narrow. */
+  mapDetail: ReactNode;
   card: ReactNode;
   hint: ReactNode;
   picked: string | null;
 }) {
   const height = useWindowHeight();
+  // The dialog pads for the status bar and the home indicator.
+  const safe = useSafeArea();
   const [wide, setWide] = useState(() => window.innerWidth >= 768);
   useEffect(() => {
     const on = () => setWide(window.innerWidth >= 768);
@@ -641,7 +780,17 @@ function FullView({
     return () => window.removeEventListener("resize", on);
   }, []);
   // Below the dialog's 56 px title bar.
-  if (wide && view === "map") return <MapStage height={height - 56} hint={hint} map={cardMap} />;
+  if (view === "map")
+    return (
+      <MapStage
+        height={height - 56 - safe.top - safe.bottom}
+        minHeight={wide ? 420 : 320}
+        hint={hint}
+        map={(h) => cardMap(h, !wide)}
+        below={wide ? undefined : mapDetail}
+        picked={picked}
+      />
+    );
   return (
     <GraphicStage
       mode={wide ? "beside" : "below"}

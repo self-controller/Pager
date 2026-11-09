@@ -15,27 +15,17 @@ export function AssistantPage() {
         </EmptyState>
       ) : (
         <div className="flex flex-col gap-6 px-3 pt-4">
-          {tools.map((tool) => {
-            const Icon = tool.icon;
-            return (
-              // A real border, clipped without making a scroll box: a tool's sticky rows and backgrounds
-              // would paint over an inset-shadow outline.
-              <section key={tool.id} className="overflow-clip rounded-md border border-detail">
-                <header className="flex items-center gap-3 border-b border-detail px-4 py-3">
-                  <Icon size={18} aria-hidden />
-                  <div>
-                    <h2 className="font-display text-[15px] leading-5 font-semibold">{tool.label}</h2>
-                    {tool.description && <p className="text-[13px] leading-[18px] text-fg-2">{tool.description}</p>}
-                  </div>
-                </header>
-                {tool.Page ? (
-                  <tool.Page />
-                ) : (
-                  tool.Panel && <tool.Panel context={{ doc: null, section: null, selection: null }} close={() => {}} />
-                )}
-              </section>
-            );
-          })}
+          {tools.map((tool) => (
+            // A real border, clipped without making a scroll box: a tool's sticky rows and backgrounds
+            // would paint over an inset-shadow outline.
+            <section key={tool.id} aria-label={tool.label} className="overflow-clip rounded-md border border-detail">
+              {tool.Page ? (
+                <tool.Page />
+              ) : (
+                tool.Panel && <tool.Panel context={{ doc: null, section: null, selection: null }} close={() => {}} />
+              )}
+            </section>
+          ))}
         </div>
       )}
     </FullColumn>

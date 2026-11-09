@@ -223,7 +223,7 @@ function BookContext({ docId, focus, show, wide }: { docId: string; focus: strin
           )}
         </div>
       </div>
-      <ContextForDocument key={focus ?? ""} doc={d} focus={focus} onWholeBook={() => show(d.id)} bookShown wide={wide} />
+      <ContextForDocument key={focus ?? ""} doc={d} focus={focus} onWholeBook={() => show(d.id)} bookShown wide={wide} page />
     </div>
   );
 }

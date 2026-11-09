@@ -21,18 +21,29 @@ import {
   type NodeImage,
 } from "./model";
 import { useTextMeasure, useWidth } from "./parts";
+import { ZoomPan } from "./ZoomPan";
 
 interface Props {
   briefing: ContextBriefing;
   focus: string | null;
   onFocus: (id: string | null) => void;
-  /** The stage's height: the map fills it (it grows only when the cards can't fit). */
+  /** The map's visible height. The cards are laid out on a stage of this shape (scaled to fit when wider). */
   height: number;
   /** Pictures by entity id: a round one on the card's right, the book's cover as a small portrait. */
   images?: Map<string, NodeImage>;
-  /** The tapped card's details, floating over the map on the side away from it. */
+  /**
+   * The tapped card's details, floating over the map on the side away from it. Null on a phone, where
+   * the stage shows them below the map instead, as Timeline and Places do.
+   */
   detail: ReactNode;
 }
+
+/**
+ * The narrowest stage the cards are laid out on. A narrower map (a phone) shows this stage scaled down
+ * to fit, and pinches in. At 660 px the sample briefings' cards still fit a phone-shaped stage without
+ * `cardLayout` making it taller; 700 leaves room for real fonts measuring a little wider.
+ */
+export const MIN_STAGE_W = 700;
 
 /** The longest relation shown on a line; the detail lists them whole. */
 const RELATION_CHARS = 34;
@@ -44,8 +55,9 @@ function relationText(r: string): string {
 /**
  * The card map (Phase 6), where there's room (the Assistant page, a full screen): each node a card
  * with what it is to the author over its name ("Concept: Eternal recurrence") and its picture, laid
- * on ovals around the book's card (`cardLayout`), with the lines between them. A tapped card's details
- * float over the map with their own scroll, so nothing in the page moves.
+ * on ovals around the book's card (`cardLayout`), with the lines between them. Where there's room, a
+ * tapped card's details float over the map with their own scroll, so nothing in the page moves. The map pinches and pans
+ * (`ZoomPan`): on a phone it opens as a whole stage of at least `MIN_STAGE_W`, scaled down to fit.
  */
 export function CardMap({ briefing, focus, onFocus, height, images, detail }: Props) {
   const [ref, width] = useWidth<HTMLDivElement>(960);
@@ -53,7 +65,10 @@ export function CardMap({ briefing, focus, onFocus, height, images, detail }: Pr
   // Pictures that didn't load: the card goes on without one.
   const [broken, setBroken] = useState<ReadonlySet<string>>(() => new Set());
   const tree = useMemo(() => radialTree(briefing.entities, usableLinks(briefing), mapRoot(briefing)), [briefing]);
-  const maxW = cardMaxWidth(width);
+  // The stage the cards are laid out on: at least MIN_STAGE_W wide, the shape of what shows.
+  const W = Math.max(width, MIN_STAGE_W);
+  const stageH = Math.round((height * W) / width);
+  const maxW = cardMaxWidth(W);
   const cards = useMemo(
     () =>
       new Map(
@@ -68,7 +83,7 @@ export function CardMap({ briefing, focus, onFocus, height, images, detail }: Pr
       ),
     [tree, images, broken, maxW, measure],
   );
-  const layout = useMemo(() => cardLayout(tree, cards, width, height), [tree, cards, width, height]);
+  const layout = useMemo(() => cardLayout(tree, cards, W, stageH), [tree, cards, W, stageH]);
   const H = layout.height;
   const at = useMemo(() => new Map(layout.nodes.map((n) => [n.entity.id, n])), [layout]);
   // Each line goes round the other cards; a straight one's relation sits in the part that shows.
@@ -127,22 +142,43 @@ export function CardMap({ briefing, focus, onFocus, height, images, detail }: Pr
   }, [focus, onFocus]);
 
   const side = picked && picked.x > 0 ? "left" : "right";
+  const showDetail = Boolean(focus && detail);
+
+  const details = showDetail && (
+    <div
+      key={focus}
+      role="region"
+      aria-label="Details"
+      onClick={(e) => e.stopPropagation()}
+      className={cx(
+        "context-detail absolute top-3 z-10 flex w-[360px] max-w-[calc(100%-24px)] flex-col rounded-md bg-elevated elevation",
+        side === "left" ? "left-3" : "right-3",
+      )}
+      style={{ maxHeight: height - 24 }}
+    >
+      <div className="flex shrink-0 justify-end px-1.5 pt-1.5">
+        <IconButton icon={X} label="Close the details" size="sm" onClick={() => onFocus(null)} />
+      </div>
+      <div className="min-h-0 overflow-y-auto overscroll-contain px-4 pb-4">{detail}</div>
+    </div>
+  );
 
   return (
     <div ref={ref} className="context-map w-full">
-      <div
-        role="group"
-        aria-label={`Connection map: ${layout.nodes.length} people, works, ideas and places around the book`}
-        className="relative touch-manipulation select-none"
-        style={{ height: H }}
-        onClick={() => onFocus(null)}
+      <ZoomPan
+        content={{ w: W, h: H }}
+        viewport={{ w: width, h: height }}
+        label={`Connection map: ${layout.nodes.length} people, works, ideas and places around the book`}
+        onBackgroundClick={() => onFocus(null)}
+        overlay={details}
+        fitCorner={side === "right" && showDetail ? "bottom-left" : "bottom-right"}
       >
         <svg
           aria-hidden
           className="pointer-events-none absolute inset-0"
-          width={width}
+          width={W}
           height={H}
-          viewBox={`${-width / 2} ${-H / 2} ${width} ${H}`}
+          viewBox={`${-W / 2} ${-H / 2} ${W} ${H}`}
         >
           {layout.edges.map((e, i) => {
             const route = routes[i];
@@ -166,7 +202,7 @@ export function CardMap({ briefing, focus, onFocus, height, images, detail }: Pr
             <Card
               key={n.entity.id}
               node={n}
-              left={width / 2 + n.x - n.w / 2}
+              left={W / 2 + n.x - n.w / 2}
               top={H / 2 + n.y - n.h / 2}
               role={card.role}
               fullRole={entityRole(n.entity)}
@@ -186,9 +222,9 @@ export function CardMap({ briefing, focus, onFocus, height, images, detail }: Pr
           <svg
             aria-hidden
             className="pointer-events-none absolute inset-0"
-            width={width}
+            width={W}
             height={H}
-            viewBox={`${-width / 2} ${-H / 2} ${width} ${H}`}
+            viewBox={`${-W / 2} ${-H / 2} ${W} ${H}`}
           >
             {layout.edges.map((_, i) => {
               const route = routes[i];
@@ -211,26 +247,7 @@ export function CardMap({ briefing, focus, onFocus, height, images, detail }: Pr
             })}
           </svg>
         )}
-
-        {focus && detail && (
-          <div
-            key={focus}
-            role="region"
-            aria-label="Details"
-            onClick={(e) => e.stopPropagation()}
-            className={cx(
-              "context-detail absolute top-3 z-10 flex w-[360px] max-w-[calc(100%-24px)] flex-col rounded-md bg-elevated elevation",
-              side === "left" ? "left-3" : "right-3",
-            )}
-            style={{ maxHeight: H - 24 }}
-          >
-            <div className="flex shrink-0 justify-end px-1.5 pt-1.5">
-              <IconButton icon={X} label="Close the details" size="sm" onClick={() => onFocus(null)} />
-            </div>
-            <div className="min-h-0 overflow-y-auto overscroll-contain px-4 pb-4">{detail}</div>
-          </div>
-        )}
-      </div>
+      </ZoomPan>
     </div>
   );
 }
