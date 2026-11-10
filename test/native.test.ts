@@ -263,6 +263,37 @@ describe("the reader and the app's menu", () => {
     ]);
   });
 
+  it("sends the highlight colours with the items, and again when their order changes", () => {
+    native.setNativeMenuItems(["highlight", "note"], ["blue", "yellow", "green", "pink", "purple"]);
+    native.setNativeMenuItems(["highlight", "note"], ["blue", "yellow", "green", "pink", "purple"]);
+    native.setNativeMenuItems(["highlight", "note"], ["pink", "yellow", "green", "blue", "purple"]);
+    native.setNativeMenuItems([]);
+    native.setNativeMenuItems([]);
+    expect(sent()).toEqual([
+      { t: "selection", items: ["highlight", "note"], colors: ["blue", "yellow", "green", "pink", "purple"] },
+      { t: "selection", items: ["highlight", "note"], colors: ["pink", "yellow", "green", "blue", "purple"] },
+      { t: "selection", items: [] },
+    ]);
+    // No items and no colours is how the app starts: nothing to say.
+    expect(sent().some((m) => "colors" in (m as object) && (m as { items: unknown[] }).items.length === 0)).toBe(false);
+  });
+
+  it("says nothing for no items at the start", () => {
+    native.setNativeMenuItems([]);
+    expect(sent()).toEqual([]);
+  });
+
+  it("passes the colour picked in the app's Highlight submenu to the handler", () => {
+    const handler = vi.fn();
+    const stop = native.onNativeMenu(handler);
+    const pager = (window as unknown as { __pager?: { menu?: (item: string, color?: string) => void } }).__pager;
+    pager?.menu?.("highlight", "green");
+    expect(handler).toHaveBeenLastCalledWith("highlight", "green");
+    pager?.menu?.("highlight");
+    expect(handler).toHaveBeenLastCalledWith("highlight");
+    stop();
+  });
+
   it("lets the app call the reader's handler until it stops", () => {
     const handler = vi.fn();
     const stop = native.onNativeMenu(handler);

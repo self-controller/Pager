@@ -368,6 +368,23 @@ describe("a tray", () => {
     expect(closeButton(tray)).toBeNull();
   });
 
+  it("takes focus itself, not a field's: the keyboard stays down", async () => {
+    await render(
+      <Sheet open onClose={() => {}} title="Highlight" modal={false}>
+        <button>Yellow</button>
+        <input aria-label="Add a tag" />
+      </Sheet>,
+    );
+    expect(document.activeElement).toBe(first());
+    // A modal sheet still gives its first field focus.
+    await render(
+      <Sheet open onClose={() => {}} title="Note">
+        <textarea />
+      </Sheet>,
+    );
+    expect(document.activeElement?.tagName).toBe("TEXTAREA");
+  });
+
   it("closes on Esc", async () => {
     const onClose = vi.fn();
     await render(ui(true, onClose));

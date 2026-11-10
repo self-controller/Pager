@@ -161,7 +161,14 @@ export function Sheet({
       else el.show();
       setPhase("open");
       // React's autoFocus runs before the dialog is shown, so it lands nowhere; focus the first field now.
-      el.querySelector<HTMLElement>("input:not([type=hidden]), textarea, select, [data-autofocus]")?.focus();
+      // Not in a tray: a field there is a side matter (a highlight's tags), and focus on it would
+      // raise the phone's keyboard over the page the tray leaves in view. The tray itself takes
+      // focus, so show() leaves no focus ring on its first control (a colour that is not the one
+      // checked).
+      const field = el.querySelector<HTMLElement>(
+        modal ? "input:not([type=hidden]), textarea, select, [data-autofocus]" : "[data-autofocus]",
+      );
+      (field ?? (modal ? null : el))?.focus();
     }
     if (!open && phaseRef.current === "open") dismiss({ notify: false });
   }, [open, modal, dismiss, setPhase]);
@@ -317,7 +324,8 @@ export function Sheet({
       data-reader-overlay={shown ? "" : undefined}
       aria-label={title}
       data-testid="sheet"
-      className={cx("sheet", className)}
+      tabIndex={modal ? undefined : -1}
+      className={cx("sheet", !modal && "outline-none", className)}
       // React passes a nested dialog's close and cancel up to this one's handlers: answer only this
       // dialog's own.
       onClose={(e) => {

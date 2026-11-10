@@ -34,8 +34,12 @@ export type ShellMessage =
   | { t: "theme"; background: string; scheme: "light" | "dark" }
   /** While the reader is open the app turns its edge swipe back and its bounce off, so edge swipes reach the page. */
   | { t: "reader"; open: boolean }
-  /** The items the app adds to its menu for the current selection: none unless it is in the reader's text. */
-  | { t: "selection"; items: NativeMenuItem[] }
+  /**
+   * The items the app adds to its menu for the current selection: none unless it is in the reader's
+   * text. `colors` are the highlight colours in menu order, the last-used first: with them Highlight
+   * is a submenu of colours.
+   */
+  | { t: "selection"; items: NativeMenuItem[]; colors?: string[] }
   /**
    * The tab the page is in (null keeps the bar's selection), and whether the tab bar hides: with the
    * reader's chrome, and on pages outside the app's shell (pairing).
@@ -180,21 +184,25 @@ export function setNativeReaderOpen(open: boolean): void {
   post({ t: "reader", open });
 }
 
-let lastItems = "";
+// No items and no colours, which is how the app starts.
+let lastItems = ":";
 
-/** Tells the app which of Pager's items to add to its menu for the current selection; [] for none. */
-export function setNativeMenuItems(items: NativeMenuItem[]): void {
+/**
+ * Tells the app which of Pager's items to add to its menu for the current selection ([] for none),
+ * and the highlight colours to offer under Highlight, in menu order. Sent when either changed.
+ */
+export function setNativeMenuItems(items: NativeMenuItem[], colors: string[] = []): void {
   if (!shell()) return;
-  const key = items.join(",");
+  const key = `${items.join(",")}:${colors.join(",")}`;
   if (key === lastItems) return;
   lastItems = key;
-  post({ t: "selection", items });
+  post(colors.length ? { t: "selection", items, colors } : { t: "selection", items });
 }
 
 /** What the app calls on `window.__pager`. Each takes only names or a number from the app's own code. */
 interface PagerCalls {
-  /** One of Pager's items in the app's menu was chosen. */
-  menu: (item: string) => void;
+  /** One of Pager's items in the app's menu was chosen; for Highlight, with the colour picked in its submenu. */
+  menu: (item: string, color?: string) => void;
   /** A tab in the app's bar was tapped, the selected one included. */
   tab: (tab: string) => void;
   /** The tab bar's footprint: points from its top to the bottom of the screen. */
@@ -215,7 +223,8 @@ function onNative<K extends keyof PagerCalls>(name: K, handler: PagerCalls[K]): 
 
 /**
  * Runs `handler` when one of Pager's items in the app's menu is chosen: the app calls
- * `window.__pager.menu("highlight")`. Returns the function that stops it.
+ * `window.__pager.menu("note")`, or `window.__pager.menu("highlight", "green")` for a colour.
+ * Returns the function that stops it.
  */
 export function onNativeMenu(handler: PagerCalls["menu"]): () => void {
   return onNative("menu", handler);

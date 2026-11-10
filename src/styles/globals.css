@@ -244,7 +244,8 @@
   margin: 0;
   width: calc(100% - 2 * var(--sheet-gap));
   max-width: none;
-  max-height: 92dvh;
+  /* Less the keyboard it rides on, so its title row (a note's Save) never leaves the top of the screen. */
+  max-height: calc(92dvh - var(--sheet-kb, 0px));
   padding: 0;
   border: 0;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;

@@ -117,7 +117,10 @@ pairing phones.
   hides the tab bar, the app's included (`tabs.hidden`); the bar returns when the sheet closes. The
   type settings are a tray (not modal): the mark is `data-sheet-open="tray"`, which hides the bar the
   same way but leaves the page live, and a tap outside the tray closes it.
-  Footnote popovers, the Context card and the note and highlight panels keep their shapes.
+  A highlight is edited in a tray too (colours first, then Note, Copy, Share and Delete; in the
+  Scroll layout the chapter carries the tapped words clear of it), and a note is written in a sheet
+  with Save in its title row (`src/components/reader/AnnotationEditors.tsx`). Footnote popovers and
+  the Context card keep their shapes.
 - **Over iroh** the same UI runs inside the phone app, whose scheme handler carries `/api` requests
   as `pager/1` frames (API.md, Phones over iroh) with a bearer token the app keeps; the UI's `/api`
   base stays relative and it never holds the credential. The UI knows it is in the app by its scheme,
@@ -127,7 +130,10 @@ pairing phones.
     as `EventSource` behaves;
   - pairing succeeds on the poll answer's `device`, since the app takes `token` out of it;
   - the reader has no floating selection bar: the system's text menu offers Highlight and Note (or
-    Reattach Here) through the app (ios/README.md, "The bridge to the page"), and the app gets the
+    Reattach Here) through the app (ios/README.md, "The bridge to the page"). The page's `selection`
+    message carries `colors`, the highlight colours with the last-used first, and Highlight is a
+    submenu of them; the app calls back `window.__pager.menu("highlight", "<colour>")`, and that
+    colour becomes the last-used one. The app also gets the
     page colour, whether the reader is open, and haptics; Settings → This iPhone → Haptics turns
     those off;
   - a server whose `apiVersion` differs from the UI's shows a full-screen "Update Pager" (naming

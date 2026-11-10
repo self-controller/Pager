@@ -28,6 +28,14 @@ export interface NoteDraft {
   y: number;
 }
 
+/** A highlight whose note is open in the phone's note sheet. */
+export interface NoteEdit {
+  id: string;
+  docId: string;
+  quote: string;
+  body: string;
+}
+
 function message(err: unknown): string {
   return err instanceof ApiError ? err.message : "That didn't save. Try again in a moment.";
 }
@@ -53,6 +61,7 @@ export function useReaderAnnotations(
   const restore = useRestoreAnnotation();
   const [activeId, setActiveId] = useState<{ id: string; x: number; y: number } | null>(null);
   const [draft, setDraft] = useState<NoteDraft | null>(null);
+  const [editing, setEditing] = useState<NoteEdit | null>(null);
 
   useHighlightPainting(
     { ref: bodyRef, sectionId: section?.id, html: section?.html },
@@ -70,7 +79,7 @@ export function useReaderAnnotations(
   const count = annotations?.filter((a) => a.kind !== "bookmark").length ?? 0;
 
   const createFrom = useCallback(
-    (sel: TextSelection, body?: string) => {
+    (sel: TextSelection, body?: string, color: HighlightColor = highlightColor) => {
       if (!docId || !section) return;
       create.mutate(
         {
@@ -78,7 +87,7 @@ export function useReaderAnnotations(
           revisionId: section.revisionId,
           sectionRange: { sectionId: sel.sectionId, start: sel.start, end: sel.end },
           selectedText: sel.text,
-          color: highlightColor,
+          color,
           kind: body ? "note" : "highlight",
           ...(body ? { body } : {}),
         },
@@ -109,21 +118,25 @@ export function useReaderAnnotations(
     [bodyRef, section, annotations],
   );
 
+  const saveBody = (target: { id: string; docId: string }, body: string | null) => {
+    update.mutate({ id: target.id, docId: target.docId, patch: { body, kind: body ? "note" : "highlight" } });
+    if (body) haptic("success");
+  };
+
   const popover = active && {
     ...active,
     onClose: () => setActiveId(null),
+    /** On a phone the note opens in its own sheet, and the tray gives way to it. */
+    onEditNote: () => {
+      const { id, docId: owner, body, anchor } = active.annotation;
+      setEditing({ id, docId: owner, quote: anchor.quote, body: body ?? "" });
+      setActiveId(null);
+    },
     onColor: (color: HighlightColor) => {
       updateSettings({ highlightColor: color });
       update.mutate({ id: active.annotation.id, docId: active.annotation.docId, patch: { color, style: "highlight" } });
     },
-    onNote: (body: string | null) => {
-      update.mutate({
-        id: active.annotation.id,
-        docId: active.annotation.docId,
-        patch: { body, kind: body ? "note" : "highlight" },
-      });
-      if (body) haptic("success");
-    },
+    onNote: (body: string | null) => saveBody(active.annotation, body),
     onAcceptAnchor: () =>
       update.mutate({ id: active.annotation.id, docId: active.annotation.docId, patch: { acceptAnchor: true } }),
     onTags: (tags: string[]) => update.mutate({ id: active.annotation.id, docId: active.annotation.docId, patch: { tags } }),
@@ -180,8 +193,13 @@ export function useReaderAnnotations(
     highlightColor,
     popover,
     draft,
+    editing,
     onTextClick,
-    highlight: (sel: TextSelection) => createFrom(sel),
+    /** In `color` when one is named (the iPhone app's colour menu); it becomes the last-used colour. */
+    highlight: (sel: TextSelection, color?: HighlightColor) => {
+      if (color) updateSettings({ highlightColor: color });
+      createFrom(sel, undefined, color);
+    },
     startNote: (sel: TextSelection) =>
       setDraft({
         selection: sel,
@@ -193,5 +211,10 @@ export function useReaderAnnotations(
       setDraft(null);
     },
     cancelNote: () => setDraft(null),
+    saveEdit: (body: string) => {
+      if (editing) saveBody(editing, body || null);
+      setEditing(null);
+    },
+    cancelEdit: () => setEditing(null),
   };
 }

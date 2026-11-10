@@ -31,19 +31,23 @@ from its own page only (the main frame on `pager-app:`) and ignores anything els
 | `{t: "haptic.fire", kind}` | Plays it. The page spaces haptics 75 ms apart and skips them when Settings → Haptics is off |
 | `{t: "theme", background: "#rrggbb", scheme}` | Paints the web view and its edges that colour, and keeps it for the next cold start. `scheme` (`light` or `dark`, the page's theme) sets the tab bar's style, so the bar matches the page even against the phone's setting |
 | `{t: "reader", open}` | While the reader is open: the edge swipe back is off, so the page gets edge swipes, and the app does not bounce |
-| `{t: "selection", items}` | Which of `highlight`, `note` and `reattach` the text menu adds; `[]` outside the reader's text |
+| `{t: "selection", items, colors}` | Which of `highlight`, `note` and `reattach` the text menu adds; `[]` outside the reader's text. `colors` are the highlight colours in menu order, the last-used first (`yellow`, `green`, `blue`, `pink`, `purple`; any other name is dropped): with them Highlight is a submenu of colours, without them one action in the last-used colour |
 | `{t: "tabs", tab, hidden}` | Selects `tab` (`library`, `book`, `highlights`, `assistant` or `settings`; `null` keeps the selection), then shows or hides the bar, animated. The page sends it when either changes; any open book is `book`; `hidden` follows the reader's chrome and any open sheet (on phones the Contents and Tools panels, the type settings, the library menus and every dialog are bottom sheets, `src/components/ui/Sheet.tsx`, which mark `<html data-sheet-open>`; the type settings are a non-modal tray, marked `data-sheet-open="tray"`, and hide the bar too), and the pairing page sends `{tab: null, hidden: true}` |
 
-The text menu keeps the system's Copy, Look Up, Translate and Share, with Pager's items first. Choosing
-one calls `window.__pager.menu("highlight")` (or `"note"`, `"reattach"`), which the reader handles
-(`src/components/reader/useNativeMenu.ts`). In the app the reader doesn't show its own floating
-selection bar. A new page load turns the swipe back on and clears the items.
+The text menu keeps the system's Copy, Look Up, Translate and Share, with Pager's items first.
+**Highlight** opens a submenu of the five colours, each with a dot in Pager's swatch colour, the
+last-used colour first. Choosing a colour calls `window.__pager.menu("highlight", "green")`; Note and
+Reattach Here call `window.__pager.menu("note")` and `("reattach")`. The reader handles them
+(`src/components/reader/useNativeMenu.ts`): a highlight is made in the colour named, which becomes the
+last-used colour, and the page sends the new order. Only the app's own item and colour names go into
+the script. In the app the reader doesn't show its own floating selection bar. A new page load turns
+the swipe back on and clears the items and colours.
 
 The app calls the page on `window.__pager`, with names from its own code only:
 
 | Call | When | What the page does |
 |---|---|---|
-| `__pager.menu("highlight")` | One of Pager's items in the text menu was chosen | Runs it on the selection |
+| `__pager.menu("highlight", "green")`, `__pager.menu("note")` | One of Pager's items in the text menu was chosen; for Highlight, with the colour picked | Runs it on the selection. A highlight with no colour named is made in the last-used colour |
 | `__pager.tab("highlights")` | A tab was tapped, the selected one included | Tab memory (`src/components/shell/tabMemory.ts`): another tab opens at its last page and scroll; the current tab goes to its top page, then scrolls to the top. Book opens the book read last at its saved place (the library before any book), and does nothing when tapped in the book |
 | `__pager.tabBar(83)` | After the page's first `tabs` message of a page load, and whenever the bar's footprint changes (a rotation) | Keeps the bar's space: `--native-tab-bar` is the footprint less `env(safe-area-inset-bottom)` |
 
@@ -146,7 +150,7 @@ Try each of these, and note what Diagnostics says:
   phone without reloading (the live stream);
 - **Revoke** on the computer sends the phone to **Pair this phone** at once;
 - selecting words in a book shows the system menu with **Highlight** and **Note** first; Highlight
-  uses your last colour, with a soft tap;
+  opens the five colours, and choosing one highlights with a soft tap;
 - in a book, a swipe in from the left edge doesn't go back; in the library it does;
 - after switching to the dark theme and reopening the app, its first frame is already dark.
 
@@ -188,6 +192,27 @@ and of anything that looks wrong:
 8. Landscape with a sheet open: the sheet is full width, and nothing is under the home indicator.
 9. With Reduce Motion on, sheets and tab switches are instant.
 10. Diagnostics → Layout: `env(safe-area-inset-bottom)` is the same with the bar shown and hidden.
+
+### Check it: highlight colours, the highlight tray and the note sheet
+
+1. Select words in a book → **Highlight**: a submenu of five colours, each with its coloured dot,
+   your last colour first. Choose Green: the words turn green, with a soft tap.
+2. Select other words → **Highlight**: Green is now first.
+3. Tap a highlight: a tray floats up from the bottom with no dimming; the tab bar is gone. The
+   colours come first, then **Note**, **Copy**, (**Share**, if the app's page can share) and
+   **Delete**. No keyboard rises, and no colour has a focus ring.
+4. Tap a highlight in the lower third of the screen (Scroll layout): the chapter glides up until the
+   words sit just above the tray, and the top bar neither hides nor shows. Scroll the chapter with a
+   finger: the tray stays.
+5. Tap another colour: the highlight changes and the tray stays. Tap the checked colour: the
+   highlight goes and a toast offers **Undo**; Undo brings it back.
+6. **Copy**, then paste into Notes: the highlighted words. A "Copied" toast shows.
+7. **Note** in the tray: the tray leaves and a sheet titled Note rises with the keyboard already up
+   and the cursor in the text area. **Save** and the text area are both above the keyboard. Type,
+   Save: a tap on the highlight shows the note in the tray; a tap on the note's text edits it.
+8. Select words → **Note** in the system menu: a sheet titled New note with the quoted words, the
+   keyboard up at once. ✕ cancels; Save makes the note.
+9. Tap **Add a tag** in the tray: the tray rides up above the keyboard.
 
 ## When it doesn't work
 

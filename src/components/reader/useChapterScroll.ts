@@ -19,6 +19,11 @@ export interface ChapterScroll extends ReaderLayout {
   viewHeight: number;
   /** Scrolls by `dy` px, as a person would (keys). */
   scrollBy(dy: number, smooth?: boolean): void;
+  /**
+   * Scrolls by `dy` px over `ms` (at once under reduced motion) as the app's own move, not a
+   * person's: the bars stay as they are. Does nothing while a finger is on the chapter.
+   */
+  glideBy(dy: number, ms?: number): void;
   /** Scrolls to the top or the end of the chapter, as a person would (Home, End). */
   scrollToEdge(edge: "start" | "end", smooth?: boolean): void;
   atTop(): boolean;
@@ -56,6 +61,7 @@ export function useChapterScroll(
   const userScroll = useRef(0);
   const touching = useRef(false);
   const restTop = useRef(0);
+  const glide = useRef(0);
 
   const pageAt = useCallback((top: number) => {
     const m = metricsRef.current;
@@ -294,6 +300,34 @@ export function useChapterScroll(
     },
     [scrollerRef, maxTop],
   );
+  const glideBy = useCallback(
+    (dy: number, ms = 320) => {
+      const el = scrollerRef.current;
+      // Never while a finger is down: in the iPhone app a scroll set from script fights the system's.
+      if (!el || touching.current) return;
+      cancelAnimationFrame(glide.current);
+      const from = el.scrollTop;
+      const to = Math.min(Math.max(0, el.scrollHeight - el.clientHeight), Math.max(0, from + dy));
+      if (Math.abs(to - from) < 1) return;
+      if (ms <= 0 || reducedMotion()) {
+        jump(to);
+        return;
+      }
+      const t0 = performance.now();
+      const step = () => {
+        if (touching.current) return;
+        const t = Math.min(1, (performance.now() - t0) / ms);
+        const top = from + (to - from) * (1 - (1 - t) ** 3);
+        // Each frame is marked as ours, so the bars don't take it for the person scrolling.
+        own.current = { top, until: performance.now() + OWN_SCROLL_MS };
+        el.scrollTop = top;
+        if (t < 1) glide.current = requestAnimationFrame(step);
+      };
+      glide.current = requestAnimationFrame(step);
+    },
+    [scrollerRef, jump],
+  );
+  useEffect(() => () => cancelAnimationFrame(glide.current), [contentKey]);
   const atTop = useCallback(() => (scrollerRef.current?.scrollTop ?? 0) <= 0, [scrollerRef]);
   const userScrolledAt = useCallback(() => userScroll.current, []);
 
@@ -319,6 +353,7 @@ export function useChapterScroll(
     relayout,
     userScrolledAt,
     scrollBy,
+    glideBy,
     scrollToEdge,
     atTop,
   };

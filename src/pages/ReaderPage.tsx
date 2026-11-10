@@ -5,7 +5,7 @@ import { FileQuestion, Link2 } from "lucide-react";
 import { api } from "@/api";
 import { queryKeys, useDocument, useSaveProgress, useSection } from "@/api/hooks";
 import { ApiError, ErrorCodes, type ProgressUpdate, type Section } from "@/api/types";
-import { AnnotationPopover, FloatingPanel, NoteEditor } from "@/components/reader/AnnotationPopover";
+import { AnnotationEditors } from "@/components/reader/AnnotationEditors";
 import { BackPill } from "@/components/reader/BackPill";
 import { FootnotePopover, useFootnotes } from "@/components/reader/FootnotePopover";
 import { PagedView } from "@/components/reader/PagedView";
@@ -542,27 +542,8 @@ export function ReaderPage() {
           onReattach={reattach ? (sel) => notes.reattachTo(reattach, sel, () => setReattach(null)) : undefined}
         />
       )}
-      {notes.draft && (
-        <FloatingPanel x={notes.draft.x} y={notes.draft.y} onClose={notes.cancelNote} label="New note">
-          <blockquote className="mb-2 line-clamp-3 border-l-2 border-[var(--hl-yellow-line)] pl-2.5 font-serif text-[14px] leading-5 text-fg-2">
-            {notes.draft.selection.text}
-          </blockquote>
-          <NoteEditor initial="" onSave={notes.saveNote} onCancel={notes.cancelNote} />
-        </FloatingPanel>
-      )}
-      {notes.popover && (
-        <AnnotationPopover
-          annotation={notes.popover.annotation}
-          x={notes.popover.x}
-          y={notes.popover.y}
-          onClose={notes.popover.onClose}
-          onColor={notes.popover.onColor}
-          onNote={notes.popover.onNote}
-          onDelete={notes.popover.onDelete}
-          onAcceptAnchor={notes.popover.onAcceptAnchor}
-          onTags={notes.popover.onTags}
-        />
-      )}
+      {/* A highlight's editor and the note editor: floating cards, or a tray and a sheet on a phone. */}
+      <AnnotationEditors notes={notes} bodyRef={bodyRef} sectionId={section?.id} chapter={scrollMode ? chapter : null} />
       {/* Tools' cards over the text ("Context for this"): each renders nothing until it has something to show. */}
       {overlays.map((t) => {
         const Overlay = t.Overlay!;

@@ -14,27 +14,49 @@ const SWATCH: Record<HighlightColor, string> = {
   purple: "var(--hl-purple-line)",
 };
 
-export function ColorSwatches({ value, onChange }: { value: HighlightColor | null; onChange: (c: HighlightColor) => void }) {
+/**
+ * The five colours. Each is a 36px target around a 28px dot, 8px apart. With `onRemove`, a tap on the
+ * checked colour takes the highlight away, as a second tap on a verse's colour does in YouVersion.
+ */
+export function ColorSwatches({
+  value,
+  onChange,
+  onRemove,
+}: {
+  value: HighlightColor | null;
+  onChange: (c: HighlightColor) => void;
+  onRemove?: () => void;
+}) {
   return (
-    <div className="flex gap-1.5" role="radiogroup" aria-label="Highlight colour">
-      {HIGHLIGHT_COLORS.map((c) => (
-        <button
-          key={c}
-          type="button"
-          role="radio"
-          aria-checked={value === c}
-          aria-label={c}
-          title={c}
-          onClick={() => onChange(c)}
-          className={cx(
-            "flex size-7 items-center justify-center rounded-full transition-hover pressable",
-            value === c ? "ring-2 ring-fg ring-offset-2 ring-offset-[var(--bg-elevated)]" : "hover:scale-110",
-          )}
-          style={{ background: SWATCH[c] }}
-        >
-          {value === c && <Check size={14} strokeWidth={3} className="text-white" aria-hidden />}
-        </button>
-      ))}
+    <div className="flex gap-2" role="radiogroup" aria-label="Highlight colour">
+      {HIGHLIGHT_COLORS.map((c) => {
+        const checked = value === c;
+        const removes = checked && Boolean(onRemove);
+        const name = removes ? `${c}: remove highlight` : c;
+        return (
+          <button
+            key={c}
+            type="button"
+            role="radio"
+            aria-checked={checked}
+            aria-label={name}
+            title={name}
+            data-color={c}
+            onClick={() => (removes ? onRemove?.() : onChange(c))}
+            className="group flex size-9 shrink-0 items-center justify-center rounded-full pressable"
+          >
+            <span
+              className={cx(
+                "flex size-7 items-center justify-center rounded-full transition-hover",
+                checked ? "ring-2 ring-fg ring-offset-2 ring-offset-[var(--bg-elevated)]" : "group-hover:scale-110",
+              )}
+              style={{ background: SWATCH[c] }}
+            >
+              {checked && <Check size={14} strokeWidth={3} className="text-white" aria-hidden />}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -241,7 +263,7 @@ export function AnnotationPopover({ annotation, x, y, onClose, onColor, onNote, 
     <FloatingPanel x={x} y={y} onClose={onClose} label="Highlight">
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
-          <ColorSwatches value={annotation.color} onChange={onColor} />
+          <ColorSwatches value={annotation.color} onChange={onColor} onRemove={onDelete} />
           <button
             type="button"
             onClick={onDelete}
