@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useInsertionEffect, useRef, useState } from "react";
 import { useLocation } from "react-router";
 import { isTabSwitch } from "@/components/shell/tabMemory";
 import type { LayoutKind } from "./layout";
@@ -20,14 +20,20 @@ function startsVisible(): boolean {
  */
 export function useReaderChrome(docId: string | undefined, layout: LayoutKind = "paged"): [boolean, (visible: boolean) => void] {
   const tabSwitch = isTabSwitch(useLocation().state);
-  const tabSwitchRef = useRef(tabSwitch);
-  tabSwitchRef.current = tabSwitch;
   const [visible, setVisible] = useState(() => tabSwitch || startsVisible());
 
-  // Another book opens as the first did.
-  useEffect(() => setVisible(tabSwitchRef.current || startsVisible()), [docId]);
+  // Another book opens as the first did. Set while rendering, so its first frame is already right.
+  const [openedId, setOpenedId] = useState(docId);
+  if (openedId !== docId) {
+    setOpenedId(docId);
+    setVisible(tabSwitch || startsVisible());
+  }
 
-  useEffect(() => {
+  // Both marks go on as the reader's elements go into the page, before any layout effect runs: one
+  // that measures (useChapterScroll) would otherwise style the top bar as shown, and the bar would
+  // then slide away in the first frames. So the reader's first frame is its final state, and the
+  // shell's layout effects (useNativeTabs) read the marks as they will stay.
+  useInsertionEffect(() => {
     const root = document.documentElement;
     root.dataset.readerLayout = layout;
     return () => {
@@ -35,10 +41,17 @@ export function useReaderChrome(docId: string | undefined, layout: LayoutKind = 
     };
   }, [layout]);
 
-  useEffect(() => {
+  useInsertionEffect(() => {
     if (visible) return;
     const root = document.documentElement;
     root.dataset.readerChrome = "hidden";
+    return () => {
+      delete root.dataset.readerChrome;
+    };
+  }, [visible]);
+
+  useEffect(() => {
+    if (visible) return;
     const onPointer = (e: PointerEvent) => {
       // A wheel scroll can come with a pointermove that didn't move: that's no reason to show.
       if (e.pointerType === "mouse" && (e.type === "pointerdown" || e.movementX || e.movementY)) setVisible(true);
@@ -50,7 +63,6 @@ export function useReaderChrome(docId: string | undefined, layout: LayoutKind = 
     window.addEventListener("pointerdown", onPointer);
     window.addEventListener("keydown", onKey);
     return () => {
-      delete root.dataset.readerChrome;
       window.removeEventListener("pointermove", onPointer);
       window.removeEventListener("pointerdown", onPointer);
       window.removeEventListener("keydown", onKey);
