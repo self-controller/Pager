@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { FilePlus2, FolderPlus, FolderX, LayoutGrid, PencilLine, Plus, Rows3, Trash2, ArrowRightToLine, BookOpen, FolderOpen } from "lucide-react";
+import { ArrowDownToLine, CircleX, FilePlus2, FolderPlus, FolderX, LayoutGrid, PencilLine, Plus, Rows3, Trash2, ArrowRightToLine, BookOpen, FolderOpen } from "lucide-react";
+import { offline } from "@/api";
 import { useCanChangeFiles, useSearchDocuments, useTree } from "@/api/hooks";
 import { AddBookDialog } from "@/components/library/AddBookDialog";
 import { Breadcrumbs } from "@/components/library/Breadcrumbs";
@@ -12,12 +13,15 @@ import { RecentView } from "@/components/library/RecentView";
 import { SearchResults } from "@/components/library/SearchResults";
 import { cleanRel, describeFolder, folderAt, parentOf, recentFiles } from "@/components/library/tree";
 import { useFileDrop } from "@/components/library/useFileDrop";
+import { OfflineLine } from "@/components/shell/OfflineLine";
 import { PageHeader, WideColumn } from "@/components/shell/Page";
 import { Button } from "@/components/ui/Button";
 import { ContextMenu, type MenuEntry, type MenuState } from "@/components/ui/ContextMenu";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ServiceError } from "@/components/ui/ServiceError";
+import { useToast } from "@/components/ui/Toast";
 import { readHref } from "@/lib/links";
+import { canOpen, keptState, useOffline } from "@/offline";
 import { updateSettings, useSettings, type LibraryMode } from "@/state/settings";
 
 type DialogState =
@@ -45,6 +49,9 @@ export function LibraryPage() {
   const [dialog, setDialog] = useState<DialogState | null>(null);
   // From a phone the library is read-only: files are added, renamed, moved and deleted on the computer.
   const canChange = useCanChangeFiles();
+  // In the iPhone app: which books are on the phone, and whether the computer can be reached.
+  const copy = useOffline();
+  const { toast } = useToast();
 
   const tree = useTree();
   const searching = q.trim().length > 0;
@@ -139,17 +146,61 @@ export function LibraryPage() {
     [settings.libraryView, canChange],
   );
 
+  const sayAway = useCallback(
+    () => toast({ message: "Not on this iPhone. Download it when your computer can be reached." }),
+    [toast],
+  );
+
   const openTarget = useCallback(
     (target: Target) => {
       if (target.kind === "folder") goTo(target.path);
+      else if (target.file.doc && !canOpen(copy, target.file.doc.id)) sayAway();
       else if (target.file.doc) navigate(readHref(target.file.doc));
     },
-    [goTo, navigate],
+    [goTo, navigate, copy, sayAway],
+  );
+
+  // Download and Remove download: only in the iPhone app, and only for a book that was read in.
+  const downloadItems = useCallback(
+    (target: Target): MenuEntry[] => {
+      const doc = target.kind === "file" ? target.file.doc : undefined;
+      if (!offline || !copy.available || !doc) return [];
+      if (keptState(copy, doc.id)) {
+        return [
+          {
+            id: "removeDownload",
+            label: "Remove download",
+            icon: CircleX,
+            onSelect: () => void offline!.removeDownload(doc.id).catch(() => toast({ message: `Couldn't remove “${doc.title}” from this iPhone.` })),
+          },
+        ];
+      }
+      return [
+        {
+          id: "download",
+          label: "Download",
+          icon: ArrowDownToLine,
+          disabled: copy.online === false || Boolean(copy.downloads[doc.id]),
+          onSelect: () =>
+            void offline!
+              .download(doc.id)
+              .catch(() => toast({ message: `Couldn't download “${doc.title}”. Try again when your computer can be reached.` })),
+        },
+      ];
+    },
+    [copy, toast],
   );
 
   const itemsFor = useCallback(
     (target: Target): MenuEntry[] => [
-      { id: "open", label: "Open", icon: target.kind === "folder" ? FolderOpen : BookOpen, onSelect: () => openTarget(target), disabled: target.kind === "file" && !target.file.doc },
+      {
+        id: "open",
+        label: "Open",
+        icon: target.kind === "folder" ? FolderOpen : BookOpen,
+        onSelect: () => openTarget(target),
+        disabled: target.kind === "file" && (!target.file.doc || !canOpen(copy, target.file.doc.id)),
+      },
+      ...downloadItems(target),
       ...(canChange
         ? ([
             { id: "rename", label: "Rename…", icon: PencilLine, hint: "F2", onSelect: () => setDialog({ kind: "rename", target }) },
@@ -159,17 +210,18 @@ export function LibraryPage() {
           ] satisfies MenuEntry[])
         : []),
     ],
-    [openTarget, canChange],
+    [openTarget, canChange, copy, downloadItems],
   );
 
   const onCommand = useCallback(
     (command: ItemCommand, target: Target, at?: Point) => {
       if (command === "open") openTarget(target);
+      else if (command === "away") sayAway();
       else if (command === "rename") canChange && setDialog({ kind: "rename", target });
       else if (command === "delete") canChange && setDialog({ kind: "delete", target });
       else if (at) setMenu({ label: target.name, at, items: itemsFor(target) });
     },
-    [openTarget, itemsFor, canChange],
+    [openTarget, itemsFor, canChange, sayAway],
   );
 
   const emptyActions = canChange && (
@@ -191,6 +243,7 @@ export function LibraryPage() {
   return (
     <WideColumn className="pb-10">
       <PageHeader title="Library" hideTitleOnDesktop />
+      <OfflineLine className="px-4 pt-3 md:px-3" />
       <LibraryToolbar
         q={draft}
         onQ={setDraft}

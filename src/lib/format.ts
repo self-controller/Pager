@@ -9,6 +9,25 @@ export function formatShortDate(iso: string | undefined, now: Date = new Date())
   return (d.getFullYear() === now.getFullYear() ? SHORT : SHORT_YEAR).format(d);
 }
 
+const TIME = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" });
+
+/** When something last happened: "2:14 pm" today, "Oct 22" on another day. "" when unknown. */
+export function formatWhen(iso: string | null | undefined, now: Date = new Date()): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  if (d.toDateString() !== now.toDateString()) return formatShortDate(iso, now);
+  return TIME.format(d).toLowerCase().replace(/\s/g, " ");
+}
+
+/** A size on disk: "0 KB", "840 KB", "12.4 MB". */
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 KB";
+  const mb = bytes / 1_000_000;
+  if (mb < 1) return `${Math.max(1, Math.round(bytes / 1000))} KB`;
+  return `${mb < 100 ? mb.toFixed(1) : Math.round(mb)} MB`;
+}
+
 /** Published dates may be a bare year ("1847") or an ISO date. */
 export function formatPublished(value: string | undefined): string {
   if (!value) return "";

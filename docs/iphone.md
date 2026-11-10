@@ -30,8 +30,12 @@ Run every `tailscale`, `sudo`, `systemctl` and `loginctl` command below yourself
 
 ## 1. Keep Pager running
 
-The phone can only read while Pager is running and the computer is awake. A server started by the
-`pager` command stops itself after six idle hours, so run it as a user service instead.
+The phone reads from this computer, so Pager must be running and the computer awake. The one
+exception is the Pager app's downloaded books: choose **Download** on a book and the phone reads it,
+and keeps your place and highlights, with the computer asleep or out of reach
+([ios/README.md, "The copy"](../ios/README.md#the-copy-reading-when-your-computer-cant-be-reached)).
+A server started by the `pager` command stops itself after six idle hours, so run it as a user
+service instead.
 
 Build the web app once (and again after you update Pager):
 
@@ -253,8 +257,11 @@ takes a revoked or expired phone off the list.
 | The fake phone's connection is closed as `not paired` | No pairing window is open (the dialog was closed, or the code expired), and this phone isn't paired, or it ran without the `--key` it paired with | Run it with the same `--key`, or open **Pair a phone**, copy the fresh link (step 4.3), and run it again. |
 | A phone paired over Tailscale is refused over iroh | Credentials don't cross paths | Pair it again over iroh. |
 
-Not built yet: reading offline, and downloading books to the phone. The iPhone app is written
-(`ios/`) but hasn't been compiled or run on a phone yet. Your own relay is ready to deploy
+Reading with the computer out of reach is built into the Pager app: books you choose **Download**
+for are kept on the phone, and places and highlights made meanwhile are sent when the computer is
+reached ([ios/README.md, "The copy"](../ios/README.md#the-copy-reading-when-your-computer-cant-be-reached)).
+Not built: downloads while the app is closed, and a computer that is always on (a small server that
+holds the library, so the phone reaches it whenever it has signal). Your own relay is ready to deploy
 ([docs/relay.md](relay.md)). The server side is ready for the app: the `pager/1` protocol and
 tokens bound to the phone's endpoint ([API.md, "Phones over iroh"](../API.md#phones-over-iroh)), a
 sync manifest, and a column for the phone's own key.

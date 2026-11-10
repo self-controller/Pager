@@ -1,4 +1,5 @@
 import IrohLib
+import Network
 import SwiftUI
 
 @main
@@ -31,9 +32,43 @@ final class AppModel: ObservableObject {
     @Published var linkError: String?
 
     let client = IrohClient()
-    private(set) lazy var handler = PagerSchemeHandler(client: client)
+    /// The phone's copy of the library, and the changes waiting to be sent (README, "The copy").
+    let copy = PhoneCopy()
+    let outbox = Outbox()
+    private(set) lazy var handler = PagerSchemeHandler(client: client, copy: copy, outbox: outbox)
     /// The tab bar around the web view, once made (Diagnostics reads its layout).
     weak var tabs: TabsController?
+    private let network = NWPathMonitor()
+
+    init() {
+        let client = client
+        let copy = copy
+        Task { [weak self] in
+            await client.setOnReach { online in
+                Task { @MainActor in self?.reachChanged(online) }
+            }
+            await copy.prune()
+        }
+        // Wi-Fi joined, or signal back: look for the computer again without waiting for the backoff.
+        network.pathUpdateHandler = { path in
+            guard path.status == .satisfied else { return }
+            Task { await client.networkChanged() }
+        }
+        network.start(queue: DispatchQueue.global(qos: .utility))
+    }
+
+    /// The computer came within reach, or went out of it: held streams end, and the page is told, so
+    /// it sends what waited and shows or hides its offline line.
+    private func reachChanged(_ online: Bool) {
+        handler.reachChanged(online)
+        tabs?.webView.evaluateJavaScript("window.__pager?.online?.(\(online))", completionHandler: nil)
+    }
+
+    /// The computer a ticket leads to: its endpoint ID.
+    private static func computer(_ ticket: String?) -> String? {
+        guard let ticket else { return nil }
+        return (try? EndpointTicket.fromString(str: ticket))?.endpointAddr().id().description
+    }
 
     /// A `pager://pair` link, from the Camera or pasted: keep where the computer is, dial it afresh,
     /// and open the pairing page with the code filled in. The computer then asks "Allow?".
@@ -43,11 +78,18 @@ final class AppModel: ObservableObject {
             return
         }
         linkError = nil
+        // Another computer: this phone's downloads and waiting changes belong to the old one's library.
+        let before = Self.computer(Store.ticket)
+        let another = before != nil && before != Self.computer(link.ticket)
         Store.ticket = link.ticket
         Store.relay = nil
         Store.relayToken = link.relayToken
         let code = link.code.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-"))) ?? ""
         Task {
+            if another {
+                await copy.wipe()
+                await outbox.clear()
+            }
             await client.reset()
             start = URL(string: "pager-app://localhost/pair#code=\(code)")!
             hasComputer = true
@@ -56,8 +98,16 @@ final class AppModel: ObservableObject {
     }
 
     func phaseChanged(_ phase: ScenePhase) {
-        if phase == .background {
-            Task { await client.disconnect() }
+        switch phase {
+        case .background:
+            Task {
+                await client.disconnect()
+                await copy.flush()
+            }
+        case .active:
+            Task { await client.wake() }
+        default:
+            break
         }
     }
 }
@@ -81,7 +131,7 @@ struct RootView: View {
             }
         }
         .sheet(isPresented: $model.showDiagnostics) {
-            DiagnosticsView(client: model.client, tabs: model.tabs)
+            DiagnosticsView(client: model.client, tabs: model.tabs, copy: model.copy, outbox: model.outbox)
         }
     }
 }

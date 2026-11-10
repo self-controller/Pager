@@ -449,6 +449,20 @@ holds no credential and knows it is paired by `device`. When the computer closes
 `REVOKED`). It reads the live stream with fetch, not `EventSource` (`src/api/fetch-event-source.ts`),
 resuming with `Last-Event-ID`.
 
+**The app's copy.** The app keeps the books the reader chose to download and answers from them when
+this computer can't be reached; places and highlights made meanwhile wait on the phone
+(ios/README.md, "The copy"). It needs nothing from the server beyond what is above:
+- `GET /sync/manifest` (no `after`) on each sync: a downloaded book whose `revisionId` changed is
+  fetched again, and one that is no longer listed is removed.
+- A waiting highlight is sent as it was made, with its client `id` and the `revisionId` of the page it
+  was made on. A resend answers 200; if the file changed meanwhile the server finds the passage in the
+  current version, or answers 409 `stale_revision`, and the app then keeps the words for the reader.
+  409 `conflict` (the id exists with other fields: an earlier send arrived, then the highlight was
+  edited) is followed by a `PATCH` of the fields.
+- A waiting place is sent with `updatedAt`, the time it was read. 409 `progress_conflict` means a newer
+  place was saved elsewhere, and the waiting one is dropped. The page sends its own `percent`, worked
+  out by characters as the server does; the server's value stands.
+
 A phone in Rust, for trying the whole path before the app exists: in `server/`,
 `cargo run --example fake-phone -- '<appUrl>' --key phone.key` pairs and reads; `--relay-only` goes
 through the relay, and `--ticket … --token … --key phone.key` reads again later as the same phone

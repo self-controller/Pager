@@ -25,6 +25,12 @@ enum Store {
         set { defaults.set(newValue, forKey: "page-color") }
     }
 
+    /// When the computer was last reached.
+    static var lastOnline: Date? {
+        get { defaults.object(forKey: "last-online") as? Date }
+        set { defaults.set(newValue, forKey: "last-online") }
+    }
+
     /// The bearer token the computer gave this phone when it was paired.
     static var token: String? {
         get { Keychain.string("token") }

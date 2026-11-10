@@ -5,20 +5,29 @@ Its scheme handler carries the UI's `/api` requests to your computer as `pager/1
 "Phones over iroh"). The phone's iroh key and its token stay in the Keychain; the web page never sees
 the token.
 
+The app also keeps a copy of the books you choose **Download** for, and reads from it when your
+computer can't be reached: asleep, off, or with no signal on the phone. Reading places and highlights
+made meanwhile wait on the phone and go to the computer when it is reached again
+([The copy](#the-copy-reading-when-your-computer-cant-be-reached)).
+
 It's built on Linux with [xtool](https://github.com/xtool-org/xtool) and
 [IrohLib](https://github.com/n0-computer/iroh-ffi) 1.2.0 (iOS 17.5 or later).
 
 | File | What it does |
 |---|---|
-| `Sources/Pager/PagerApp.swift` | The app, the `pager://pair` links the Camera opens, and closing the connection in the background |
-| `Sources/Pager/SchemeHandler.swift` | Serves the bundled UI; `/api` over iroh; takes the token out of the pairing answer |
-| `Sources/Pager/IrohClient.swift` | The endpoint (the key from the Keychain), dialling the saved ticket, the relay and token from health |
+| `Sources/Pager/PagerApp.swift` | The app, the `pager://pair` links the Camera opens, closing the connection in the background and looking for the computer again in front, and telling the page when the computer comes within reach or goes out of it |
+| `Sources/Pager/SchemeHandler.swift` | Serves the bundled UI; `/api` over iroh; takes the token out of the pairing answer; keeps answers in the copy and answers from it when the computer is out of reach; holds the live stream open meanwhile |
+| `Sources/Pager/IrohClient.swift` | The endpoint (the key from the Keychain), dialling the saved ticket, the relay and token from health; whether the computer can be reached, and looking again while it can't |
+| `Sources/Pager/PhoneCopy.swift` | The copy on disk: answers by path and query, each with its tags, and the page's own record |
+| `Sources/Pager/Outbox.swift` | The queue of changes waiting to be sent, on disk |
+| `Sources/Pager/AppRoutes.swift` | `/_app`: the app's own routes for its page (the copy's state, the queue) |
+| `Sources/Pager/Deadline.swift` | A wait with a time limit, for IrohLib calls, which can't be cancelled |
 | `Sources/Pager/Frame.swift` | `pager/1` framing (mirrors `server/src/remote/protocol.rs`) |
-| `Sources/Pager/Store.swift` | The ticket and the last page colour in UserDefaults; the key, the token and the relay token in the Keychain |
+| `Sources/Pager/Store.swift` | The ticket, the last page colour and when the computer was last reached in UserDefaults; the key, the token and the relay token in the Keychain |
 | `Sources/Pager/WebView.swift` | `PagerTabs`, the tab bar in SwiftUI, made once; the web view's setup: it loads only `pager-app:` (other links open in Safari), doesn't rubber-band, and has no link previews |
 | `Sources/Pager/TabsController.swift` | The system tab bar (Liquid Glass on iOS 26 and later) around the one web view, which moves into the tab about to show; the bar's footprint for the page; the Layout diagnostics |
 | `Sources/Pager/PagerWebView.swift` | The WKWebView subclass: the page's messages, haptics, the page colour, Highlight and Note in the text menu, and the page's safe area pinned to the screen's |
-| `Sources/Pager/FirstRunView.swift`, `DiagnosticsView.swift` | Before pairing; the IDs, the path, and a timed download |
+| `Sources/Pager/FirstRunView.swift`, `DiagnosticsView.swift` | Before pairing; the IDs, the path, the copy's size and waiting changes, and a timed download |
 
 ### The bridge to the page
 
@@ -46,6 +55,7 @@ The app calls the page on `window.__pager`, with names from its own code only:
 | `__pager.menu("highlight")` | One of Pager's items in the text menu was chosen | Runs it on the selection |
 | `__pager.tab("highlights")` | A tab was tapped, the selected one included | Tab memory (`src/components/shell/tabMemory.ts`): another tab opens at its last page and scroll; the current tab goes to its top page, then scrolls to the top. Book opens the book read last at its saved place (the library before any book), and does nothing when tapped in the book |
 | `__pager.tabBar(83)` | After the page's first `tabs` message of a page load, and whenever the bar's footprint changes (a rotation) | Keeps the bar's space: `--native-tab-bar` is the footprint less `env(safe-area-inset-bottom)` |
+| `__pager.online(true)` | The computer came within reach (`true`) or went out of it (`false`) | Within reach: sends the changes that waited, brings the downloaded books up to date, refreshes what is on screen. Out of reach: shows the offline line (`src/offline/index.ts`) |
 
 The footprint is the distance in points from the top of the bar to the bottom of the screen. The page
 keeps it while the bar hides, so the reader never reflows. In the app the page draws no tab bar or
@@ -58,6 +68,110 @@ the real one (27.2). With that stamp the bar is the floating glass capsule, and 
 covers the web view's scroll view, which `setContentScrollView(for: .bottom)` already wires up. The
 SwiftUI Diagnostics sheet takes the new look too. **Diagnostics → Layout → Built for SDK** shows the
 stamp.
+
+## The copy: reading when your computer can't be reached
+
+The phone reads the library from your computer, and a closed laptop is asleep: nothing can reach it.
+So the app keeps a copy of what you choose, on the phone.
+
+- **Download** is in a book's menu in the Library (long-press the book, or its `⋯`). A downloaded book
+  has a small mark. **Remove download** is in the same menu. Nothing downloads by itself.
+- With the computer out of reach, the Library says `Offline · synced 2:14 pm` in one small line.
+  Downloaded books open and read as usual. The others are dimmed: the Library stays whole, and a tap
+  says the book isn't on this iPhone.
+- Reading places, new highlights and notes, and changes to them are kept on the phone and sent, in
+  order, when the computer is reached. **Settings → This iPhone** shows how many are waiting, and any
+  the computer refused (the passage changed, the book was removed), with their words to copy out.
+- Search, a new Context briefing, moving a highlight, and a book that isn't downloaded need the
+  computer, and say so.
+- The copy is brought up to date whenever the app is in front and reaches the computer: a downloaded
+  book whose file changed is fetched again, one that left the library is removed.
+
+### Who does what
+
+The app can be compiled on Linux but not run there, so the Swift side is kept simple and the meaning
+is in the page, where tests reach it (`npm test`, the `test/offline-*.test.ts` files).
+
+| | |
+|---|---|
+| The app (Swift) | Bytes and reachability. It stores answers, keeps the queue on disk, knows whether the computer can be reached, and tells the page. It doesn't know what a book or a highlight is. |
+| The page (`src/offline/`) | Meaning. What to fetch for a download (`download.ts`), what a waiting change does to the lists on screen (`ops.ts`, `api.ts`), how the queue is sent and which refusals are final (`replay.ts`), and when to bring the copy up to date (`sync.ts`). |
+
+The server needs nothing new. The page leans on three things it already has (API.md): the sync
+manifest, annotation ids that make a resend safe, and `updatedAt` on a reading place, with which an
+older place never replaces a newer one.
+
+### Which answers are kept
+
+A 200 answer to a GET under `/api` is stored, whole, under its path and query, when one of these holds:
+
+1. The request carries `x-pager-keep: <tag>`. The page sends it while downloading a book (the tag is
+   `doc:<id>`) and for covers (`shell`). The app takes the header off before the request leaves.
+2. An answer for that path and query is stored already. It is replaced, so the copy stays fresh as
+   you read online.
+3. The path is one of the lists every page opens with (tag `shell`): `/api/documents`, `/api/tree`,
+   `/api/highlights`, `/api/tags`, `/api/health`, `/api/settings`, `/api/presets`,
+   `/api/tools/context/briefings`.
+
+Never the live stream or pairing. Health is stored without your relay's token. An answer over 48 MB
+is passed on but not kept.
+
+### What a request gets
+
+| The request | The computer | The answer |
+|---|---|---|
+| A GET with a stored answer | known to be out of reach | the stored answer, at once, with `x-pager-offline: 1` |
+| A GET with a stored answer | not known | waits up to 2.5 s for the connection, then up to 4 s for the computer's answer to begin; past either, the stored answer |
+| A GET with no stored answer, or a change | known to be out of reach | 503 `unavailable`, at once (the page queues the changes that can wait) |
+| Any request | reached | the computer's answer, as before |
+| `GET /api/stream` | out of reach | held open, silent; ended when the computer is reached, so the page opens a real one from the last event it saw |
+| Any request | the computer refused this phone (not paired, revoked) | 401, never the copy. **Revoke** on the computer also removes the phone's downloads |
+
+**Reachability.** The app looks for the computer when it comes to the front, when the network changes
+(Wi-Fi joined, signal back), on **Try again**, and every 15 s at first, backing off to 2 min, while it
+is out of reach and the app is in front. Nothing runs while the app is in the background: iOS suspends
+it, and an iroh socket doesn't survive that.
+
+### The app's routes for its page
+
+`/_app/*` is answered by the app and never sent to the computer. Only the app's own page can call it.
+
+| Route | Does |
+|---|---|
+| `GET /_app/copy` | `{ generation, online, lastOnlineAt, bytes, entries, client, outbox }`. `online` is null until the app has tried. `client` is the page's record, as stored. `outbox` is the queue, oldest first |
+| `PUT /_app/copy/client` | Stores the page's record (JSON, at most 256 KB): the downloaded books with their file version, the covers fetched, the last sync, the changes the computer refused |
+| `POST /_app/copy/drop` | `{ tag }`: takes the tag off every answer and removes those left with none (Remove download) |
+| `DELETE /_app/copy` | Removes every stored answer and the page's record. The queue stays |
+| `POST /_app/outbox` | `{ key, method, path, body?, meta? }` → 201 `{ seq, at }`. An entry with the same `key` is replaced where it is. Only these wait: `PUT /api/documents/:id/progress`, `POST /api/documents/:id/annotations`, `PATCH` and `DELETE /api/annotations/:id` |
+| `DELETE /_app/outbox/<seq>` | Removes one (it was sent, or refused for good) |
+| `POST /_app/probe` | Looks for the computer now |
+
+The page's keys keep the queue short: one waiting place per book (`progress:<doc>`), one entry for a
+new highlight however often it is edited before it is sent (`create:<id>`), one merged change for a
+highlight the computer has (`patch:<id>`), and `delete:<id>`. A delete that is undone before it is
+sent is simply taken out.
+
+### Where it is kept
+
+The copy is in the app's Application Support folder (`Pager/copy/`), left out of iCloud and computer
+backups (it comes back from your computer), and readable once the phone has been unlocked. The queue
+(`Pager/outbox.json`) is in backups: it is the only place those changes exist. A pairing link for
+another computer removes both, since they belong to the first one's library.
+
+### Trying it in a browser
+
+A development build has a stand-in for the app's side (`src/offline/dev.ts`) that follows the same
+rules, so the page's part can be tried against the real backend:
+
+```sh
+npm run dev:server            # the backend, port 3006
+npm run dev:api               # the web app, http://localhost:5176
+```
+
+Open `http://localhost:5176/?devcopy=1`, download a book from its menu, then in the console run
+`__pagerDev.offline(true)`; `__pagerDev.offline(false)` brings the computer back and sends the queue.
+`?devcopy=0` turns the stand-in off. It doesn't cover pictures (an `<img>` loads straight from the
+backend) or anything in the Swift files.
 
 ## 1. Tools, once
 
@@ -189,10 +303,46 @@ and of anything that looks wrong:
 9. With Reduce Motion on, sheets and tab switches are instant.
 10. Diagnostics → Layout: `env(safe-area-inset-bottom)` is the same with the bar shown and hidden.
 
+### Check it: reading with the laptop closed
+
+None of this could be run on Linux: the Swift side has only been compiled. Take a screenshot of
+**Diagnostics → This phone's copy** with anything that goes wrong.
+
+1. At home, with the computer on: open the app. Library → long-press a book → **Download**. Its
+   status counts the sections (`3/13`), then the book has the small mark. Settings → This iPhone says
+   `Connected to your computer · synced …` and `1 book on this iPhone`, with a size.
+2. Close the laptop's lid. Wait a minute, then swipe the app away and open it again. The Library
+   shows `Offline · synced …`, with covers; the downloaded book looks as before and the others are
+   dimmed. Diagnostics → This phone's copy → Computer says `out of reach`.
+3. Tap a dimmed book: a message says it isn't on this iPhone. Nothing else happens.
+4. Open the downloaded book. It opens at your place. Read into another chapter; its pictures show.
+   Highlight a sentence and add a note to it. Leave the book: the Library shows the new percentage,
+   and Highlights lists the new highlight first.
+5. Settings → This iPhone says `2 changes waiting to send` (the place and the highlight). Swipe the
+   app away and open it again: still 2, the highlight is still in the book, and the Book tab opens the
+   book at the same place.
+6. Open the laptop. Within about 15 s (or tap **Try again** in Settings) the offline line goes and
+   the waiting line with it. On the computer, the book has the highlight with its note, and opens at
+   the phone's place.
+7. With the lid closed again, turn on Airplane Mode and open the app: the same as step 2, at once.
+8. While reading a downloaded book online, close the lid, then turn to a chapter you haven't opened
+   this session: the page shows within about 4 s, from the copy.
+9. On the computer, edit a downloaded Markdown file, or replace a downloaded EPUB with another
+   edition under the same name. Bring the app to the front: the book is fetched again without asking
+   (its status counts sections once more).
+10. Long-press the book → **Remove download**: the mark goes and the size in Settings drops.
+11. Download a book again, then **Revoke** the phone on the computer: the app goes to **Pair this
+    phone**, and after pairing again Settings says no books are downloaded.
+
 ## When it doesn't work
 
 | What you see | Why | What to do |
 |---|---|---|
+| `Offline · synced …` stays with the computer on | The app hasn't reached it yet, or can't | Settings → This iPhone → **Try again**. Diagnostics: Computer, Last error. Then the rows below for "can't reach" |
+| A downloaded book says it isn't on this iPhone | Its download was cut short (the computer went away), so it isn't whole | Reach the computer once with the app in front: the next sync finishes it |
+| "1 change couldn't be saved" in Settings | The computer refused it for good: the passage changed since, or the book was removed | Its words are there to **Copy**; then **Discard** |
+| Changes stay waiting with the computer reachable | The phone isn't paired any more (expired after 90 days unused, or revoked) | Pair again with the same computer: the changes are sent then |
+| The Library is empty offline | The app never reached the computer since it was installed, or since **Remove all downloads** | Open it once with the computer on |
 | `xtool dev build` says `Invalid Resource 'Resources/web'` | The web UI isn't built | `./ios/build-web.sh` |
 | `swift sdk list` shows nothing | `xtool setup` didn't finish building the SDK | Run `xtool setup` again with the `.xip` path |
 | `xtool dev` can't find the phone | It's locked, not trusted, or not on the cable | Unlock it, choose Trust, check `xtool devices` |
