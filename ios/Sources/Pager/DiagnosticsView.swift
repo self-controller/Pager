@@ -15,6 +15,8 @@ struct DiagnosticsView: View {
     /// The layout with the bar shown (false) and hidden (true), and whether it is hidden now.
     @State private var layout: [Bool: LayoutSnapshot] = [:]
     @State private var barHidden = false
+    /// Where the web view lives: fixed above the tab pages, or moved per tab (TabsController).
+    @State private var hosting: String?
     @State private var download: String?
     @State private var busy = false
     /// The copy's stored answers, their size, and the changes waiting.
@@ -53,12 +55,13 @@ struct DiagnosticsView: View {
                         row("iOS", UIDevice.current.systemVersion)
                         row("Built for SDK", BuildInfo.linkedSDK ?? "—")
                         row("Tab bar now", barHidden ? "hidden" : "shown")
+                        row("Web view", hosting)
                         layoutRows("shown", layout[false])
                         layoutRows("hidden", layout[true])
                     } header: {
                         Text("Layout")
                     } footer: {
-                        Text("Each set is taken as the bar last showed or hid. With the bar shown and hidden, env(bottom) should be the same (34 on Face ID iPhones), or the reader repaginates when its chrome hides. Built for SDK below 26 means iOS 26 shows the old, flat compatibility bar, not the glass one.")
+                        Text("Each set is taken as the bar last showed or hid. With the bar shown and hidden, env(bottom) should be the same (34 on Face ID iPhones), or the reader repaginates when its chrome hides. Built for SDK below 26 means iOS 26 shows the old, flat compatibility bar, not the glass one. Web view should say fixed: it stays above the tab pages. Moved per tab (fallback) means that arrangement failed its check on this iOS, and a flash can show when a book opens or closes.")
                     }
                 }
                 Section {
@@ -139,6 +142,7 @@ struct DiagnosticsView: View {
         guard let tabs else { return }
         await tabs.refreshSnapshot()
         barHidden = tabs.isBarHidden
+        hosting = tabs.hostingLabel
         layout = tabs.snapshots
     }
 

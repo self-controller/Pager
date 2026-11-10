@@ -25,7 +25,7 @@ It's built on Linux with [xtool](https://github.com/xtool-org/xtool) and
 | `Sources/Pager/Frame.swift` | `pager/1` framing (mirrors `server/src/remote/protocol.rs`) |
 | `Sources/Pager/Store.swift` | The ticket, the last page colour and when the computer was last reached in UserDefaults; the key, the token and the relay token in the Keychain |
 | `Sources/Pager/WebView.swift` | `PagerTabs`, the tab bar in SwiftUI, made once; the web view's setup: it loads only `pager-app:` (other links open in Safari), doesn't rubber-band, and has no link previews |
-| `Sources/Pager/TabsController.swift` | The system tab bar (Liquid Glass on iOS 26 and later) around the one web view, which moves into the tab about to show; the bar's footprint for the page; the Layout diagnostics |
+| `Sources/Pager/TabsController.swift` | The system tab bar (Liquid Glass on iOS 26 and later) around the one web view, which stays in one place above the five empty tab pages and under the bar; the bar's footprint for the page; the Layout diagnostics |
 | `Sources/Pager/PagerWebView.swift` | The WKWebView subclass: the page's messages, haptics, the page colour, Highlight and Note in the text menu, and the page's safe area pinned to the screen's |
 | `Sources/Pager/FirstRunView.swift`, `DiagnosticsView.swift` | Before pairing; the IDs, the path, the copy's size and waiting changes, and a timed download |
 
@@ -64,6 +64,18 @@ The app calls the page on `window.__pager`, with names from its own code only:
 The footprint is the distance in points from the top of the bar to the bottom of the screen. The page
 keeps it while the bar hides, so the reader never reflows. In the app the page draws no tab bar or
 side nav of its own (`data-native-tabs` on `<html>`).
+
+The web view is not inside any tab's page. The five pages are empty and clear, and the web view sits
+in the tab bar controller's own views, right above the views that hold the pages and below the bar
+(`settle` in `TabsController.swift`). It never moves and never leaves the window. Before, it moved
+into the page about to appear; since iOS 18 the controller crossfades between its pages on every
+selection, so the web view faded in over the bare background, a dark flash each time a book opened
+or closed. Now the fade runs on two empty pages, and a selection the page asks for is made without
+animation as well. About half a second after the bar first shows, the app checks the arrangement
+once: a touch in the middle of the screen must land in the web view, and one in the middle of the
+bar must not. If the check fails, the web view moves per tab as before, for that run.
+**Diagnostics → Layout → Web view** says which: `fixed`, `fixed (not checked yet)` (the bar hasn't
+shown yet, as on the pairing page) or `moved per tab (fallback)`.
 
 The bar looks new only because of how the binary is stamped. iOS 26 draws the new design for a binary
 built against SDK 26 or later, and keeps anything older in compatibility mode: a flat, full-width bar.
@@ -352,6 +364,19 @@ None of this has run on a phone yet; it was measured in Chromium at 390 × 844.
 8. Select words → **Note** in the system menu: a sheet titled New note with the quoted words, the
    keyboard up at once. ✕ cancels; Save makes the note.
 9. Tap **Add a tag** in the tray: the tray rides up above the keyboard.
+
+### Check it: no flash, whole sheets, instant tabs
+
+None of this has run on a phone: the Swift side has only been compiled.
+
+1. Library → long-press a book: the menu shows every row. In a book: AA, a highlight's tray,
+   Contents and Tools show whole.
+2. Tap a book, tap **Back**, several times: no dark flash. Switch tabs: no flash.
+3. In a book, scroll up and down so the bars hide and show: no text above "Chapter x of y".
+4. Close the app from the app switcher, turn on Airplane Mode, open it: the Library, Highlights and
+   the last book show at once.
+5. Two fingers, three taps → Diagnostics → Layout: **Web view** says `fixed`. If it says
+   `moved per tab (fallback)`, say so: the flash fix isn't in effect.
 
 ### Check it: reading with the laptop closed
 
