@@ -1,5 +1,6 @@
 import { Outlet } from "react-router";
 import { useLiveUpdates } from "@/api/hooks";
+import { useTabWarmth } from "@/cache/warm";
 import { ToastProvider } from "@/components/ui/Toast";
 import { cx } from "@/lib/cx";
 import { isNativeApp } from "@/lib/native";
@@ -11,6 +12,8 @@ import { useNativeTabs } from "./useNativeTabs";
 export function AppShell() {
   // Files edited on disk, re-anchored highlights, other tabs: refetch what changed.
   useLiveUpdates();
+  // The other tabs' lists and the book read last are fetched ahead, so a switch paints from the cache.
+  useTabWarmth();
   // In the iPhone app the tab bar is the system's, at every width.
   useNativeTabs();
   // Opening a book slides and a tab crossfades: the mark that tells them apart comes off here.

@@ -2,6 +2,7 @@ import { useEffect, useId, useState, type FormEvent } from "react";
 import { api } from "@/api";
 import { useHealth } from "@/api/hooks";
 import { ApiError, ErrorCodes, type PairRequestResult } from "@/api/types";
+import { wipeStoredCache } from "@/cache";
 import { Button } from "@/components/ui/Button";
 
 const inputClass =
@@ -66,6 +67,8 @@ export function PairPage() {
           setStep({ kind: "paired" });
           // Ask the browser to keep this app's storage; the answer doesn't change anything here.
           await navigator.storage?.persist?.().catch(() => false);
+          // Whatever was kept from a computer this phone was paired with before must not show.
+          await wipeStoredCache();
           window.location.assign("/");
           return;
         }

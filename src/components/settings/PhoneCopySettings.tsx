@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { offline } from "@/api";
+import { dropStoredSections } from "@/cache";
 import { offlineLabel } from "@/components/shell/OfflineLine";
 import { Button } from "@/components/ui/Button";
 import { formatBytes, formatWhen } from "@/lib/format";
@@ -44,6 +45,8 @@ export function PhoneCopySettings() {
 
   const removeAll = () => {
     setBusy(true);
+    // The chapters the page keeps between launches go too.
+    void dropStoredSections();
     void runtime
       .removeAll()
       .catch(() => {})

@@ -5,9 +5,24 @@ import { closeCard, openCard, useContextCard } from "./store";
 
 // The panel, its graphics and their helpers load the first time the panel opens; the card the
 // first time "Context for this" is tapped.
-const ContextPanel = lazy(() => import("./ContextPanel").then((m) => ({ default: m.ContextPanel })));
-const ContextCard = lazy(() => import("./ContextCard").then((m) => ({ default: m.ContextCard })));
-const ContextHome = lazy(() => import("./ContextHome").then((m) => ({ default: m.ContextHome })));
+const loadPanel = () => import("./ContextPanel");
+const loadCard = () => import("./ContextCard");
+const loadHome = () => import("./ContextHome");
+const ContextPanel = lazy(() => loadPanel().then((m) => ({ default: m.ContextPanel })));
+const ContextCard = lazy(() => loadCard().then((m) => ({ default: m.ContextCard })));
+const ContextHome = lazy(() => loadHome().then((m) => ({ default: m.ContextHome })));
+
+/**
+ * Fetch the lazy chunks ahead of use, so the Assistant tab's first visit and the reader's Context
+ * panel have their code. Safe to call often; a failure (the computer out of reach) is tried again
+ * by the `lazy()` that needs the chunk.
+ */
+export function preloadContext(): Promise<void> {
+  return Promise.all([loadHome(), loadPanel(), loadCard()]).then(
+    () => {},
+    () => {},
+  );
+}
 
 function Panel(props: ToolPanelProps) {
   return (

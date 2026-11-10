@@ -1,7 +1,8 @@
 import { useEffect } from "react";
-import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { api } from "./index";
-import { newAnnotationId, provisional } from "../offline/ops";
+import { byLastOpened, newAnnotationId, provisional } from "../offline/ops";
+import { ApiError, ErrorCodes } from "./types";
 import type {
   Annotation,
   AppSettingsPatch,
@@ -19,7 +20,10 @@ import type {
   JournalEvent,
   LibraryAnnotation,
   ProgressUpdate,
+  ReadingProgress,
   ServerEventPayloads,
+  TreeFolder,
+  TreeResponse,
   UpdateAnnotation,
 } from "./types";
 
@@ -45,6 +49,17 @@ export const queryKeys = {
   contextMedia: (ids: readonly string[]) => ["context", "media", ids.join(",")] as const,
 };
 
+/**
+ * A refresh that failed because the computer couldn't be reached doesn't take away what the page
+ * already has: with data in the cache (from memory, or kept from the last launch by src/cache), the
+ * answer reads as a success, so pages that show `error` before `data` keep showing the data. Any
+ * other failure (not found, unauthorized) is passed on as it is, and so is a failure with no data.
+ */
+export function keepDataWhenAway<T>(result: UseQueryResult<T>): UseQueryResult<T> {
+  if (result.data === undefined || !(result.error instanceof ApiError) || result.error.code !== ErrorCodes.unavailable) return result;
+  return { ...result, error: null, isError: false, isRefetchError: false, isLoadingError: false, isSuccess: true, status: "success" } as UseQueryResult<T>;
+}
+
 /** The library changed shape: documents and the folder tree both show it. */
 function invalidateLibrary(qc: QueryClient) {
   void qc.invalidateQueries({ queryKey: queryKeys.allDocuments });
@@ -53,29 +68,29 @@ function invalidateLibrary(qc: QueryClient) {
 }
 
 export function useDocuments(query: DocumentQuery = {}) {
-  return useQuery({ queryKey: queryKeys.documents(query), queryFn: () => api.listDocuments(query) });
+  return keepDataWhenAway(useQuery({ queryKey: queryKeys.documents(query), queryFn: () => api.listDocuments(query) }));
 }
 
 export function useDocument(id: string | undefined) {
-  return useQuery({
+  return keepDataWhenAway(useQuery({
     queryKey: queryKeys.document(id ?? ""),
     queryFn: () => api.getDocument(id!),
     enabled: Boolean(id),
-  });
+  }));
 }
 
 export function useSection(docId: string | undefined, sectionId: string | undefined) {
-  return useQuery({
+  return keepDataWhenAway(useQuery({
     queryKey: queryKeys.section(docId ?? "", sectionId ?? ""),
     queryFn: () => api.getSection(docId!, sectionId!),
     enabled: Boolean(docId && sectionId),
     staleTime: Infinity,
-  });
+  }));
 }
 
 /** The reads folder as a tree, with each file's document. */
 export function useTree() {
-  return useQuery({ queryKey: queryKeys.tree, queryFn: () => api.getTree() });
+  return keepDataWhenAway(useQuery({ queryKey: queryKeys.tree, queryFn: () => api.getTree() }));
 }
 
 /** Search across every file; off until there are two characters to look for. */
@@ -124,6 +139,69 @@ export function useToggleSaved() {
   });
 }
 
+/** The document with a place just saved; as it is when it is another book, or already carries a newer place. */
+function withProgress<D extends DocumentSummary>(doc: D, progress: ReadingProgress): D {
+  if (doc.id !== progress.docId) return doc;
+  if (doc.progress && doc.progress.updatedAt > progress.updatedAt) return doc;
+  return { ...doc, progress, lastOpenedAt: progress.updatedAt };
+}
+
+function folderWithProgress(folder: TreeFolder, progress: ReadingProgress): TreeFolder {
+  let changed = false;
+  const files = folder.files.map((f) => {
+    const doc = f.doc && withProgress(f.doc, progress);
+    if (doc === f.doc) return f;
+    changed = true;
+    return { ...f, doc };
+  });
+  const folders = folder.folders.map((f) => {
+    const next = folderWithProgress(f, progress);
+    if (next !== f) changed = true;
+    return next;
+  });
+  return changed ? { ...folder, files, folders } : folder;
+}
+
+/**
+ * Change cached answers in place, leaving each as fresh or as stale as it was: a patch is not a
+ * fetch, so it must not hide that the answer is due (or marked) to be fetched again.
+ */
+function patchCached<T>(qc: QueryClient, queryKey: readonly unknown[], patch: (data: T, key: readonly unknown[]) => T): void {
+  for (const query of qc.getQueryCache().findAll({ queryKey })) {
+    const { data, dataUpdatedAt, isInvalidated } = query.state;
+    if (data === undefined) continue;
+    const next = patch(data as T, query.queryKey);
+    if (next === data) continue;
+    query.setData(next, { updatedAt: dataUpdatedAt, manual: true });
+    if (isInvalidated) query.invalidate();
+  }
+}
+
+/**
+ * A reading place was saved: put it on the cached lists and the Library's tree, so the Library's
+ * first frame after reading already has the new order and percentage (the tree isn't fetched again
+ * for a saved place). The same rule as the offline copy's overlay (`overlayProgress`): the newer
+ * place wins, so a list fetched afterwards says the same.
+ */
+export function applySavedProgress(qc: QueryClient, progress: ReadingProgress): void {
+  patchCached<DocumentSummary[]>(qc, queryKeys.allDocuments, (list, key) => {
+    if (!Array.isArray(list)) return list;
+    let changed = false;
+    const next = list.map((d) => {
+      const doc = withProgress(d, progress);
+      if (doc !== d) changed = true;
+      return doc;
+    });
+    if (!changed) return list;
+    // History is the opened books, last read first: the Book tab opens the first.
+    return (key[1] as DocumentQuery | undefined)?.history ? byLastOpened(next) : next;
+  });
+  patchCached<TreeResponse>(qc, queryKeys.tree, (tree) => {
+    const root = folderWithProgress(tree.root, progress);
+    return root === tree.root ? tree : { ...tree, root };
+  });
+}
+
 export function useSaveProgress(docId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
@@ -132,6 +210,7 @@ export function useSaveProgress(docId: string | undefined) {
       qc.setQueryData(queryKeys.document(progress.docId), (d: DocumentSummary | undefined) =>
         d ? { ...d, progress, lastOpenedAt: progress.updatedAt } : d,
       );
+      applySavedProgress(qc, progress);
       void qc.invalidateQueries({ queryKey: queryKeys.allDocuments });
     },
   });
@@ -217,19 +296,19 @@ function invalidateAnnotations(qc: QueryClient, docId: string) {
 
 /** A document's live annotations, in reading order. */
 export function useAnnotations(docId: string | undefined) {
-  return useQuery({
+  return keepDataWhenAway(useQuery({
     queryKey: annotationKeys.forDoc(docId ?? ""),
     queryFn: () => api.listAnnotations(docId!),
     enabled: Boolean(docId),
-  });
+  }));
 }
 
 export function useHighlights(query: HighlightQuery = {}) {
-  return useQuery({ queryKey: annotationKeys.highlights(query), queryFn: () => api.listHighlights(query) });
+  return keepDataWhenAway(useQuery({ queryKey: annotationKeys.highlights(query), queryFn: () => api.listHighlights(query) }));
 }
 
 export function useTags() {
-  return useQuery({ queryKey: annotationKeys.tags, queryFn: () => api.listTags() });
+  return keepDataWhenAway(useQuery({ queryKey: annotationKeys.tags, queryFn: () => api.listTags() }));
 }
 
 /** Client ids make retries idempotent (API.md): 8–64 of [A-Za-z0-9_-]. */
@@ -472,7 +551,7 @@ export function useContextRun(runId: string | undefined) {
 
 /** Every book with a stored briefing, for the Assistant page. */
 export function useContextBriefings(enabled = true) {
-  return useQuery({ queryKey: queryKeys.contextList, queryFn: () => api.listContextBriefings(), enabled, staleTime: 30_000 });
+  return keepDataWhenAway(useQuery({ queryKey: queryKeys.contextList, queryFn: () => api.listContextBriefings(), enabled, staleTime: 30_000 }));
 }
 
 /** Ask for a briefing: the cached one comes back at once, otherwise a run starts (and costs money). */

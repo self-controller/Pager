@@ -1,7 +1,9 @@
-import type { KeyboardEvent, MouseEvent } from "react";
+import type { KeyboardEvent, MouseEvent, PointerEvent } from "react";
 import { Link } from "react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { CircleArrowDown, Ellipsis, FileText, Folder } from "lucide-react";
 import type { TreeFile, TreeFolder } from "@/api/types";
+import { prefetchBook } from "@/cache/warm";
 import { IconButton } from "@/components/ui/Button";
 import { useLongPress } from "@/components/ui/ContextMenu";
 import { Cover } from "@/components/ui/Tiles";
@@ -89,7 +91,8 @@ export function FolderItem({ folder, view, onCommand }: ItemProps & { folder: Tr
 }
 
 export function FileItem({ file, view, onCommand }: ItemProps & { file: TreeFile }) {
-  const { more, ...handlers } = useItemHandlers(onCommand);
+  const { more, ...itemHandlers } = useItemHandlers(onCommand);
+  const qc = useQueryClient();
   const doc = file.doc;
   const title = doc?.title ?? stemOf(file.name).stem;
   const { percent, label } = progressOf(doc);
@@ -101,6 +104,16 @@ export function FileItem({ file, view, onCommand }: ItemProps & { file: TreeFile
   const away = Boolean(doc) && !canOpen(copy, doc!.id);
   const status = file.error ? "Couldn't read" : pending ? "Indexing…" : downloading ? `${downloading.done}/${downloading.total}` : label;
   const href = doc && !away ? readHref(doc) : undefined;
+  // A press on a book that can be opened fetches its document and the chapter its link names
+  // (`readHref`: the saved place), so the reader has them by the time the click lands. The long
+  // press keeps its own handler.
+  const handlers = {
+    ...itemHandlers,
+    onPointerDown: (e: PointerEvent<HTMLElement>) => {
+      itemHandlers.onPointerDown(e);
+      if (href && doc && e.button === 0) void prefetchBook(qc, doc.id, { sectionId: doc.progress?.sectionId });
+    },
+  };
   const mark = kept === "kept" && !downloading && (
     <CircleArrowDown size={13} strokeWidth={2} className="shrink-0 text-fg-3" role="img" aria-label="On this iPhone" />
   );

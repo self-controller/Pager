@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate, RouterProvider, useLocation } from "reac
 import { api, offline } from "@/api";
 import { queryKeys, useHealth } from "@/api/hooks";
 import { ApiError, ErrorCodes } from "@/api/types";
+import { startStoredCache, wipeStoredCache } from "@/cache";
 import { AppShell } from "@/components/shell/AppShell";
 import { outdatedSide, UpdateNeeded } from "@/components/shell/UpdateNeeded";
 import { AssistantPage } from "@/pages/AssistantPage";
@@ -18,7 +19,10 @@ const FINAL: string[] = [ErrorCodes.notFound, ErrorCodes.unsupported, ErrorCodes
 
 /** A phone that isn't paired, or was revoked or expired, is sent to /pair. The computer never sees this. */
 function onApiError(err: unknown) {
-  if (api.mode === "http" && err instanceof ApiError && err.code === ErrorCodes.unauthorized && window.location.pathname !== "/pair") {
+  if (api.mode !== "http" || !(err instanceof ApiError) || err.code !== ErrorCodes.unauthorized) return;
+  // What is kept between launches belongs to the computer this phone was paired with: forget it.
+  void wipeStoredCache();
+  if (window.location.pathname !== "/pair") {
     // Health still says which device this was; ask again.
     void queryClient.invalidateQueries({ queryKey: queryKeys.health });
     void router.navigate("/pair", { replace: true });
@@ -31,12 +35,18 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 30_000,
+      // A tab left for minutes still paints from memory when it is opened again (the default is 5 minutes).
+      gcTime: 24 * 60 * 60_000,
       refetchOnWindowFocus: false,
       // Don't hammer a missing document, an unsupported call or a missing credential; retry transient failures once.
       retry: (count, err) => !(err instanceof ApiError && FINAL.includes(err.code)) && count < 1,
     },
   },
 });
+
+// With a real backend: keep the lists and the chapters read last between launches (src/cache).
+// The built-in mock has nothing worth keeping. main.tsx waits a moment for this before it renders.
+if (api.mode === "http") startStoredCache(queryClient);
 
 // In the iPhone app: follow whether the computer can be reached, send what waited, keep downloads fresh.
 offline?.start(queryClient);
