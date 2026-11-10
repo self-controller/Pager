@@ -164,7 +164,7 @@ and of anything that looks wrong:
 - open a book from Highlights: Book is selected. Highlights: its list, where you left it. Book: the
   book reopens at your place, with its bar showing. Tapping Book in the book does nothing;
 - five tabs fit, with labels: Library, Book, Highlights, Assistant, Settings; no "More";
-- switching tabs crossfades for 200 ms (iOS 18 and later; a cut on 17.5);
+- switching tabs crossfades for 100 ms (iOS 18 and later; a cut on 17.5);
 - tap the current tab: its top page. Tap again: it scrolls to the top;
 - in a book, Pages: a centre tap hides and shows the bar, and the page and its text don't move or
   repaginate. Scroll: the bar follows the scroll, with the footer riding down with it;
@@ -186,12 +186,37 @@ and of anything that looks wrong:
    gone while it's open and slides back when it closes.
 5. The same in the Scroll layout. After opening, scrolling and closing Contents, the chapter hasn't
    moved and the chrome didn't hide.
-6. AA and Tools open as sheets. Tools is tall, and its own header closes it.
-7. Library: long-press a book, the menu sheet opens; choose **Rename…**: the rename sheet sits above
-   the keyboard.
-8. Landscape with a sheet open: the sheet is full width, and nothing is under the home indicator.
-9. With Reduce Motion on, sheets and tab switches are instant.
+6. AA opens as a tray: no dimming, the text changes above it as you tap, and a tap on the text closes
+   it without hiding the bars. Tools opens as a tall sheet, and its own header closes it.
+7. Library: long-press a book, the menu sheet opens, floating clear of the screen's edges, with the
+   book's title and its author under it and **Delete…** last, in red. Choose **Rename…**: the rename
+   sheet sits above the keyboard.
+8. Landscape with a sheet open: nothing is under the home indicator.
+9. With Reduce Motion on, sheets fade in and out and nothing slides; tab switches are instant.
 10. Diagnostics → Layout: `env(safe-area-inset-bottom)` is the same with the bar shown and hidden.
+
+### Check it: taps, the chapter swipe, the bars and the slides
+
+None of this has run on a phone yet; it was measured in Chromium at 390 × 844.
+
+1. A book in the Scroll layout: a tap in the middle of the page hides the bars, and another shows
+   them. Before this round a tap did nothing.
+2. Drag sideways: the next chapter follows the finger and opens at its top. Drag the other way: the
+   previous chapter opens at its end. A flick does the same.
+3. The Pages layout: a tap at the right edge turns the page, and a tap on a highlight opens it.
+4. The text sits 24 pt from the screen's edges. The ‹ › circles are filled grey, with no ring or
+   shadow, and their outer edges line up with the text. Look at them in dark too: the grey is close
+   to the page there.
+5. Scroll down: the bars hide. Scroll on to the end of the chapter: they come back and stay.
+6. The chapter's name in the top bar is a pill. Tap it: Contents opens on the current chapter. There
+   is no separate Contents icon.
+7. Library → tap a book: it slides in from the right while the list moves a little left (iOS 18 and
+   later; a cut on 17.5). **Back** slides it out again. The tab bar stays where it is.
+8. Remove a highlight on the Highlights page: a toast rises with **Undo**, and Undo brings it back.
+9. The floating sheets (a book's menu, Rename, the AA tray): their corners sit well inside the
+   screen's own corners, and nothing in them is cut by a corner. Under the AA tray a strip of the
+   page shows in the gap below it: say if that looks wrong.
+10. Contents and Tools stay attached to the bottom edge, with rounder top corners than before.
 
 ### Check it: highlight colours, the highlight tray and the note sheet
 
