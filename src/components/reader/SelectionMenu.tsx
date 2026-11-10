@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { Highlighter, Link2, MessageSquareText } from "lucide-react";
 import type { HighlightColor } from "@/api/types";
+import { cx } from "@/lib/cx";
 import { useSelectionActions } from "@/tools/registry";
 import type { TextSelection, ToolContext } from "@/tools/types";
 
@@ -14,6 +15,11 @@ const DOT: Record<HighlightColor, string> = {
 
 const item =
   "flex h-8 items-center gap-1.5 rounded-xs px-2 text-[13px] font-semibold whitespace-nowrap transition-hover hover:bg-[var(--tooltip-hover)]";
+
+// The bar sits above the selection, so it grows from its bottom edge (`.pop-in`, globals.css). The
+// entrance runs once: the same element stays while the selection, and the bar with it, moves.
+const bar =
+  "pop-in fixed z-30 origin-bottom -translate-x-1/2 -translate-y-full rounded-sm bg-[var(--tooltip-bg)] p-1 text-[var(--tooltip-fg)] shadow-lg";
 
 /** The menu's centre, moved in so the whole menu stays 8px inside the viewport (a phone is narrow). */
 function useClampedCenter(ref: RefObject<HTMLElement | null>, center: number): number {
@@ -58,7 +64,7 @@ export function SelectionMenu({
         role="toolbar"
         data-reader-overlay
         aria-label="Selection actions"
-        className="fixed z-30 flex -translate-x-1/2 -translate-y-full rounded-sm bg-[var(--tooltip-bg)] p-1 text-[var(--tooltip-fg)] shadow-lg"
+        className={cx(bar, "flex")}
         style={{ top: Math.max(8, selection.rect.top - 8), left: center }}
         onMouseDown={(e) => e.preventDefault()}
       >
@@ -77,7 +83,7 @@ export function SelectionMenu({
       role="toolbar"
       data-reader-overlay
       aria-label="Selection actions"
-      className="fixed z-30 flex -translate-x-1/2 -translate-y-full items-center gap-0.5 rounded-sm bg-[var(--tooltip-bg)] p-1 text-[var(--tooltip-fg)] shadow-lg"
+      className={cx(bar, "flex items-center gap-0.5")}
       style={{ top: Math.max(8, top - 8), left: center }}
       onMouseDown={(e) => e.preventDefault() /* keep the selection */}
     >

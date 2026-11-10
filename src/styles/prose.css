@@ -544,12 +544,26 @@
 .footnote-popover {
   width: min(calc(100vw - 2.5rem), 460px);
   max-height: 60vh;
-  animation: footnote-in 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* The entrance every card over the text has (globals.css, "Popovers arrive"). */
+  animation: pop-in 250ms cubic-bezier(0.19, 1, 0.22, 1);
 }
-@keyframes footnote-in {
+
+/* A book opening (useOpeningFade): the text is held back until it is at the saved place, then fades
+   in over 100 ms. The hold is an animation, so it ends by itself after 500 ms whatever the script does. */
+.reader[data-opening="wait"] :is(.markup, .title-page) {
+  animation: reader-text-hold 500ms step-end;
+}
+.reader[data-opening="in"] :is(.markup, .title-page) {
+  animation: reader-text-in 100ms ease-out;
+}
+@keyframes reader-text-hold {
   from {
     opacity: 0;
-    transform: scale(0.98);
+  }
+}
+@keyframes reader-text-in {
+  from {
+    opacity: 0;
   }
 }
 .markup.footnote-popover-text {
@@ -597,9 +611,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .footnote-popover,
-  .back-pill {
+  .back-pill,
+  .reader[data-opening] :is(.markup, .title-page) {
     animation: none;
+  }
+  .footnote-popover {
+    animation: pop-fade 150ms ease-out;
   }
   /* A still wash instead, taken off after 3 s by flashLanding. */
   .markup .is-landing,

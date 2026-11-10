@@ -11,6 +11,7 @@ import { SourceIcon } from "@/components/ui/Tiles";
 import { useToast } from "@/components/ui/Toast";
 import { cx } from "@/lib/cx";
 import { formatShortDate } from "@/lib/format";
+import { markTransition, pushLink } from "@/lib/pageTransition";
 
 const RULE: Record<HighlightColor, string> = {
   yellow: "var(--hl-yellow-line)",
@@ -46,7 +47,7 @@ function HighlightRow({ item, onRemove }: { item: LibraryAnnotation; onRemove: (
         {orphaned ? (
           <span className="line-clamp-6">{quote}</span>
         ) : (
-          <Link to={item.href} state={{ jump: true }} className="stretched-link line-clamp-6">
+          <Link to={item.href} state={{ jump: true }} {...pushLink} className="stretched-link line-clamp-6">
             {quote}
           </Link>
         )}
@@ -68,9 +69,13 @@ function HighlightRow({ item, onRemove }: { item: LibraryAnnotation; onRemove: (
             size="sm"
             variant="secondary-outline"
             className="relative z-[1]"
-            onClick={() =>
-              navigate(item.href, { state: { reattach: { id: item.id, docId: item.docId, quote: item.anchor.originalQuote } } })
-            }
+            onClick={() => {
+              markTransition("push");
+              navigate(item.href, {
+                state: { reattach: { id: item.id, docId: item.docId, quote: item.anchor.originalQuote } },
+                viewTransition: true,
+              });
+            }}
           >
             Reattach
           </Button>

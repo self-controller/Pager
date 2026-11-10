@@ -7,6 +7,7 @@ import { ApiError, ErrorCodes, type IngestJob } from "@/api/types";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { cx } from "@/lib/cx";
+import { pushLink } from "@/lib/pageTransition";
 
 const ACCEPT = ".epub,.txt,.md,.markdown,.html,.htm,.docx";
 
@@ -44,7 +45,14 @@ function JobRow({ item, onOpen }: { item: Item; onOpen: () => void }) {
         </div>
       </div>
       {status === "done" && docId && job?.documentIds.length === 1 && (
-        <Link to={`/read/${encodeURIComponent(docId)}`} onClick={onOpen} className="text-[14px] font-semibold text-accent hover:underline">
+        <Link
+          to={`/read/${encodeURIComponent(docId)}`}
+          viewTransition
+          onClick={(e) => {
+            pushLink.onClick(e);
+            onOpen();
+          }}
+          className="text-[14px] font-semibold text-accent hover:underline">
           Open
         </Link>
       )}

@@ -8,6 +8,7 @@ import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/Toast";
 import { cx } from "@/lib/cx";
 import { readHref } from "@/lib/links";
+import { markTransition } from "@/lib/pageTransition";
 import type { Target } from "./FolderView";
 import { allFolders, baseOf, joinPath, parentOf, stemOf } from "./tree";
 
@@ -71,7 +72,8 @@ export function NewFileDialog({ open, dir, onClose }: { open: boolean; dir: stri
     create.mutate({ dir, title: title.trim(), ...(author.trim() ? { author: author.trim() } : {}) }, {
       onSuccess: ({ document }) => {
         onClose();
-        navigate(readHref(document));
+        markTransition("push");
+        navigate(readHref(document), { viewTransition: true });
       },
     });
   };

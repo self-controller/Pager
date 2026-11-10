@@ -27,6 +27,7 @@ import { useNativeMenu } from "@/components/reader/useNativeMenu";
 import { useReaderAnnotations } from "@/components/reader/useReaderAnnotations";
 import { useReaderChrome, useScrollChrome } from "@/components/reader/useReaderChrome";
 import { findTarget, showTarget, useReadingProgress } from "@/components/reader/useReadingProgress";
+import { useOpeningFade } from "@/components/reader/useOpeningFade";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -347,6 +348,8 @@ export function ReaderPage() {
     (docQuery.error instanceof ApiError && docQuery.error.code === ErrorCodes.notFound) ||
     (sectionQuery.error instanceof ApiError && sectionQuery.error.code === ErrorCodes.notFound);
   const failure = docQuery.error ?? sectionQuery.error;
+  // The text fades in once it is at the saved place, so the page sliding in never shows it jump.
+  const opening = useOpeningFade(placed || Boolean(failure));
   const toolPanel = <ToolPanel context={context} onClose={() => setToolsOpen(false)} />;
   const openToc = useMemo(() => (isBook ? () => setTocOpen(true) : undefined), [isBook]);
 
@@ -394,6 +397,7 @@ export function ReaderPage() {
   return (
     <div
       className={cx("reader flex flex-col overflow-hidden", scrollMode && "relative")}
+      data-opening={opening}
       // The scroll layout runs under the tab bar and the top bar, which float over it.
       style={{ height: scrollMode ? "100dvh" : "calc(100dvh - var(--size-bottom-nav-effective) - env(safe-area-inset-bottom))" }}
     >

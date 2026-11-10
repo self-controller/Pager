@@ -3,6 +3,7 @@ import { useLiveUpdates } from "@/api/hooks";
 import { ToastProvider } from "@/components/ui/Toast";
 import { cx } from "@/lib/cx";
 import { isNativeApp } from "@/lib/native";
+import { usePageTransitionMark } from "@/lib/pageTransition";
 import { BottomTabBar } from "./BottomTabBar";
 import { SideNav } from "./SideNav";
 import { useNativeTabs } from "./useNativeTabs";
@@ -12,6 +13,8 @@ export function AppShell() {
   useLiveUpdates();
   // In the iPhone app the tab bar is the system's, at every width.
   useNativeTabs();
+  // Opening a book slides and a tab crossfades: the mark that tells them apart comes off here.
+  usePageTransitionMark();
   const native = isNativeApp();
   return (
     <ToastProvider>

@@ -51,8 +51,8 @@ function owns(entry: TabEntry, pathname: string): boolean {
  *    so the reader resumes at its saved place, which may have moved on another device;
  *  - tapping the current tab opens its top page, at the top; tapping it again there scrolls to the
  *    top. On the Book tab it does nothing: the book is already open.
- * Each of these navigations crossfades, as the browser's pill links do (a view transition, which
- * react-router skips where the WebView has none). `rendered()` runs inside the transition's update,
+ * Each of these navigations crossfades over 100 ms, as the browser's pill links do (a view
+ * transition, which react-router skips where the WebView has none). `rendered()` runs inside the transition's update,
  * so the new page is already scrolled back when it fades in.
  * The memory lasts as long as the page: a cold start opens the library.
  */

@@ -376,15 +376,69 @@
   overflow-y: hidden;
 }
 
+/* Popovers arrive: every card that floats over the text (the selection menu, the highlight popover,
+   the note panel, a footnote, the Context card) fades in and grows the last 2.5% from the side
+   nearest its anchor (each sets its own transform-origin). Once, when it appears: the animation is
+   on the element, which stays while it moves or redraws. `scale`, not `transform`, so it leaves the
+   translate that places some of them alone. No way out: they close on a scroll or a press outside,
+   and a fixed card would drift from its words while it faded. */
+.pop-in {
+  animation: pop-in 250ms cubic-bezier(0.19, 1, 0.22, 1);
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    scale: 0.975;
+  }
+}
+@keyframes pop-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The toast (Toast.tsx): in with a short rise, out with a fade, then it is removed. */
+.toast {
+  animation: toast-in 150ms ease-out;
+}
+.toast[data-leaving] {
+  animation: toast-out 200ms ease-out both;
+  pointer-events: none;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes toast-out {
+  to {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pop-in {
+    animation: pop-fade 150ms ease-out;
+  }
+  .toast {
+    animation: pop-fade 150ms ease-out;
+  }
+}
+
 /* Switching tabs: the screen crossfades, barely (the tab links ask react-router for a view
    transition; nothing else does). It is the root's crossfade, a snapshot of the screen, so a page
    scrolled down fades out where it was. The tab bar and the side nav are in it too, but they are
    the same in both snapshots and both fades use the same curve, so they hold still; only the old
    tab's state fades, while the live bubble slides. (Lifting the glass pill out on its own snapshot
    drew its backdrop as a square box during the fade.) Without the View Transitions API the page
-   just switches. */
+   just switches. 100 ms: a change of content is quick, a change of place (below) takes longer. */
 :root {
-  --tab-fade-duration: 150ms;
+  --tab-fade-duration: 100ms;
+}
+/* The group's own animation runs 250 ms by default, and until it ends the page is a still picture
+   that takes no taps: it ends with the fade. */
+::view-transition-group(root) {
+  animation-duration: var(--tab-fade-duration);
 }
 ::view-transition-old(root) {
   animation: tab-fade-out var(--tab-fade-duration) ease-out both;
@@ -402,6 +456,78 @@
     opacity: 0;
   }
 }
+
+/* Opening a book, and going back: a change of place, so the screen slides. The same view transition
+   of the root as a tab switch; `data-vt` on <html> (src/lib/pageTransition.ts) says which this one is,
+   and is there only while it runs. Push: the book comes in from the right over the list, which
+   moves a little way left, undimmed. Pop: the reverse, the book on top. Both pages are opaque, so
+   they are drawn as they are, not blended as a crossfade's are. */
+:root[data-vt]::view-transition-old(root),
+:root[data-vt]::view-transition-new(root) {
+  mix-blend-mode: normal;
+}
+:root[data-vt="push"]::view-transition-old(root) {
+  animation: page-out-left 260ms ease both;
+}
+:root[data-vt="push"]::view-transition-new(root) {
+  animation: page-in-right 260ms ease both;
+}
+:root[data-vt="pop"]::view-transition-old(root) {
+  z-index: 1;
+  animation: page-out-right 250ms cubic-bezier(0.33, 1, 0.68, 1) both;
+}
+:root[data-vt="pop"]::view-transition-new(root) {
+  animation: page-in-left 250ms cubic-bezier(0.33, 1, 0.68, 1) both;
+}
+@keyframes page-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes page-out-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-15%);
+  }
+}
+@keyframes page-out-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes page-in-left {
+  from {
+    transform: translateX(-15%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+/* From 768px a browser has the side nav, which is part of the root's snapshot and would slide away
+   and in again with the page. There a book opens and closes with a cut, as it always has: the new
+   page is shown at once. */
+@media (min-width: 768px) {
+  /* The group's own animation too (250 ms by default): while it ran, the page was a still picture
+     that took no clicks. */
+  :root[data-vt]:not([data-native-tabs])::view-transition-group(root) {
+    animation: none;
+  }
+  :root[data-vt]:not([data-native-tabs])::view-transition-old(root) {
+    display: none;
+  }
+  :root[data-vt]:not([data-native-tabs])::view-transition-new(root) {
+    animation: none;
+  }
+}
+/* Under reduced motion nothing slides or fades, whatever the mark says. */
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*),
   ::view-transition-old(*),
@@ -481,7 +607,7 @@ dialog .context-map {
   stroke-linejoin: round;
 }
 .context-detail {
-  animation: footnote-in 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: pop-in 250ms cubic-bezier(0.19, 1, 0.22, 1);
 }
 /* A run's new step slides in under the last one. */
 .context-step {
@@ -494,9 +620,11 @@ dialog .context-map {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .context-step,
-  .context-detail {
+  .context-step {
     animation: none;
+  }
+  .context-detail {
+    animation: pop-fade 150ms ease-out;
   }
   .context-progress {
     animation: none;

@@ -18,6 +18,7 @@ import { ContextMenu, type MenuEntry, type MenuState } from "@/components/ui/Con
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ServiceError } from "@/components/ui/ServiceError";
 import { readHref } from "@/lib/links";
+import { markTransition } from "@/lib/pageTransition";
 import { updateSettings, useSettings, type LibraryMode } from "@/state/settings";
 
 type DialogState =
@@ -153,7 +154,10 @@ export function LibraryPage() {
   const openTarget = useCallback(
     (target: Target) => {
       if (target.kind === "folder") goTo(target.path);
-      else if (target.file.doc) navigate(readHref(target.file.doc));
+      else if (target.file.doc) {
+        markTransition("push");
+        navigate(readHref(target.file.doc), { viewTransition: true });
+      }
     },
     [goTo, navigate],
   );

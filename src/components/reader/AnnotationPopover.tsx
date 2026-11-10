@@ -65,7 +65,12 @@ export function FloatingPanel({
     const { width, height } = el.getBoundingClientRect();
     const left = Math.min(Math.max(8, x - width / 2), window.innerWidth - width - 8);
     const below = y + 16 + height < window.innerHeight - 8;
-    setStyle({ left, top: below ? y + 16 : Math.max(8, y - 16 - height) });
+    // It grows from the point it is pinned to (`.pop-in`): that edge, at the point's x.
+    setStyle({
+      left,
+      top: below ? y + 16 : Math.max(8, y - 16 - height),
+      transformOrigin: `${Math.round(Math.min(Math.max(0, x - left), width))}px ${below ? "0" : "100%"}`,
+    });
   }, [x, y]);
 
   useEffect(() => {
@@ -104,7 +109,7 @@ export function FloatingPanel({
       role="dialog"
       data-reader-overlay
       aria-label={label}
-      className="fixed z-40 w-[320px] rounded-md bg-elevated p-3 elevation"
+      className="pop-in fixed z-40 w-[320px] rounded-md bg-elevated p-3 elevation"
       style={style}
     >
       {children}

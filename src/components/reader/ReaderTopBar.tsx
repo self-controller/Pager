@@ -5,6 +5,7 @@ import { IconButton } from "@/components/ui/Button";
 import { Popover } from "@/components/ui/Popover";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { cx } from "@/lib/cx";
+import { markTransition } from "@/lib/pageTransition";
 import { ReadingSettings } from "./ReadingSettings";
 
 interface Props {
@@ -27,8 +28,11 @@ export function ReaderTopBar({ doc, chapter, percent, onOpenToc, toolsOpen, onTo
   const goBack = () => {
     // In-app history has an idx > 0; a fresh tab opened on a reading link does not.
     const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    // Back slides the book away (globals.css). The router runs a transition for navigate(-1) only
+    // when the way in had one (a book opened from a list); otherwise the mark comes off and it cuts.
+    markTransition("pop");
     if (idx > 0) navigate(-1);
-    else navigate("/");
+    else navigate("/", { viewTransition: true });
   };
 
   return (

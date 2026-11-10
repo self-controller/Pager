@@ -69,12 +69,13 @@ no paper grain or texture: the page is flat.
 | Floating sheet | in the iPhone app only: a content-sized sheet or a tray floats 8px (`--sheet-float-gap`) from the left, right and bottom edges (8px above the keyboard), all four corners `--sheet-float-radius` (44px), with a ring and a soft shadow all round (`--sheet-float-shadow`); its body keeps the home indicator's inset less the 8px, 12px at least. A tall sheet stays attached, with `--sheet-tall-radius` (38px) top corners. Phone browsers keep the attached shape | `:root[data-native-tabs] .sheet` |
 | Menu sheet | a menu on a phone is titled with what it acts on (a book's title with its author, a folder's name with what it holds); rows that destroy go last, after one divider, in `--error`, icon included | `ui/ContextMenu.tsx` `sheetMenuOrder` |
 | Reader | top bar 72px (56px on phones) with a 2px progress line. The text sits `--reader-gutter` from the sides in both layouts: 24px under 768px, 32px from there. Pages: hidden by a centre tap with its space kept; the page box fills the rest minus a 44px footer; the page is 728px wide at most, 20/32px of vertical breathing room, 64px between pages. Scroll: the bars float over the chapter, which runs under them and under the tab bar; the column is 728px at most, 20/32px below the bar, 84px of room past the footer for the chapter buttons | `reader/PagedView.tsx`, `reader/ScrollView.tsx`, `--size-page-footer`, `--reader-gutter` |
+| Toast | one at a time, bottom centre, 12px above the tab bar (24px from the bottom from 768px in a browser), in the tooltip colours, 14/20px, at most 480px wide, with one optional action (Undo). A plain notice stays 3s, one with an action 5s; a new toast replaces the current one at once. In: 150ms fade and an 8px rise, ease-out; out: 200ms fade, then removed (the fades alone under reduced motion). In a polite live region (`role="status"`) | `ui/Toast.tsx`, `.toast` |
 | Chapter buttons (Scroll) | 44px circles in the page colour, 1px detail ring and a 2px shadow, 16px chevrons, 24px in from the bottom corners of the reading area (above the footer), the back pill between them; none on a side with no chapter. They hide with the chrome and while a selection, popover, note or footnote is open: down 200px over 300ms ease-in-out, behind the footer (a fade under reduced motion) | `reader/ScrollView.tsx`, `.chapter-button` |
 | Page footer | 44px: ‹ and › at the sides (Pages only; Scroll has the chapter buttons, and its footer is opaque and rides down with the tab bar); between them one full-height button (13px meta, chapter title first on md+) that cycles on tap, instantly: "p. 4 of 17" ("Chapter 3 of 12" in Scroll) → "6 min left in chapter" → "3 h 12 min left in book" (books only) → "42%" → hidden; the choice is the `footerFormat` setting. Times use a reading speed learned from page dwell (median of the last 30 pages read at 4 s–3 min and 60–1000 wpm); until 5 samples, an average 238 wpm marked "~" ("~6 min left in chapter"; "< 1 min left" takes no mark) | `reader/PageFooter.tsx`, `reader/readingSpeed.ts` |
 | Title page | title at `clamp(30px, 4.5vw, 44px)`, subtitle italic, author 19px, meta 13px, a Contents button for books | `reader/TitlePage.tsx`, `.title-page` |
 | Body | Spectral, line-height 1.6em, paragraph margin 20px; headings 2/1.625/1.375em; figures, code, tables and footnotes never split across pages; headings keep their next line | `prose.css` |
 | Back pill | appears only after a jump (a link, a note's "Go to note", the contents): bottom-left on the page's lower edge, in line with the text; 44px hit area, 32px pill, 13px semibold accent on an opaque accent tint. "Back to p. 42" (page within its chapter, "· Chapter 3" when elsewhere), then "Return to p. 87" once used, and back again; in Scroll, with no page numbers, "Back" or "Back to Chapter 3". Gone after 3 page turns (screenfuls, in Scroll) away from both places or on leaving the document. Stays when the chrome hides. 150ms fade-and-rise | `reader/BackPill.tsx`, `reader/useJumpHistory.ts` |
-| Footnote popover | a note reference opens its note beside it instead of jumping: `min(100vw − 2.5rem, 460px)` wide, at most 60vh tall (scrolls inside), 14/21px in the reading face, elevated surface; "Note 1" and ✕ at the top, "Go to note" at the bottom. Closes on a tap outside, ✕, Esc or a page turn. 150ms scale 0.98→1 and fade, `cubic-bezier(.16,1,.3,1)` | `reader/FootnotePopover.tsx`, `reader/footnotes.ts` |
+| Footnote popover | a note reference opens its note beside it instead of jumping: `min(100vw − 2.5rem, 460px)` wide, at most 60vh tall (scrolls inside), 14/21px in the reading face, elevated surface; "Note 1" and ✕ at the top, "Go to note" at the bottom. Closes on a tap outside, ✕, Esc or a page turn. Arrives as every card over the text does (Motion, "Popovers"): 250ms scale 0.975→1 and fade, `cubic-bezier(.19,1,.22,1)` | `reader/FootnotePopover.tsx`, `reader/footnotes.ts` |
 | Context card map | The Assistant page's Map, and every full-screen map from 768px (Phase 6): each node a card (`bg-elevated`, 1px detail ring, rounded) with what it is to the author over its name ("Concept:" 12px secondary, the name 14.5px semibold, two lines at most) and a 44px round picture on the right, the book's cover as a small portrait; the book's and the author's cards ringed darker. Laid on ovals filling the stage, overlaps pushed apart, lines routed round other cards. A tap rings the card in accent, lights its lines and relations and fades the unrelated cards' contents (the cards stay opaque); its details float over the map (360px, the footnote popover's entrance, own scroll) on the side away from it, closing with ✕, Esc or a tap on the map, so the page never moves. No key: the role says what each node is | `tools/context/CardMap.tsx`, `cardLayout`/`routeEdge` in `model.ts` |
 | Context card | "Context for this" on a selection (web only): the footnote popover's box and entrance, beside the selection, at most as tall as the roomier side so it never covers the words; "Context" and ✕ at the top, "Open in Context →" at the bottom. Shows a focused briefing already made, else what the book's briefing says about the name (with "Go deeper"), else an offer with its cost. Closes on a tap outside, ✕, Esc, a page turn, a scroll or a resize. The selection menu stays 8px inside the viewport | `tools/context/ContextCard.tsx`, `reader/SelectionMenu.tsx` |
 | Landing flash | the block a jump lands on: 20% accent wash with an 8px halo, held 2s then faded over 1s (`3s ease-out forwards`); a still wash for 3s under reduced motion. A class only, so text offsets hold | `.is-landing`, `flashLanding` |
@@ -130,8 +131,31 @@ the tab bar hides as with the chrome and the page behind holds still; under a tr
 the page stays live. Under reduced motion nothing slides: the sheet and its scrim fade in over 200 ms
 and out over 200 ms (a drag still follows the finger, and the sheet fades where it was let go).
 
-**Switching tabs** crossfades the whole screen: 150 ms in a browser, 200 ms in the iPhone app
-(`--tab-fade-duration`), a cut where the web view has no View Transitions API.
+**Switching tabs** crossfades the whole screen in 100 ms, in a browser and in the iPhone app
+(`--tab-fade-duration`), a cut where the web view has no View Transitions API. A change of content
+is quick; a change of place takes longer:
+
+**Opening a book, and going back.** A book opened from a list (the library's rows and cards, its
+menu's Open, Recent, search results, a new file, an added book's Open, a row of Highlights) slides in
+from the right over the list, `translateX(100%)` to 0, while the list moves from 0 to
+`translateX(-15%)`, undimmed: 260 ms, `ease`. The reader's Back button is the reverse, the book on
+top: it slides out to `translateX(100%)` as the list comes back from `-15%`, 250 ms on
+`cubic-bezier(.33,1,.68,1)`. Both are the same view transition of the root as a tab switch;
+`data-vt="push"` or `"pop"` on `<html>` (`src/lib/pageTransition.ts`) names it while it runs. Back
+slides when the way in had a transition, and cuts otherwise; so does everything where the web view
+has no View Transitions API. The tab bar's Book tab is a tab switch and crossfades. From 768px in a
+browser the side nav is on screen, so there both cut, as before. The browser's own Back is
+not marked and gets the tabs' crossfade. Under reduced motion nothing slides or fades. As a book opens, its text
+is held back until it is at the saved place and then fades in over 100 ms (at once under reduced
+motion, on an error, or after 500 ms); a chapter turn or a jump never fades.
+
+**Popovers.** Every card that floats over the text (the selection menu, the highlight popover, the
+new-note panel, a footnote, the Context card, the card map's details) arrives the same way: 250 ms on
+`cubic-bezier(.19,1,.22,1)`, opacity 0 to 1 and scale 0.975 to 1, growing from the side nearest its
+anchor (`.pop-in`; the `scale` property, so the translate that places a card is left alone). Once,
+when it appears: not when the selection changes and the menu moves. Under reduced motion a 150 ms
+fade with no scale. There is no way out: they close on a scroll or a press outside, and a fixed card
+would drift from its words while it faded.
 
 ## Scroll
 

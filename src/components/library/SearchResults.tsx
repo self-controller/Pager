@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ServiceError } from "@/components/ui/ServiceError";
 import { Cover } from "@/components/ui/Tiles";
 import { hitHref, readHref } from "@/lib/links";
+import { pushLink } from "@/lib/pageTransition";
 import { ProgressBar } from "./ProgressBar";
 import { parentOf, progressOf, splitRanges } from "./tree";
 
@@ -15,6 +16,7 @@ function Snippet({ hit }: { hit: SearchHit }) {
     <Link
       to={hitHref(hit)}
       state={{ jump: true }}
+      {...pushLink}
       className="flex items-start gap-2 rounded-sm px-3 py-2 font-serif text-[15px] leading-[22px] text-fg-2 transition-hover hover:bg-surface-hover hover:text-fg max-md:pr-4"
     >
       <ChevronRight size={14} className="mt-1 shrink-0 text-fg-3" aria-hidden />
@@ -49,6 +51,7 @@ function Group({ result }: { result: DocumentSearchResult }) {
     <section className="border-b border-detail py-3">
       <Link
         to={readHref(doc)}
+        {...pushLink}
         className="flex items-center gap-3 rounded-sm px-3 py-2 transition-hover hover:bg-surface-hover max-md:px-4"
       >
         <Cover title={doc.title} author={doc.author} id={doc.id} coverUrl={doc.coverUrl} className="h-14 w-10 shrink-0" />

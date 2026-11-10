@@ -21,7 +21,7 @@ function barHidden(): boolean {
  * shell (the pairing page) hides the bar. Does nothing in a browser.
  *
  * Tab switches in the app crossfade like the browser's: tab memory asks for a view transition, and
- * tokens.css makes it 200 ms there.
+ * it lasts the same 100 ms (`--tab-fade-duration`, which tokens.css sets for the app).
  */
 export function useNativeTabs(): void {
   const location = useLocation();

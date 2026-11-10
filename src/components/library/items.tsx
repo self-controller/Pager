@@ -8,6 +8,7 @@ import { Cover } from "@/components/ui/Tiles";
 import { cx } from "@/lib/cx";
 import { formatShortDate } from "@/lib/format";
 import { readHref } from "@/lib/links";
+import { pushLink } from "@/lib/pageTransition";
 import type { LibraryView } from "@/state/settings";
 import { ProgressBar } from "./ProgressBar";
 import { describeFolder, progressOf, stemOf } from "./tree";
@@ -105,7 +106,7 @@ export function FileItem({ file, view, onCommand }: ItemProps & { file: TreeFile
     </span>
   );
   const name = href ? (
-    <Link to={href} className={cx("stretched-link text-fg", view === "compact" ? "min-w-0 flex-1 truncate text-[14px] leading-5 font-medium" : "line-clamp-2 font-serif text-[15px] leading-5 font-semibold")}>
+    <Link to={href} {...pushLink} className={cx("stretched-link text-fg", view === "compact" ? "min-w-0 flex-1 truncate text-[14px] leading-5 font-medium" : "line-clamp-2 font-serif text-[15px] leading-5 font-semibold")}>
       {title}
     </Link>
   ) : (
