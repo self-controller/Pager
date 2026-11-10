@@ -147,6 +147,23 @@
   box-shadow: var(--focus-ring);
 }
 
+/* A row or card that opens its menu on a long press (useLongPress). On an iPhone a long press on a
+   link or a cover is otherwise iOS's: its own sheet (Open, Copy, Share), a text selection, or the
+   link lifting to be dragged, each of which cancels the touch before the menu's half second. */
+.long-press {
+  -webkit-touch-callout: none;
+}
+@media (pointer: coarse) {
+  .long-press {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .long-press a,
+  .long-press img {
+    -webkit-user-drag: none;
+  }
+}
+
 /* Reader chrome: on touch screens a tap in the middle of the page hides the reader's top bar and the
    phone tab bar (useReaderChrome sets data-reader-chrome on <html>). An open sheet or tray hides the
    tab bar the same way (Sheet.tsx sets data-sheet-open), as it covers the bottom edge. Transform and opacity

@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { CircleArrowDown, Ellipsis, FileText, Folder } from "lucide-react";
 import type { TreeFile, TreeFolder } from "@/api/types";
 import { IconButton } from "@/components/ui/Button";
-import { longPressProps } from "@/components/ui/ContextMenu";
+import { useLongPress } from "@/components/ui/ContextMenu";
 import { Cover } from "@/components/ui/Tiles";
 import { cx } from "@/lib/cx";
 import { formatShortDate } from "@/lib/format";
@@ -51,7 +51,8 @@ function useItemHandlers(onCommand: ItemProps["onCommand"]) {
     const r = e.currentTarget.getBoundingClientRect();
     onCommand("menu", { x: r.left, y: r.bottom + 4 });
   };
-  return { onContextMenu: menuAt, onKeyDown, more, ...longPressProps((at) => onCommand("menu", at)) };
+  const longPress = useLongPress((at) => onCommand("menu", at));
+  return { onContextMenu: menuAt, onKeyDown, more, ...longPress };
 }
 
 export function FolderItem({ folder, view, onCommand }: ItemProps & { folder: TreeFolder }) {
@@ -59,7 +60,7 @@ export function FolderItem({ folder, view, onCommand }: ItemProps & { folder: Tr
   const count = describeFolder(folder);
   if (view === "compact") {
     return (
-      <div role="listitem" className="group relative flex h-10 items-center gap-3 rounded-sm px-2 transition-hover max-md:px-3 hover:bg-surface-hover" {...handlers}>
+      <div role="listitem" className="long-press group relative flex h-10 items-center gap-3 rounded-sm px-2 transition-hover max-md:px-3 hover:bg-surface-hover" {...handlers}>
         <span className="flex w-5 shrink-0 justify-center text-fg-2">
           <Folder size={20} strokeWidth={1.75} fill="currentColor" className="opacity-80" aria-hidden />
         </span>
@@ -74,7 +75,7 @@ export function FolderItem({ folder, view, onCommand }: ItemProps & { folder: Tr
     );
   }
   return (
-    <div role="listitem" className="group relative flex flex-col gap-2 rounded-md p-3 transition-hover hover:bg-surface-hover" {...handlers}>
+    <div role="listitem" className="long-press group relative flex flex-col gap-2 rounded-md p-3 transition-hover hover:bg-surface-hover" {...handlers}>
       <div className="flex aspect-[5/7] w-full items-center justify-center rounded-xs bg-surface-2 text-fg-2 outline outline-1 -outline-offset-1 outline-detail">
         <Folder size={40} strokeWidth={1.25} fill="currentColor" className="opacity-70" aria-hidden />
       </div>
@@ -137,7 +138,7 @@ export function FileItem({ file, view, onCommand }: ItemProps & { file: TreeFile
 
   if (view === "compact") {
     return (
-      <div role="listitem" className={cx("group relative flex h-10 items-center gap-3 rounded-sm px-2 transition-hover max-md:px-3 hover:bg-surface-hover", dim)} {...handlers}>
+      <div role="listitem" className={cx("long-press group relative flex h-10 items-center gap-3 rounded-sm px-2 transition-hover max-md:px-3 hover:bg-surface-hover", dim)} {...handlers}>
 
         {thumb}
         {name}
@@ -155,7 +156,7 @@ export function FileItem({ file, view, onCommand }: ItemProps & { file: TreeFile
     );
   }
   return (
-    <div role="listitem" className={cx("group relative flex flex-col gap-1.5 rounded-md p-3 transition-hover hover:bg-surface-hover", dim)} {...handlers}>
+    <div role="listitem" className={cx("long-press group relative flex flex-col gap-1.5 rounded-md p-3 transition-hover hover:bg-surface-hover", dim)} {...handlers}>
       {thumb}
       <div className="mt-1 flex min-h-10 flex-col gap-0.5">
         {name}

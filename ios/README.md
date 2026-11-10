@@ -358,7 +358,8 @@ None of this has run on a phone yet; it was measured in Chromium at 390 × 844.
 None of this could be run on Linux: the Swift side has only been compiled. Take a screenshot of
 **Diagnostics → This phone's copy** with anything that goes wrong.
 
-1. At home, with the computer on: open the app. Library → long-press a book → **Download**. Its
+1. At home, with the computer on: open the app. Library → long-press a book, or tap its **⋯** →
+   **Download**. (The long press must open Pager's menu, not an iOS sheet with Open, Copy, Share.) Its
    status counts the sections (`3/13`), then the book has the small mark. Settings → This iPhone says
    `Connected to your computer · synced …` and `1 book on this iPhone`, with a size.
 2. Close the laptop's lid. Wait a minute, then swipe the app away and open it again. The Library

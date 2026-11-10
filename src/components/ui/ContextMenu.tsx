@@ -199,20 +199,91 @@ function MenuList({
   );
 }
 
-/** Opens a menu on a long press (touch), where there is no right button. */
-export function longPressProps(onPress: (at: { x: number; y: number }) => void, delayMs = 500) {
+type PressPoint = { x: number; y: number };
+type PressEvent = Pick<React.PointerEvent, "pointerType" | "isPrimary" | "clientX" | "clientY">;
+
+/** How far a finger may drift while it holds, in px: a real finger is never perfectly still. */
+export const LONG_PRESS_SLOP = 10;
+/** How long after the finger lifts a click still belongs to the press, in ms. */
+const CLICK_AFTER_LIFT_MS = 400;
+
+/**
+ * A long press (touch), where there is no right button. The finger may drift a little; lifting
+ * early, a scroll (the browser cancels the pointer) or a longer move cancels it. The click a browser
+ * may send when the finger lifts after the press is swallowed wherever it lands: it would open the
+ * row, or close the sheet that rose under the finger. A new touch is never swallowed.
+ *
+ * The element also needs the `long-press` class (globals.css): without it iOS answers a long press
+ * on a link with its own sheet (Open, Copy, Share) and cancels the pointer before this fires.
+ */
+export function createLongPress(onPress: (at: PressPoint) => void, delayMs = 500) {
   let timer: number | undefined;
-  const cancel = () => window.clearTimeout(timer);
-  return {
-    onPointerDown: (e: React.PointerEvent) => {
-      if (e.pointerType !== "touch") return;
-      const at = { x: e.clientX, y: e.clientY };
-      cancel();
-      timer = window.setTimeout(() => onPress(at), delayMs);
-    },
-    onPointerUp: cancel,
-    onPointerCancel: cancel,
-    onPointerMove: cancel,
-    onPointerLeave: cancel,
+  let start: PressPoint = { x: 0, y: 0 };
+  let release: (() => void) | undefined;
+
+  const cancel = () => {
+    window.clearTimeout(timer);
+    timer = undefined;
   };
+
+  const swallowClick = () => {
+    release?.();
+    let expiry: number | undefined;
+    const end = () => {
+      window.clearTimeout(expiry);
+      window.removeEventListener("click", swallow, true);
+      window.removeEventListener("pointerdown", end, true);
+      window.removeEventListener("pointerup", lifted, true);
+      window.removeEventListener("pointercancel", lifted, true);
+      release = undefined;
+    };
+    const swallow = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      end();
+    };
+    const lifted = () => {
+      window.clearTimeout(expiry);
+      expiry = window.setTimeout(end, CLICK_AFTER_LIFT_MS);
+    };
+    window.addEventListener("click", swallow, true);
+    window.addEventListener("pointerdown", end, true);
+    window.addEventListener("pointerup", lifted, true);
+    window.addEventListener("pointercancel", lifted, true);
+    release = end;
+  };
+
+  return {
+    handlers: {
+      onPointerDown: (e: PressEvent) => {
+        if (e.pointerType !== "touch" || !e.isPrimary) return;
+        cancel();
+        start = { x: e.clientX, y: e.clientY };
+        timer = window.setTimeout(() => {
+          timer = undefined;
+          swallowClick();
+          onPress(start);
+        }, delayMs);
+      },
+      onPointerMove: (e: PressEvent) => {
+        if (timer !== undefined && Math.hypot(e.clientX - start.x, e.clientY - start.y) > LONG_PRESS_SLOP) cancel();
+      },
+      onPointerUp: cancel,
+      onPointerCancel: cancel,
+    },
+    /** Stops a press that is still counting, and stops swallowing. */
+    dispose: () => {
+      cancel();
+      release?.();
+    },
+  };
+}
+
+/** `createLongPress` for a component: one press across renders, always calling the latest `onPress`. */
+export function useLongPress(onPress: (at: PressPoint) => void, delayMs = 500) {
+  const latest = useRef(onPress);
+  latest.current = onPress;
+  const [press] = useState(() => createLongPress((at) => latest.current(at), delayMs));
+  useEffect(() => press.dispose, [press]);
+  return press.handlers;
 }
