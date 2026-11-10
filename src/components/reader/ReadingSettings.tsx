@@ -2,9 +2,9 @@ import { Minus, Plus } from "lucide-react";
 import { IconButton } from "@/components/ui/Button";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
 import { haptic, prepareHaptic } from "@/lib/native";
+import { PHONE_QUERY } from "@/lib/useIsPhone";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 import {
-  FONT_OFFSET_MAX,
-  FONT_OFFSET_MIN,
   updateSettings,
   useSettings,
   type LayoutSetting,
@@ -12,8 +12,7 @@ import {
   type ThemeSetting,
   type Typeface,
 } from "@/state/settings";
-
-const BASE_SIZE = 19;
+import { bodyBase, bodySize, canGrow, canShrink, largerOffset, smallerOffset } from "./textSize";
 
 /** One text-size step, with a selection tick in the iPhone app. */
 function stepSize(fontOffset: number) {
@@ -24,6 +23,8 @@ function stepSize(fontOffset: number) {
 /** Text size, typeface, theme, layout and page turn. Used in the reader's popover and on the Settings page. */
 export function ReadingSettings({ showPreview }: { showPreview?: boolean }) {
   const s = useSettings();
+  // The same width the stylesheet switches the body size at (tokens.css), so the readout is the real size.
+  const base = bodyBase(useMediaQuery(PHONE_QUERY));
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
@@ -34,21 +35,21 @@ export function ReadingSettings({ showPreview }: { showPreview?: boolean }) {
             label="Smaller text"
             size="sm"
             variant="secondary"
-            disabled={s.fontOffset <= FONT_OFFSET_MIN}
+            disabled={!canShrink(base, s.fontOffset)}
             onPointerDown={() => prepareHaptic("selection")}
-            onClick={() => stepSize(s.fontOffset - 1)}
+            onClick={() => stepSize(smallerOffset(base, s.fontOffset))}
           />
           <span className="w-12 text-center font-byline text-[13px] tabular-nums text-fg-2" aria-live="polite">
-            {BASE_SIZE + s.fontOffset}px
+            {bodySize(base, s.fontOffset)}px
           </span>
           <IconButton
             icon={Plus}
             label="Larger text"
             size="sm"
             variant="secondary"
-            disabled={s.fontOffset >= FONT_OFFSET_MAX}
+            disabled={!canGrow(s.fontOffset)}
             onPointerDown={() => prepareHaptic("selection")}
-            onClick={() => stepSize(s.fontOffset + 1)}
+            onClick={() => stepSize(largerOffset(base, s.fontOffset))}
           />
         </div>
       </div>

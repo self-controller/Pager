@@ -25,7 +25,10 @@ interface Props {
 export const listClass = (view: LibraryView) =>
   view === "compact" ? "flex flex-col" : "grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-1 max-md:grid-cols-[repeat(auto-fill,minmax(130px,1fr))]";
 
-/** One folder's contents: folders first, then books in the chosen order. */
+/**
+ * One folder's contents: folders first, then books in the chosen order. The list's 4px and an item's
+ * own padding (12px on a phone, row or card) put every thumbnail and cover on the phone's 16px gutter.
+ */
 export function FolderView({ folder, view, sort, onCommand, onBackgroundMenu, emptyActions, readOnly }: Props) {
   const files = sortFiles(folder.files, sort);
   const empty = folder.folders.length === 0 && files.length === 0;

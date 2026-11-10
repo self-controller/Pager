@@ -61,7 +61,7 @@ export function PageHeader({
 /** Small section heading with an optional trailing link ("See all"). */
 export function SectionHeading({ children, trailing }: { children: ReactNode; trailing?: ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-3 pt-6 pb-2">
+    <div className="flex items-center justify-between gap-3 px-3 pt-6 pb-2 max-md:px-4">
       <h2 className="font-display text-[15px] leading-5 font-semibold text-fg">{children}</h2>
       {trailing}
     </div>

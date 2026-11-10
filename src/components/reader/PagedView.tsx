@@ -113,7 +113,7 @@ export function PagedView({ scrollerRef, pager, onTurn, chrome, onChrome, childr
   const step = pageWidth + gap;
   return (
     <div
-      className="reader-stage relative flex min-h-0 flex-1 touch-pan-x touch-pan-y justify-center px-4 select-text md:px-8"
+      className="reader-stage relative flex min-h-0 flex-1 touch-pan-x touch-pan-y justify-center px-[var(--reader-gutter)] select-text"
       onPointerDown={presses.onPointerDown}
       onPointerUp={presses.onPointerUp}
       onPointerCancel={presses.onPointerCancel}

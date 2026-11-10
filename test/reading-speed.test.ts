@@ -194,7 +194,10 @@ describe("footer formats", () => {
     expect(progressLabel("page", facts)).toEqual({ text: "p. 4 of 17", spoken: "Page 4 of 17" });
     expect(progressLabel("page", { ...facts, theEnd: true }).text).toBe("The end");
     // 4250 words over 17 pages, 14 pages left: 3500 words at 250 wpm.
-    expect(progressLabel("chapter-time", facts)).toEqual({ text: "14 min left in chapter", spoken: "14 minutes left in chapter" });
+    expect(progressLabel("chapter-time", facts)).toEqual({
+      text: "14 min left in chapter",
+      spoken: "14 minutes left in chapter",
+    });
     expect(progressLabel("chapter-time", { ...facts, isBook: false }).text).toBe("14 min left");
     // 60,000 × 0.58 = 34,800 words: 139 min.
     expect(progressLabel("book-time", facts).text).toBe("2 h 19 min left in book");
@@ -220,5 +223,17 @@ describe("footer formats", () => {
     expect(chapter.spoken).toMatch(/^About 1[45] minutes left in chapter$/);
     expect(progressLabel("book-time", { ...facts, wpm: null }).text).toMatch(/^~2 h \d+ min left in book$/);
     expect(progressLabel("page", { ...facts, wpm: null }).text).toBe("p. 4 of 17");
+  });
+
+  it("leaves the guess mark off less than a minute", () => {
+    // The last page of a short chapter: 10 words left.
+    const last = { ...facts, words: 170, page: facts.pageCount - 1, wpm: null };
+    expect(progressLabel("chapter-time", last)).toEqual({
+      text: "< 1 min left in chapter",
+      spoken: "less than a minute left in chapter",
+    });
+    expect(progressLabel("book-time", { ...last, percent: 1 }).text).toBe("< 1 min left in book");
+    // A learned speed never had the mark.
+    expect(progressLabel("chapter-time", { ...last, wpm: 250 }).text).toBe("< 1 min left in chapter");
   });
 });

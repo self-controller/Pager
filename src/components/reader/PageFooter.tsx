@@ -78,7 +78,8 @@ export function progressLabel(format: FooterFormat, facts: ProgressFacts): { tex
       const where = format === "book-time" ? " in book" : facts.isBook ? " in chapter" : "";
       // Until your own speed is learned, an average reader's, marked as a guess.
       const minutes = (words ?? 0) / (wpm ?? ESTIMATE_WPM);
-      const [about, aboutSpoken] = wpm === null ? ["~", "About "] : ["", ""];
+      // "< 1 min" is already a rough answer: no "~" in front of it.
+      const [about, aboutSpoken] = wpm === null && minutes >= 1 ? ["~", "About "] : ["", ""];
       return {
         text: `${about}${formatDuration(minutes)} left${where}`,
         spoken: `${aboutSpoken}${formatDuration(minutes, true)} left${where}`,
@@ -180,10 +181,7 @@ export function PageFooter({ chapter, hasPrev, onTurn, ...progress }: Props) {
   const last = progress.page >= progress.pageCount - 1 && !progress.hasNext;
 
   return (
-    <footer
-      className="flex h-[var(--size-page-footer)] shrink-0 items-center gap-2 px-2 md:px-4"
-      aria-label="Pages"
-    >
+    <footer className="flex h-[var(--size-page-footer)] shrink-0 items-center gap-2 px-2 md:px-4" aria-label="Pages">
       <IconButton
         icon={ChevronLeft}
         label="Previous page"

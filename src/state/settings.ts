@@ -16,7 +16,7 @@ export type FooterFormat = "page" | "chapter-time" | "book-time" | "percent" | "
 
 export interface Settings {
   theme: ThemeSetting;
-  /** Pixels added to the 19px body size. */
+  /** Pixels added to the body size (19px, 17px under 768px wide); the text never goes below 16px. */
   fontOffset: number;
   typeface: Typeface;
   /** Whether the reader's tool panel is open. */

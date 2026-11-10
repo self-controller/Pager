@@ -131,6 +131,8 @@
   --size-center: 600px;
   --size-library: 1040px;
   --size-reader: 728px;
+  /* The reading text's side padding: one value for Scroll, Pages and the back pill, so they line up. */
+  --reader-gutter: 32px;
   --size-top-bar: 72px;
   --size-page-footer: 44px;
   --size-bottom-nav: 56px;
@@ -151,6 +153,7 @@
     --size-top-bar: 56px;
     --size-bottom-nav-effective: var(--size-bottom-nav);
     --font-size-body-base: 17px;
+    --reader-gutter: 24px;
   }
 }
 

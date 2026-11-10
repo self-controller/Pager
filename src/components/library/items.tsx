@@ -20,8 +20,10 @@ interface ItemProps {
   onCommand: (command: ItemCommand, at?: Point) => void;
 }
 
+// Each use adds its own position (relative in a row, absolute on a card): two in one class list
+// would leave the winner to the stylesheet's order.
 const moreButton =
-  "relative z-[1] shrink-0 opacity-0 transition-hover group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 [@media(pointer:coarse)]:opacity-100";
+  "z-[1] shrink-0 opacity-0 transition-hover group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 [@media(pointer:coarse)]:opacity-100";
 
 /** Right-click, long press, "⋯", and the keys a file manager answers to. */
 function useItemHandlers(onCommand: ItemProps["onCommand"]) {
@@ -54,7 +56,7 @@ export function FolderItem({ folder, view, onCommand }: ItemProps & { folder: Tr
   const count = describeFolder(folder);
   if (view === "compact") {
     return (
-      <div role="listitem" className="group relative flex h-10 items-center gap-3 rounded-sm px-2 transition-hover hover:bg-surface-hover" {...handlers}>
+      <div role="listitem" className="group relative flex h-10 items-center gap-3 rounded-sm px-2 transition-hover max-md:px-3 hover:bg-surface-hover" {...handlers}>
         <span className="flex w-5 shrink-0 justify-center text-fg-2">
           <Folder size={20} strokeWidth={1.75} fill="currentColor" className="opacity-80" aria-hidden />
         </span>
@@ -64,7 +66,7 @@ export function FolderItem({ folder, view, onCommand }: ItemProps & { folder: Tr
         <span className="hidden w-[160px] truncate text-[13px] text-fg-2 md:block">{count}</span>
         <span className="w-[132px] shrink-0" aria-hidden />
         <span className="hidden w-16 shrink-0 lg:block" aria-hidden />
-        <IconButton icon={Ellipsis} label={`More for ${folder.name}`} size="sm" variant="quaternary" className={moreButton} onClick={more} />
+        <IconButton icon={Ellipsis} label={`More for ${folder.name}`} size="sm" variant="quaternary" className={cx(moreButton, "relative")} onClick={more} />
       </div>
     );
   }
@@ -114,7 +116,7 @@ export function FileItem({ file, view, onCommand }: ItemProps & { file: TreeFile
 
   if (view === "compact") {
     return (
-      <div role="listitem" className="group relative flex h-10 items-center gap-3 rounded-sm px-2 transition-hover hover:bg-surface-hover" {...handlers}>
+      <div role="listitem" className="group relative flex h-10 items-center gap-3 rounded-sm px-2 transition-hover max-md:px-3 hover:bg-surface-hover" {...handlers}>
         {thumb}
         {name}
         <span className="hidden w-[160px] truncate text-[13px] text-fg-2 md:block">{doc?.author ?? ""}</span>
@@ -125,7 +127,7 @@ export function FileItem({ file, view, onCommand }: ItemProps & { file: TreeFile
         <span className="hidden w-16 shrink-0 text-right font-byline text-[12px] leading-4 text-fg-3 lg:block">
           {doc ? formatShortDate(doc.lastOpenedAt ?? doc.addedAt) : ""}
         </span>
-        <IconButton icon={Ellipsis} label={`More for ${title}`} size="sm" variant="quaternary" className={moreButton} onClick={more} />
+        <IconButton icon={Ellipsis} label={`More for ${title}`} size="sm" variant="quaternary" className={cx(moreButton, "relative")} onClick={more} />
       </div>
     );
   }
@@ -145,7 +147,7 @@ export function FileItem({ file, view, onCommand }: ItemProps & { file: TreeFile
 export function ItemSkeleton({ view }: { view: LibraryView }) {
   if (view === "compact") {
     return (
-      <div className="flex h-10 items-center gap-3 px-2" aria-hidden>
+      <div className="flex h-10 items-center gap-3 px-2 max-md:px-3" aria-hidden>
         <div className="skeleton h-7 w-5" />
         <div className="skeleton h-4 flex-1 max-w-[320px]" />
         <div className="skeleton hidden h-3 w-[120px] md:block" />

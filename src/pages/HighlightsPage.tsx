@@ -22,10 +22,7 @@ const RULE: Record<HighlightColor, string> = {
 
 const meta = "font-byline text-[12px] leading-5 font-medium tracking-[0.02em] uppercase";
 
-function HighlightRow({ item }: { item: LibraryAnnotation }) {
-  const remove = useDeleteAnnotation();
-  const restore = useRestoreAnnotation();
-  const { toast } = useToast();
+function HighlightRow({ item, onRemove }: { item: LibraryAnnotation; onRemove: (item: LibraryAnnotation) => void }) {
   const navigate = useNavigate();
   const orphaned = item.anchor.status === "orphaned";
   const quote = orphaned ? item.anchor.originalQuote : item.anchor.quote;
@@ -84,18 +81,7 @@ function HighlightRow({ item }: { item: LibraryAnnotation }) {
           size="sm"
           variant="quaternary"
           className="relative z-[1]"
-          onClick={() =>
-            remove.mutate(
-              { id: item.id, docId: item.docId },
-              {
-                onSuccess: () =>
-                  toast({
-                    message: item.body ? "Note removed" : "Highlight removed",
-                    action: { label: "Undo", onClick: () => restore.mutate({ id: item.id, docId: item.docId }) },
-                  }),
-              },
-            )
-          }
+          onClick={() => onRemove(item)}
         />
       </div>
     </article>
@@ -132,6 +118,23 @@ export function HighlightsPage() {
   const tags = useTags();
   const doc = useDocument(docId);
 
+  // Removing lives here, not in the row: the row leaves the list at once (the optimistic update), and
+  // a mutation's own onSuccess is dropped when its component is gone, so the toast never showed.
+  const remove = useDeleteAnnotation();
+  const restore = useRestoreAnnotation();
+  const { toast } = useToast();
+  const onRemove = (item: LibraryAnnotation) =>
+    remove.mutate(
+      { id: item.id, docId: item.docId },
+      {
+        onSuccess: () =>
+          toast({
+            message: item.body ? "Note removed" : "Highlight removed",
+            action: { label: "Undo", onClick: () => restore.mutate({ id: item.id, docId: item.docId }) },
+          }),
+      },
+    );
+
   const clear = (key: string) => {
     const next = new URLSearchParams(params);
     next.delete(key);
@@ -147,7 +150,7 @@ export function HighlightsPage() {
     <CenterColumn className="pb-10">
       <PageHeader title="Highlights" />
 
-      <div className="flex flex-col gap-3 px-3 pt-3 pb-2">
+      <div className="flex flex-col gap-3 px-3 pt-3 pb-2 max-md:px-4">
         <label className="relative block">
           <span className="sr-only">Search highlights and notes</span>
           <Search size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-fg-2" aria-hidden />
@@ -215,17 +218,17 @@ export function HighlightsPage() {
       ) : (
         <>
           {live.map((item) => (
-            <HighlightRow key={item.id} item={item} />
+            <HighlightRow key={item.id} item={item} onRemove={onRemove} />
           ))}
           {orphans.length > 0 && (
             <>
               <SectionHeading>Couldn't find these</SectionHeading>
-              <p className="px-3 pb-2 text-[14px] leading-5 text-fg-2">
+              <p className="px-3 pb-2 text-[14px] leading-5 text-fg-2 max-md:px-4">
                 The words around these changed in the file. They are kept as you marked them and reattach by themselves if the
                 text comes back, or choose Reattach and select the right words.
               </p>
               {orphans.map((item) => (
-                <HighlightRow key={item.id} item={item} />
+                <HighlightRow key={item.id} item={item} onRemove={onRemove} />
               ))}
             </>
           )}

@@ -15,7 +15,7 @@ function Snippet({ hit }: { hit: SearchHit }) {
     <Link
       to={hitHref(hit)}
       state={{ jump: true }}
-      className="flex items-start gap-2 rounded-sm px-3 py-2 font-serif text-[15px] leading-[22px] text-fg-2 transition-hover hover:bg-surface-hover hover:text-fg"
+      className="flex items-start gap-2 rounded-sm px-3 py-2 font-serif text-[15px] leading-[22px] text-fg-2 transition-hover hover:bg-surface-hover hover:text-fg max-md:pr-4"
     >
       <ChevronRight size={14} className="mt-1 shrink-0 text-fg-3" aria-hidden />
       <span className="line-clamp-3">
@@ -47,7 +47,10 @@ function Group({ result }: { result: DocumentSearchResult }) {
   const folder = doc.relPath ? parentOf(doc.relPath) : "";
   return (
     <section className="border-b border-detail py-3">
-      <Link to={readHref(doc)} className="flex items-center gap-3 rounded-sm px-3 py-2 transition-hover hover:bg-surface-hover">
+      <Link
+        to={readHref(doc)}
+        className="flex items-center gap-3 rounded-sm px-3 py-2 transition-hover hover:bg-surface-hover max-md:px-4"
+      >
         <Cover title={doc.title} author={doc.author} id={doc.id} coverUrl={doc.coverUrl} className="h-14 w-10 shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="truncate font-serif text-[17px] leading-6 font-semibold text-fg">{doc.title}</div>
@@ -99,7 +102,7 @@ export function SearchResults({ q, results, isPending, error, onRetry }: Props) 
   if (error) return <ServiceError error={error} onRetry={onRetry} />;
   if (isPending && !results) {
     return (
-      <div role="status" aria-label="Searching" className="flex flex-col gap-4 px-3 py-4">
+      <div role="status" aria-label="Searching" className="flex flex-col gap-4 px-3 py-4 max-md:px-4">
         {[0, 1, 2].map((i) => (
           <div key={i} className="flex gap-3">
             <div className="skeleton h-14 w-10" />
@@ -122,7 +125,7 @@ export function SearchResults({ q, results, isPending, error, onRetry }: Props) 
   }
   return (
     <div className="pb-10">
-      <p className="px-3 pt-1 pb-2 font-byline text-[12px] leading-5 text-fg-2">
+      <p className="px-3 pt-1 pb-2 font-byline text-[12px] leading-5 text-fg-2 max-md:px-4">
         {results.length === 1 ? "1 document" : `${results.length} documents`} match “{q.trim()}”
       </p>
       {results.map((r) => (

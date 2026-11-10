@@ -492,7 +492,7 @@ export function ReaderPage() {
               {pill && (
                 // Docked on the page's bottom edge, lined up with the text column's left edge.
                 <div className="relative h-0 shrink-0">
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0.5 z-30 flex justify-center px-4 md:px-8">
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0.5 z-30 flex justify-center px-[var(--reader-gutter)]">
                     <div className="flex w-full max-w-[var(--size-reader)]">{pill}</div>
                   </div>
                 </div>

@@ -34,7 +34,7 @@ interface Props {
 /** The search bar and the view toggle; under them, Recent | Folders and, in Folders, the order. */
 export function LibraryToolbar({ q, onQ, view, onView, sort, onSort, mode, onMode, searchRef }: Props) {
   return (
-    <div className="flex flex-col gap-2 px-3 pt-4 pb-3 max-md:pt-3">
+    <div className="flex flex-col gap-2 px-3 pt-4 pb-3 max-md:px-4 max-md:pt-3">
       <div className="flex items-center gap-2">
         <label className="relative block min-w-0 flex-1">
           <span className="sr-only">Search your library</span>
