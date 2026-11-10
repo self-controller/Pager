@@ -91,19 +91,21 @@ describe("clamping", () => {
 });
 
 describe("panning with one finger", () => {
-  it("moves the map while it can, and hands the rest of a vertical move to the page", () => {
+  it("moves the map while it can", () => {
     // At 1× the map can go from y 0 to -500.
     const t: Transform = { scale: 1, x: -100, y: -450 };
-    expect(panBy(t, { x: 10, y: 30 }, content, viewport, limits)).toEqual({ t: { scale: 1, x: -90, y: -420 }, restY: 0 });
-    // 80 up: 50 for the map, 30 for the page.
-    expect(panBy(t, { x: 0, y: -80 }, content, viewport, limits)).toEqual({ t: { scale: 1, x: -100, y: -500 }, restY: -30 });
+    expect(panBy(t, { x: 10, y: 30 }, content, viewport, limits)).toEqual({ scale: 1, x: -90, y: -420 });
   });
 
-  it("hands the whole vertical move to the page at the fit", () => {
+  it("stops at the map's edge", () => {
+    const t: Transform = { scale: 1, x: -100, y: -450 };
+    // 80 up, but only 50 are left: the map stops at its edge and the page isn't scrolled.
+    expect(panBy(t, { x: 0, y: -80 }, content, viewport, limits)).toEqual({ scale: 1, x: -100, y: -500 });
+  });
+
+  it("stays put at the fit", () => {
     const fitted = fit(content, viewport);
-    const step = panBy(fitted, { x: 5, y: 40 }, content, viewport, limits);
-    expect(step.t).toEqual(fitted);
-    expect(step.restY).toBe(40);
+    expect(panBy(fitted, { x: 5, y: 40 }, content, viewport, limits)).toEqual(fitted);
   });
 });
 

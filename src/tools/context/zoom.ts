@@ -81,13 +81,11 @@ export function clampTransform(t: Transform, content: Size, viewport: Size, limi
 }
 
 /**
- * One step of a one-finger pan: the transform moved by `d` and kept on the screen, and `restY`, the
- * part of the vertical move the map couldn't take (at its edge, or at the fit), for the page to scroll.
+ * One step of a one-finger pan: the transform moved by `d` and kept on the screen. At the map's edge
+ * it stops there, and at the fit it doesn't move: the page is never scrolled from here.
  */
-export function panBy(t: Transform, d: Point, content: Size, viewport: Size, limits: Limits): { t: Transform; restY: number } {
-  const want = { scale: t.scale, x: t.x + d.x, y: t.y + d.y };
-  const next = clampTransform(want, content, viewport, limits);
-  return { t: next, restY: want.y - next.y };
+export function panBy(t: Transform, d: Point, content: Size, viewport: Size, limits: Limits): Transform {
+  return clampTransform({ scale: t.scale, x: t.x + d.x, y: t.y + d.y }, content, viewport, limits);
 }
 
 /** Whether two transforms show the same thing, within a pixel and a fraction of a percent. */
