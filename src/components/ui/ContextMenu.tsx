@@ -22,8 +22,27 @@ export type MenuEntry = MenuItem | "separator";
 
 export interface MenuState {
   label: string;
+  /** What the menu acts on, under the title of the phone sheet (the pointer menu has no title). */
+  subtitle?: string;
   at: { x: number; y: number };
   items: MenuEntry[];
+}
+
+/**
+ * The entries as the phone sheet lists them: actions that destroy go last, after one divider,
+ * whatever order they came in, and no divider leads, trails or doubles.
+ */
+export function sheetMenuOrder(items: MenuEntry[]): MenuEntry[] {
+  const out: MenuEntry[] = [];
+  for (const item of items) {
+    if (item === "separator") {
+      if (out.length && out[out.length - 1] !== "separator") out.push(item);
+    } else if (!item.danger) out.push(item);
+  }
+  if (out[out.length - 1] === "separator") out.pop();
+  const danger = items.filter((item): item is MenuItem => item !== "separator" && Boolean(item.danger));
+  if (danger.length && out.length) out.push("separator");
+  return [...out, ...danger];
 }
 
 interface Props extends MenuState {
@@ -39,9 +58,9 @@ export function ContextMenu(props: Props) {
 }
 
 /** The phone menu: a sheet whose pick slides it away before the action runs (and what it opens rises). */
-function MenuSheet({ label, items, onClose }: Props) {
+function MenuSheet({ label, subtitle, items, onClose }: Props) {
   return (
-    <Sheet open onClose={onClose} title={label} size="content">
+    <Sheet open onClose={onClose} title={label} subtitle={subtitle} size="content">
       <SheetMenuList label={label} items={items} />
     </Sheet>
   );
@@ -49,7 +68,7 @@ function MenuSheet({ label, items, onClose }: Props) {
 
 function SheetMenuList({ label, items }: { label: string; items: MenuEntry[] }) {
   const sheet = useSheet();
-  return <MenuList label={label} items={items} phone onPick={(item) => sheet?.close(() => item.onSelect())} />;
+  return <MenuList label={label} items={sheetMenuOrder(items)} phone onPick={(item) => sheet?.close(() => item.onSelect())} />;
 }
 
 /**
@@ -164,7 +183,7 @@ function MenuList({
               item.disabled && "opacity-50",
             )}
           >
-            <span className="flex size-5 shrink-0 items-center justify-center text-fg-2">
+            <span className={cx("flex size-5 shrink-0 items-center justify-center", !(phone && item.danger) && "text-fg-2")}>
               {item.checked ? (
                 <Check size={16} aria-hidden />
               ) : item.icon ? (

@@ -113,6 +113,17 @@ describe("useNativeTabs", () => {
     expect(tabs().at(-1)).toEqual({ t: "tabs", tab: "library", hidden: false });
   });
 
+  it("hides the bar under a tray, whose mark leaves the page live", async () => {
+    await mount("/");
+    const html = document.documentElement;
+    html.dataset.sheetOpen = "tray";
+    await act(async () => {});
+    expect(tabs().at(-1)).toEqual({ t: "tabs", tab: "library", hidden: true });
+    delete html.dataset.sheetOpen;
+    await act(async () => {});
+    expect(tabs().at(-1)).toEqual({ t: "tabs", tab: "library", hidden: false });
+  });
+
   it("brings the bar back only when both the chrome and a sheet clear", async () => {
     await mount("/read/doc/s1");
     const html = document.documentElement;

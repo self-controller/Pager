@@ -148,8 +148,8 @@
 }
 
 /* Reader chrome: on touch screens a tap in the middle of the page hides the reader's top bar and the
-   phone tab bar (useReaderChrome sets data-reader-chrome on <html>). An open sheet hides the tab bar
-   the same way (Sheet.tsx sets data-sheet-open), as it covers the bottom edge. Transform and opacity
+   phone tab bar (useReaderChrome sets data-reader-chrome on <html>). An open sheet or tray hides the
+   tab bar the same way (Sheet.tsx sets data-sheet-open), as it covers the bottom edge. Transform and opacity
    only, so their space stays and the page never reflows; hidden, they can't be focused or clicked. */
 .reader-top-bar,
 [data-tab-bar] {
@@ -232,14 +232,17 @@
    UA's `dialog:modal { overflow: auto }` would make a second scroller under the finger); only its
    body does, and keeps its scroll to itself. It rides above the on-screen keyboard (--sheet-kb), and
    leaves from wherever a drag let go of it (--sheet-y). The way in has no fill, so a drag's inline
-   transform isn't held under the finished animation. */
+   transform isn't held under the finished animation. --sheet-gap is how far it floats from the
+   screen's edges (none, except a short sheet in the iPhone app, below); the ways in and out travel
+   that much further, so it starts and ends off screen. The durations are sheetDrag.ts's. */
 .sheet {
+  --sheet-gap: 0px;
   position: fixed;
-  inset: auto 0 var(--sheet-kb, 0px) 0;
+  inset: auto var(--sheet-gap) calc(var(--sheet-kb, 0px) + var(--sheet-gap)) var(--sheet-gap);
   display: flex;
   flex-direction: column;
   margin: 0;
-  width: 100%;
+  width: calc(100% - 2 * var(--sheet-gap));
   max-width: none;
   max-height: 92dvh;
   padding: 0;
@@ -259,14 +262,40 @@
 .sheet[data-size="tall"] {
   height: 92dvh;
 }
+/* A light scrim: the page the sheet acts on still reads through it. */
 .sheet::backdrop {
-  background: var(--modal-scrim);
+  background: var(--sheet-scrim);
+}
+.sheet[data-size="tall"]::backdrop {
+  background: var(--sheet-scrim-tall);
 }
 .sheet [data-sheet-body] {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-bottom: env(safe-area-inset-bottom);
 }
+/* A tray (modal={false}): not in the top layer, so it needs a place above the reader's bars, the
+   tab bar and the popovers (z-40), below the toast (z-50). Short, so the page shows above it. */
+.sheet[data-tray] {
+  z-index: 45;
+  max-height: 46dvh;
+}
+/* In the iPhone app a short sheet or a tray floats clear of the screen's edges, like the system's
+   own; its body keeps clear of the home indicator, less the gap it is already raised by, and of the
+   round bottom corners on a phone with no home indicator. A tall sheet stays attached. */
+:root[data-native-tabs] .sheet:not([data-size="tall"]) {
+  --sheet-gap: var(--sheet-float-gap);
+  border-radius: var(--sheet-float-radius);
+  box-shadow: var(--sheet-float-shadow);
+}
+:root[data-native-tabs] .sheet:not([data-size="tall"]) [data-sheet-body] {
+  padding-bottom: max(12px, env(safe-area-inset-bottom) - var(--sheet-float-gap));
+}
+:root[data-native-tabs] .sheet[data-size="tall"] {
+  border-radius: var(--sheet-tall-radius) var(--sheet-tall-radius) 0 0;
+}
+/* In over 300 ms. Out fast after a tap (150 ms, ease-in); after a drag the exit follows through
+   from under the finger on the way in's curve (250 ms). */
 .sheet[open] {
   animation: sheet-in 300ms cubic-bezier(0.19, 1, 0.22, 1);
 }
@@ -274,14 +303,20 @@
   animation: sheet-scrim-in 300ms ease-out both;
 }
 .sheet[data-closing] {
-  animation: sheet-out 250ms cubic-bezier(0.19, 1, 0.22, 1) both;
+  animation: sheet-out 150ms cubic-bezier(0.4, 0, 1, 1) both;
 }
 .sheet[data-closing]::backdrop {
+  animation: sheet-scrim-out 150ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+.sheet[data-closing="drag"] {
+  animation: sheet-out 250ms cubic-bezier(0.19, 1, 0.22, 1) both;
+}
+.sheet[data-closing="drag"]::backdrop {
   animation: sheet-scrim-out 250ms ease-out both;
 }
 @keyframes sheet-in {
   from {
-    transform: translateY(100%);
+    transform: translateY(calc(100% + var(--sheet-gap)));
   }
 }
 @keyframes sheet-out {
@@ -289,7 +324,7 @@
     transform: translateY(var(--sheet-y, 0px));
   }
   to {
-    transform: translateY(100%);
+    transform: translateY(calc(100% + var(--sheet-gap)));
   }
 }
 @keyframes sheet-scrim-in {
@@ -302,18 +337,42 @@
     opacity: 0;
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .sheet,
-  .sheet::backdrop {
-    animation: none !important;
+@keyframes sheet-fade-in {
+  from {
+    opacity: 0;
   }
 }
-/* The page behind a sheet holds still: neither the document nor the reader's chapter scrolls. */
-:root[data-sheet-open],
-:root[data-sheet-open] body {
+@keyframes sheet-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+/* Reduced motion: nothing slides. The sheet and its scrim fade in and out over 200 ms; let go after
+   a drag, it fades where the finger left it. */
+@media (prefers-reduced-motion: reduce) {
+  .sheet[open] {
+    animation: sheet-fade-in 200ms ease-out;
+  }
+  .sheet[open]::backdrop {
+    animation: sheet-scrim-in 200ms ease-out both;
+  }
+  .sheet[data-closing],
+  .sheet[data-closing="drag"] {
+    transform: translateY(var(--sheet-y, 0px));
+    animation: sheet-fade-out 200ms ease-out both;
+  }
+  .sheet[data-closing]::backdrop,
+  .sheet[data-closing="drag"]::backdrop {
+    animation: sheet-scrim-out 200ms ease-out both;
+  }
+}
+/* The page behind a modal sheet holds still: neither the document nor the reader's chapter scrolls.
+   Under a tray (data-sheet-open="tray") the page stays live. */
+:root[data-sheet-open=""],
+:root[data-sheet-open=""] body {
   overflow: hidden;
 }
-:root[data-sheet-open] .chapter-pane[data-role="live"] {
+:root[data-sheet-open=""] .chapter-pane[data-role="live"] {
   overflow-y: hidden;
 }
 

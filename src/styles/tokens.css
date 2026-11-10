@@ -26,6 +26,11 @@
   --bg-elevated: #ffffff; /* same as the page: the .elevation ring and shadow set it apart */
   --detail: rgb(0 0 0 / 0.12);
   --modal-scrim: rgb(0 0 0 / 0.4);
+  /* Behind a phone sheet: light, so the page it acts on still reads; a little more behind a tall one. */
+  --sheet-scrim: rgb(0 0 0 / 0.15);
+  --sheet-scrim-tall: rgb(0 0 0 / 0.2);
+  /* A sheet that floats (the iPhone app): a hairline ring and a soft shadow all round. */
+  --sheet-float-shadow: 0 0 0 0.5px var(--detail), 0 12px 40px rgb(0 0 0 / 0.18), 0 2px 8px rgb(0 0 0 / 0.08);
   --tooltip-bg: #111111;
   --tooltip-fg: #ffffff;
   --tooltip-accent: #60a5fa; /* the accent on --tooltip-bg (toast actions) */
@@ -74,6 +79,9 @@
   --bg-elevated: #1e1e1e;
   --detail: rgb(255 255 255 / 0.12);
   --modal-scrim: rgb(0 0 0 / 0.6);
+  --sheet-scrim: rgb(0 0 0 / 0.3);
+  --sheet-scrim-tall: rgb(0 0 0 / 0.35);
+  --sheet-float-shadow: 0 0 0 0.5px var(--detail), 0 12px 40px rgb(0 0 0 / 0.5), 0 2px 8px rgb(0 0 0 / 0.3);
   --tooltip-bg: #e5e5e5;
   --tooltip-fg: #121212;
   --tooltip-accent: #1d4ed8;
@@ -139,6 +147,12 @@
   --size-phone-header: calc(56px + env(safe-area-inset-top)); /* the phone page header, below the status bar */
   --size-bottom-nav-effective: 0px;
   --size-tool-panel: 360px;
+
+  /* Sheets in the iPhone app (globals.css): a short one floats this far from the screen's edges, on
+     corners that sit inside the screen's own; a tall one stays attached, its top corners rounder. */
+  --sheet-float-gap: 8px;
+  --sheet-float-radius: 44px;
+  --sheet-tall-radius: 38px;
 }
 
 @media (max-width: 1023px) {

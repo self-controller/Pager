@@ -114,7 +114,9 @@ pairing phones.
 - **Bottom sheets**: on phones (below 768px, and in the app at every width) dialogs, the reader's
   Contents and Tools, the type settings and the library menus are bottom sheets
   (`src/components/ui/Sheet.tsx`). While one is open `<html data-sheet-open>` holds the page still and
-  hides the tab bar, the app's included (`tabs.hidden`); the bar returns when the sheet closes.
+  hides the tab bar, the app's included (`tabs.hidden`); the bar returns when the sheet closes. The
+  type settings are a tray (not modal): the mark is `data-sheet-open="tray"`, which hides the bar the
+  same way but leaves the page live, and a tap outside the tray closes it.
   Footnote popovers, the Context card and the note and highlight panels keep their shapes.
 - **Over iroh** the same UI runs inside the phone app, whose scheme handler carries `/api` requests
   as `pager/1` frames (API.md, Phones over iroh) with a bearer token the app keeps; the UI's `/api`

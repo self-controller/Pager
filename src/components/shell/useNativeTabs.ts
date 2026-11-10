@@ -5,7 +5,10 @@ import { NATIVE_TABS, NAV } from "./nav";
 import { TabMemory } from "./tabMemory";
 import { useNavTargets } from "./useBookTab";
 
-/** The bar hides with the reader's chrome, and under a sheet: ui/Sheet.tsx marks `<html data-sheet-open>`. */
+/**
+ * The bar hides with the reader's chrome, and under a sheet or a tray: ui/Sheet.tsx marks
+ * `<html data-sheet-open>` (empty for a modal sheet, "tray" for a tray; either hides the bar).
+ */
 function barHidden(): boolean {
   const d = document.documentElement.dataset;
   return d.readerChrome === "hidden" || d.sheetOpen !== undefined;

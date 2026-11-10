@@ -1,18 +1,32 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cx } from "@/lib/cx";
 import { IconButton } from "./Button";
-import { SHEET_OUT_MS, sheetOffset, sheetRelease } from "./sheetDrag";
+import { sheetExitMs, sheetOffset, sheetRelease, type SheetExit } from "./sheetDrag";
+
+/** A press outside a tray that lifts within this many px of where it landed closes the tray. */
+const TRAY_TAP_SLOP = 15;
 
 interface Props {
   open: boolean;
   onClose: () => void;
   title: string;
+  /** One grey line under the title: what the sheet acts on. */
+  subtitle?: string;
+  /** Shown in the title row, before the close button (a Save button). */
+  action?: ReactNode;
   children: ReactNode;
   /** "content" grows with what it holds (menus, dialogs); "tall" takes 92% of the screen (Contents, Tools). */
   size?: "content" | "tall";
   /** Hide the title row (the title is still announced); the grip stays. */
   bare?: boolean;
+  /**
+   * False makes it a tray, for settings you watch take effect: no scrim and no title row, the page
+   * behind stays live and scrolls, and a tap outside it closes it. At most 46% of the screen tall.
+   */
+  modal?: boolean;
+  /** Also what a tray's own button names in `aria-controls`, so its press is left to its click. */
   id?: string;
   className?: string;
 }
@@ -20,7 +34,7 @@ interface Props {
 type Phase = "closed" | "open" | "closing";
 
 interface SheetApi {
-  /** Slides the sheet away, tells its owner it closed, then runs `then`. */
+  /** Sends the sheet away, tells its owner it closed, then runs `then`. */
   close: (then?: () => void) => void;
 }
 
@@ -31,23 +45,33 @@ export function useSheet(): SheetApi | null {
   return useContext(SheetContext);
 }
 
-let marks = 0;
+type MarkKind = "modal" | "tray";
+
+const marks: Record<MarkKind, number> = { modal: 0, tray: 0 };
+
+function writeMark(): void {
+  const data = document.documentElement.dataset;
+  if (marks.modal > 0) data.sheetOpen = "";
+  else if (marks.tray > 0) data.sheetOpen = "tray";
+  else delete data.sheetOpen;
+}
 
 /**
  * Marks <html> with `data-sheet-open` while `shown`: the tab bar hides (globals.css; the app hides
- * its own) and the page behind holds still. Counted, so a second sheet closing doesn't clear the
- * first one's mark.
+ * its own). Under a modal sheet the mark is empty and the page behind holds still; with only trays
+ * open it is "tray" and the page still scrolls. Counted by kind, so one sheet closing doesn't clear
+ * another's mark, and a tray left open under a modal sheet gets its own mark back.
  */
-export function useSheetOpenMark(shown: boolean): void {
+export function useSheetOpenMark(shown: boolean, kind: MarkKind = "modal"): void {
   useEffect(() => {
     if (!shown) return;
-    marks += 1;
-    document.documentElement.dataset.sheetOpen = "";
+    marks[kind] += 1;
+    writeMark();
     return () => {
-      marks = Math.max(0, marks - 1);
-      if (marks === 0) delete document.documentElement.dataset.sheetOpen;
+      marks[kind] = Math.max(0, marks[kind] - 1);
+      writeMark();
     };
-  }, [shown]);
+  }, [shown, kind]);
 }
 
 function reducedMotion(): boolean {
@@ -57,13 +81,32 @@ function reducedMotion(): boolean {
 /**
  * A bottom sheet: a native <dialog> with showModal() (focus trapping, Esc and an inert page for
  * free) that rises from the bottom edge over the tab bar. It closes with ✕, Esc, a tap on the scrim
- * or a drag down on its grip or title row, and slides away before its owner hears it closed. Only
- * its body scrolls; the phone shape of Dialog, Popover and ContextMenu.
+ * or a drag down on its grip or title row, and leaves before its owner hears it closed: fast after a
+ * tap, following through after a drag. Only its body scrolls; the phone shape of Dialog, Popover and
+ * ContextMenu.
+ *
+ * With `modal={false}` it is a tray: opened with show(), so it is not in the top layer and nothing
+ * behind it is inert. It lives in <body>, clear of whatever its owner sits in (the reader's top bar
+ * slides away and goes inert under it).
  */
-export function Sheet({ open, onClose, title, children, size = "content", bare, id, className }: Props) {
+export function Sheet({
+  open,
+  onClose,
+  title,
+  subtitle,
+  action,
+  children,
+  size = "content",
+  bare,
+  modal = true,
+  id,
+  className,
+}: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const headRef = useRef<HTMLDivElement>(null);
   const [phase, setPhaseState] = useState<Phase>("closed");
+  // What is closing it, for the exit's speed (globals.css reads it from data-closing).
+  const [exit, setExit] = useState<SheetExit>("tap");
   // The phase as of now, for event handlers and timers that outlive a render.
   const phaseRef = useRef<Phase>("closed");
   const onCloseRef = useRef(onClose);
@@ -95,18 +138,15 @@ export function Sheet({ open, onClose, title, children, size = "content", bare, 
     job.then?.();
   }, [setPhase]);
 
-  /** Slides the sheet away; `notify` when the owner doesn't know yet (✕, Esc, the scrim, a drag). */
+  /** Sends the sheet away; `notify` when the owner doesn't know yet (✕, Esc, the scrim, a drag). */
   const dismiss = useCallback(
-    ({ notify, then }: { notify: boolean; then?: () => void }) => {
+    ({ notify, then, by = "tap" }: { notify: boolean; then?: () => void; by?: SheetExit }) => {
       if (phaseRef.current !== "open") return;
       closing.current = { notify, then };
-      if (reducedMotion()) {
-        finish();
-        return;
-      }
+      setExit(by);
       setPhase("closing");
       // In case the exit never runs (a hidden tab, no animations): don't stay stuck half closed.
-      timer.current = window.setTimeout(finish, SHEET_OUT_MS + 50);
+      timer.current = window.setTimeout(finish, sheetExitMs(by, reducedMotion()) + 50);
     },
     [finish, setPhase],
   );
@@ -117,15 +157,62 @@ export function Sheet({ open, onClose, title, children, size = "content", bare, 
     if (open && !el.open) {
       closing.current = null;
       window.clearTimeout(timer.current);
-      el.showModal();
+      if (modal) el.showModal();
+      else el.show();
       setPhase("open");
       // React's autoFocus runs before the dialog is shown, so it lands nowhere; focus the first field now.
       el.querySelector<HTMLElement>("input:not([type=hidden]), textarea, select, [data-autofocus]")?.focus();
     }
     if (!open && phaseRef.current === "open") dismiss({ notify: false });
-  }, [open, dismiss, setPhase]);
+  }, [open, modal, dismiss, setPhase]);
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  // A tray has no scrim to tap and, not being modal, gets no `cancel` for Esc: listen for both. A
+  // press outside closes it when it lifts where it landed; one that turns into a scroll is cancelled
+  // by the browser, so the page scrolls under an open tray. The tray is still `open` through its
+  // exit, so the reader's press arbiter (gestures.ts) takes the same press for a dismissal.
+  useEffect(() => {
+    if (modal || phase !== "open") return;
+    let down: { id: number; x: number; y: number } | null = null;
+    const onDown = (e: PointerEvent) => {
+      down = null;
+      const el = ref.current;
+      const target = e.target instanceof Element ? e.target : null;
+      if (!el || !target || el.contains(target)) return;
+      // Its own button closes it with its click; closing here too would let that click reopen it.
+      if (id && target.closest("[aria-controls]")?.getAttribute("aria-controls") === id) return;
+      down = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    };
+    const onUp = (e: PointerEvent) => {
+      const press = down;
+      down = null;
+      if (!press || press.id !== e.pointerId) return;
+      if (Math.hypot(e.clientX - press.x, e.clientY - press.y) > TRAY_TAP_SLOP) return;
+      dismiss({ notify: true });
+    };
+    const onCancel = () => {
+      down = null;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      // A sheet or dialog opened over the tray takes its own Esc.
+      const inside = e.target instanceof Element ? e.target.closest("dialog[open]") : null;
+      if (inside && inside !== ref.current) return;
+      e.preventDefault();
+      dismiss({ notify: true });
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onCancel);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointercancel", onCancel);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [modal, phase, id, dismiss]);
 
   const shown = open || phase !== "closed";
 
@@ -168,10 +255,10 @@ export function Sheet({ open, onClose, title, children, size = "content", bare, 
       if (!active) return;
       active = false;
       if (sheetRelease(dy, performance.now() - t0, height) === "close") {
-        // The exit slides on from where the finger let go.
+        // The exit carries on from where the finger let go.
         el.style.setProperty("--sheet-y", `${sheetOffset(dy)}px`);
         el.style.transform = "";
-        dismiss({ notify: true });
+        dismiss({ notify: true, by: "drag" });
         return;
       }
       if (sheetOffset(dy) > 0) {
@@ -212,17 +299,18 @@ export function Sheet({ open, onClose, title, children, size = "content", bare, 
     };
   }, [shown]);
 
-  useSheetOpenMark(phase === "open");
+  useSheetOpenMark(phase === "open", modal ? "modal" : "tray");
 
   const api = useMemo<SheetApi>(() => ({ close: (then) => dismiss({ notify: true, then }) }), [dismiss]);
 
-  return (
+  const sheet = (
     <dialog
       ref={ref}
       id={id}
       data-sheet=""
       data-size={size}
-      data-closing={phase === "closing" ? "" : undefined}
+      data-tray={modal ? undefined : ""}
+      data-closing={phase === "closing" ? exit : undefined}
       // Only while shown: a closed sheet stays in the page, and the reader takes any overlay it finds
       // for an open one (gestures.ts), which would swallow every tap.
       role={shown ? "dialog" : undefined}
@@ -245,11 +333,12 @@ export function Sheet({ open, onClose, title, children, size = "content", bare, 
       }}
       onClick={(e) => {
         // Click on the backdrop (the dialog element itself, outside its content) closes it.
-        if (e.target === ref.current) dismiss({ notify: true });
+        if (modal && e.target === ref.current) dismiss({ notify: true });
       }}
       onAnimationEnd={(e) => {
         // The scrim's animations end here too, on the same element: wait for the sheet's own.
-        if (e.target === e.currentTarget && e.animationName === "sheet-out" && phaseRef.current === "closing") finish();
+        const out = e.animationName === "sheet-out" || e.animationName === "sheet-fade-out";
+        if (e.target === e.currentTarget && out && phaseRef.current === "closing") finish();
       }}
     >
       {shown && (
@@ -258,9 +347,17 @@ export function Sheet({ open, onClose, title, children, size = "content", bare, 
             <div data-sheet-grip className="flex h-7 items-center justify-center">
               <span aria-hidden className="h-[5px] w-9 rounded-full bg-fg-3/40" />
             </div>
-            {!bare && (
-              <div className="flex h-12 items-center justify-between gap-3 pr-2 pl-5">
-                <h2 className="truncate font-display text-[17px] leading-6 font-bold">{title}</h2>
+            {!bare && modal && (
+              <div className="flex min-h-12 items-center gap-3 pr-2 pl-5">
+                <div className={cx("min-w-0 flex-1", subtitle && "py-1.5")}>
+                  <h2 className="truncate font-display text-[17px] leading-6 font-bold">{title}</h2>
+                  {subtitle && (
+                    <p data-sheet-subtitle className="truncate text-[13px] leading-[18px] text-fg-2">
+                      {subtitle}
+                    </p>
+                  )}
+                </div>
+                {action}
                 <IconButton icon={X} label="Close" onClick={() => dismiss({ notify: true })} />
               </div>
             )}
@@ -272,4 +369,6 @@ export function Sheet({ open, onClose, title, children, size = "content", bare, 
       )}
     </dialog>
   );
+  // A tray is not in the top layer, so it must not sit inside its owner's stacking context.
+  return modal ? sheet : createPortal(sheet, document.body);
 }

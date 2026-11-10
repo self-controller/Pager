@@ -28,6 +28,17 @@ type DialogState =
   | { kind: "move"; target: Target }
   | { kind: "delete"; target: Target };
 
+/**
+ * What a menu's sheet says it acts on: a book by its title, with its author (its file name when
+ * unknown); a file with no document by its name alone; a folder by its name, with what it holds.
+ */
+function menuHeading(target: Target): { label: string; subtitle?: string } {
+  if (target.kind === "folder") return { label: target.name, subtitle: describeFolder(target.folder) };
+  const doc = target.file.doc;
+  if (!doc) return { label: target.name };
+  return { label: doc.title, subtitle: doc.author ?? target.name };
+}
+
 function isTyping(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest("input, textarea, select, [contenteditable='true'], dialog[open]"));
 }
@@ -167,10 +178,16 @@ export function LibraryPage() {
       if (command === "open") openTarget(target);
       else if (command === "rename") canChange && setDialog({ kind: "rename", target });
       else if (command === "delete") canChange && setDialog({ kind: "delete", target });
-      else if (at) setMenu({ label: target.name, at, items: itemsFor(target) });
+      else if (at) setMenu({ ...menuHeading(target), at, items: itemsFor(target) });
     },
     [openTarget, itemsFor, canChange],
   );
+
+  // The background menu acts on the folder being looked at: named when it isn't the root.
+  const openBackgroundMenu = (at: Point) => {
+    const inFolder = !recent && path ? path.split("/").pop() : undefined;
+    setMenu({ label: "Library", ...(inFolder ? { subtitle: inFolder } : {}), at, items: backgroundItems });
+  };
 
   const emptyActions = canChange && (
     <div className="flex flex-wrap justify-center gap-2">
@@ -217,7 +234,7 @@ export function LibraryPage() {
           files={recentList}
           view={settings.libraryView}
           onCommand={onCommand}
-          onBackgroundMenu={(at) => setMenu({ label: "Library", at, items: backgroundItems })}
+          onBackgroundMenu={openBackgroundMenu}
           onBrowse={() => setMode("folders")}
         />
       ) : !folder ? (
@@ -240,7 +257,7 @@ export function LibraryPage() {
             view={settings.libraryView}
             sort={settings.librarySort}
             onCommand={onCommand}
-            onBackgroundMenu={(at) => setMenu({ label: "Library", at, items: backgroundItems })}
+            onBackgroundMenu={openBackgroundMenu}
             emptyActions={emptyActions}
             readOnly={!canChange}
           />

@@ -58,6 +58,8 @@ export function ReaderTopBar({ doc, chapter, percent, onOpenToc, toolsOpen, onTo
           <Popover
             title="Reading settings"
             className="w-[300px] p-4"
+            // On phones a tray, so the text above it changes as the settings do.
+            tray
             trigger={(props) => <IconButton icon={ALargeSmall} label="Reading settings" {...props} />}
           >
             <ReadingSettings />

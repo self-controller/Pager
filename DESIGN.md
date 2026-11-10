@@ -29,7 +29,9 @@ the selection tint and the open highlight. Everything else is grey.
 | `--accent-bg` | `rgb(29 78 216 / .16)` | `rgb(96 165 250 / .24)` | text selection, search marks, drop zones |
 | `--on-accent` | `#ffffff` | `#121212` (the light blue needs dark text) | text on the accent |
 | `--detail` | `rgb(0 0 0 / .12)` | `rgb(255 255 255 / .12)` | hairlines |
-| `--modal-scrim` | `rgb(0 0 0 / .4)` | `rgb(0 0 0 / .6)` | behind dialogs |
+| `--modal-scrim` | `rgb(0 0 0 / .4)` | `rgb(0 0 0 / .6)` | behind desktop dialogs |
+| `--sheet-scrim` | `rgb(0 0 0 / .15)` | `rgb(0 0 0 / .3)` | behind a content-sized phone sheet: light, so the page it acts on still reads |
+| `--sheet-scrim-tall` | `rgb(0 0 0 / .2)` | `rgb(0 0 0 / .35)` | behind a tall phone sheet (Contents, Tools) |
 | `--tooltip-bg` / `--tooltip-fg` | `#111111` / `#ffffff` | `#e5e5e5` / `#121212` | toasts, the selection menu (the page inverted) |
 | `--tooltip-accent` | `#60a5fa` | `#1d4ed8` | the accent on a tooltip surface (toast actions) |
 | `--error` | `#b91c1c` | `#f87171` | errors, danger buttons |
@@ -56,13 +58,16 @@ no paper grain or texture: the page is flat.
 | Element | Measurement | Where |
 |---|---|---|
 | Left nav | 232px fixed, 80px icon rail between 768 and 1023px, hidden under 768px; wordmark "Pager" at the top (no logo) | `components/shell/SideNav.tsx` |
-| Mobile bar | below 768px in a browser, a floating pill of frosted glass with five items and a bubble that slides to the current one; in the iPhone app, the system Liquid Glass tab bar instead. Both hide with the reader's chrome and under an open sheet | `shell/BottomTabBar.tsx`, `.glass-tab-bar`, `ios/Sources/Pager/TabsController.swift` |
+| Mobile bar | below 768px in a browser, a floating pill of frosted glass with five items and a bubble that slides to the current one; in the iPhone app, the system Liquid Glass tab bar instead. Both hide with the reader's chrome and under an open sheet or tray | `shell/BottomTabBar.tsx`, `.glass-tab-bar`, `ios/Sources/Pager/TabsController.swift` |
 | Library column | 1040px (`--size-library`) inside 20px gutters. Under 768px no column gutter: every content edge (header title, toolbar, breadcrumbs, row thumbnails, card covers, search results, section headings) sits 16px from the screen edge | `shell/Page.tsx` `WideColumn` |
 | Toolbar | search bar (always), view toggle (compact / detailed), sort | `library/LibraryToolbar.tsx` |
 | Compact row | 40px: 20×28 cover, title, author, 96px progress bar + label, date, `⋯` | `library/items.tsx` |
 | Detailed card | `minmax(150px, 1fr)` grid: full-width 5:7 cover, title (2 lines), author, progress bar; `⋯` at the card's top right, 8px in | `library/items.tsx` |
 | Context menu | 220px min, fixed at the pointer, clamped to the viewport | `ui/ContextMenu.tsx` |
-| Sheet | phones only (below 768px, and always in the iPhone app): every menu, panel and dialog (Contents, Reading settings, Tools, the library's menus, every dialog but a full-window view) rises from the bottom edge over the tab bar. Full width, `--radius-lg` top corners, `bg-elevated` on the scrim; a 36×5 grip in a 28px band, then a 48px title row with ✕ (none for Tools). 92dvh tall for Contents and Tools, as tall as its content otherwise (92dvh at most); only its body scrolls. In 300ms, out 250ms, `cubic-bezier(.19,1,.22,1)`. Closes with a swipe down on the grip or title row (past 30% of its height, or a flick), ✕, Esc or a tap on the scrim | `ui/Sheet.tsx`, `ui/sheetDrag.ts`, `.sheet` |
+| Sheet | phones only (below 768px, and always in the iPhone app): every menu, panel and dialog (Contents, Reading settings, Tools, the library's menus, every dialog but a full-window view) rises from the bottom edge over the tab bar. Full width, `--radius-lg` top corners, `bg-elevated` on a light scrim (`--sheet-scrim`, `--sheet-scrim-tall` behind a tall one); a 36×5 grip in a 28px band, then a title row with ✕ (none for Tools): 48px, taller when a 13px/18px grey subtitle sits under the title, and with room for one action before ✕. 92dvh tall for Contents and Tools, as tall as its content otherwise (92dvh at most); only its body scrolls. In 300ms on `cubic-bezier(.19,1,.22,1)`; out 150ms on `cubic-bezier(.4,0,1,1)` after a tap, 250ms on the way in's curve after a drag. Closes with a swipe down on the grip or title row (past 30% of its height, or a flick), ✕, Esc or a tap on the scrim | `ui/Sheet.tsx`, `ui/sheetDrag.ts`, `.sheet` |
+| Tray | the sheet for settings you watch take effect (Reading settings on phones): not modal, no scrim and no title row (the grip only), at most 46dvh tall, `z-index` 45 (over the bars and popovers, under the toast). The page behind stays live and scrolls; the tab bar still hides. Closes with a tap anywhere outside it (which does nothing else), a tap on its own button, Esc or a swipe down on the grip; scrolling the page does not close it | `ui/Sheet.tsx` `modal={false}`, `ui/Popover.tsx` `tray`, `.sheet[data-tray]` |
+| Floating sheet | in the iPhone app only: a content-sized sheet or a tray floats 8px (`--sheet-float-gap`) from the left, right and bottom edges (8px above the keyboard), all four corners `--sheet-float-radius` (44px), with a ring and a soft shadow all round (`--sheet-float-shadow`); its body keeps the home indicator's inset less the 8px, 12px at least. A tall sheet stays attached, with `--sheet-tall-radius` (38px) top corners. Phone browsers keep the attached shape | `:root[data-native-tabs] .sheet` |
+| Menu sheet | a menu on a phone is titled with what it acts on (a book's title with its author, a folder's name with what it holds); rows that destroy go last, after one divider, in `--error`, icon included | `ui/ContextMenu.tsx` `sheetMenuOrder` |
 | Reader | top bar 72px (56px on phones) with a 2px progress line. The text sits `--reader-gutter` from the sides in both layouts: 24px under 768px, 32px from there. Pages: hidden by a centre tap with its space kept; the page box fills the rest minus a 44px footer; the page is 728px wide at most, 20/32px of vertical breathing room, 64px between pages. Scroll: the bars float over the chapter, which runs under them and under the tab bar; the column is 728px at most, 20/32px below the bar, 84px of room past the footer for the chapter buttons | `reader/PagedView.tsx`, `reader/ScrollView.tsx`, `--size-page-footer`, `--reader-gutter` |
 | Chapter buttons (Scroll) | 44px circles in the page colour, 1px detail ring and a 2px shadow, 16px chevrons, 24px in from the bottom corners of the reading area (above the footer), the back pill between them; none on a side with no chapter. They hide with the chrome and while a selection, popover, note or footnote is open: down 200px over 300ms ease-in-out, behind the footer (a fade under reduced motion) | `reader/ScrollView.tsx`, `.chapter-button` |
 | Page footer | 44px: ‹ and › at the sides (Pages only; Scroll has the chapter buttons, and its footer is opaque and rides down with the tab bar); between them one full-height button (13px meta, chapter title first on md+) that cycles on tap, instantly: "p. 4 of 17" ("Chapter 3 of 12" in Scroll) → "6 min left in chapter" → "3 h 12 min left in book" (books only) → "42%" → hidden; the choice is the `footerFormat` setting. Times use a reading speed learned from page dwell (median of the last 30 pages read at 4 s–3 min and 60–1000 wpm); until 5 samples, an average 238 wpm marked "~" ("~6 min left in chapter"; "< 1 min left" takes no mark) | `reader/PageFooter.tsx`, `reader/readingSpeed.ts` |
@@ -115,12 +120,15 @@ hidden (a centre tap shows them); with a mouse they show. A centre tap or a swip
 own space, which stays, so the page never changes size or reflows. Hidden, they are `inert`; any mouse
 movement or the Tab key brings them back. The page footer always stays.
 
-**Sheets.** On phones a sheet rises in 300 ms and falls away in 250 ms, both
-`cubic-bezier(.19,1,.22,1)`, the chrome's curve; the scrim fades with it. A drag on the grip or title
-row moves it with the finger (never up); let go past 30% of its height, or flicked down at 0.5 px/ms
-over 40 px, it slides the rest of the way out from there, otherwise back in 250 ms. While one is open
-the tab bar hides as with the chrome and the page behind holds still. Under reduced motion it opens
-and closes at once.
+**Sheets.** On phones a sheet rises in 300 ms on `cubic-bezier(.19,1,.22,1)`, the chrome's curve, and
+leaves twice as fast: closed by a tap (✕, the scrim, Esc, a menu pick, its owner) it falls away in
+150 ms on `cubic-bezier(.4,0,1,1)`; the scrim fades with it. A drag on the grip or title row moves it
+with the finger (never up); let go past 30% of its height, or flicked down at 0.5 px/ms over 40 px, it
+slides the rest of the way out from there in 250 ms on the way in's curve, otherwise back in 250 ms.
+A floating sheet travels its 8px gap as well, so it starts and ends off screen. While a sheet is open
+the tab bar hides as with the chrome and the page behind holds still; under a tray the bar hides but
+the page stays live. Under reduced motion nothing slides: the sheet and its scrim fade in over 200 ms
+and out over 200 ms (a drag still follows the finger, and the sheet fades where it was let go).
 
 **Switching tabs** crossfades the whole screen: 150 ms in a browser, 200 ms in the iPhone app
 (`--tab-fade-duration`), a cut where the web view has no View Transitions API.
