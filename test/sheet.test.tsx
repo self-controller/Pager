@@ -115,6 +115,51 @@ describe("Sheet", () => {
     expect(mark()).toBe("");
   });
 
+  it("sizes its body by what it holds", async () => {
+    await render(
+      <Sheet open onClose={() => {}} title="Things">
+        <p>inside</p>
+      </Sheet>,
+    );
+    // No layout here, so the class stands in for it. WebKit (the iPhone app) resolves flex-1's 0%
+    // basis to 0 in a column with no height, only a max-height: the body collapsed to its padding
+    // and every content-sized sheet was cut off. Chromium sized it by its content either way.
+    const body = first().querySelector("[data-sheet-body]")!;
+    expect(body.classList.contains("flex-auto")).toBe(true);
+    expect(body.classList.contains("flex-1")).toBe(false);
+    expect(body.classList.contains("min-h-0")).toBe(true);
+  });
+
+  it("takes focus itself when it has no field, so no ring lands on its close button", async () => {
+    await render(
+      <Sheet open onClose={() => {}} title="Middlemarch">
+        <button>Open</button>
+      </Sheet>,
+    );
+    const sheet = first();
+    expect(document.activeElement).toBe(sheet);
+    expect(sheet.tabIndex).toBe(-1);
+    expect(sheet.classList.contains("outline-none")).toBe(true);
+  });
+
+  it("gives focus to its first field, or to what asks for it", async () => {
+    await render(
+      <Sheet open onClose={() => {}} title="Rename">
+        <button>Before</button>
+        <input aria-label="Name" />
+      </Sheet>,
+    );
+    expect(document.activeElement?.tagName).toBe("INPUT");
+    await render(null);
+    await render(
+      <Sheet open onClose={() => {}} title="Delete">
+        <button>Cancel</button>
+        <button data-autofocus>Delete</button>
+      </Sheet>,
+    );
+    expect(document.activeElement?.textContent).toBe("Delete");
+  });
+
   it("shows a subtitle under its title, and an action before the close button", async () => {
     await render(
       <Sheet open onClose={() => {}} title="Middlemarch" subtitle="George Eliot" action={<button>Save</button>}>
