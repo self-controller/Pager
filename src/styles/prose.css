@@ -361,8 +361,9 @@
   transform: translateY(calc(-1 * var(--size-top-bar)));
 }
 
-/* The ‹ › circles float over the text, 24px in from the corners (12px above the phone's tab pill);
-   the back pill sits between them. Nothing opaque: the text runs under them to the screen's edge.
+/* The ‹ › circles float over the text, 24px in from the corners (12px above the phone's tab pill;
+   on phones their outer edges sit on the text column's edges); the back pill sits between them.
+   No opaque band: the text runs under them to the screen's edge.
    Hidden with the chrome, the circles slide down out of sight; the back pill stays, above the home
    indicator. */
 .chapter-dock {
@@ -394,10 +395,11 @@
   gap: 8px;
   padding: 0 24px 24px;
 }
-/* The tab bar's box is taller than its pill: sit just above the pill, not the box. */
+/* The tab bar's box is taller than its pill: sit just above the pill, not the box. The sides take
+   the text's own gutter, so the circles and the column can't drift apart. */
 @media (max-width: 767px) {
   .chapter-controls {
-    padding-bottom: 12px;
+    padding: 0 var(--reader-gutter) 12px;
   }
 }
 .chapter-controls > * > * {
@@ -413,17 +415,16 @@
   height: 44px;
   border-radius: 9999px;
   color: var(--fg-primary);
-  background: var(--bg-primary);
-  box-shadow:
-    0 2px 2px rgb(0 0 0 / 0.16),
-    0 0 0 1px var(--detail);
+  /* A flat grey fill, no ring or shadow. No box-shadow is set here at all: the keyboard focus ring
+     is one (globals.css, in the base layer), and a rule here would win over it. */
+  background: var(--bg-secondary);
   transition:
     transform 300ms ease-in-out,
     opacity 300ms ease-in-out,
     visibility 0s;
 }
 .chapter-button:active {
-  background: var(--bg-secondary);
+  background: var(--bg-tertiary);
 }
 .chapter-button.is-hidden {
   transform: translateY(200px);

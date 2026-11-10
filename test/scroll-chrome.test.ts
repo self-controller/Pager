@@ -30,10 +30,30 @@ describe("chrome that follows the scroll", () => {
     expect(run([-30], s).shows).toEqual([true]);
   });
 
-  it("doesn't take the bounce back from the bottom for scrolling up", () => {
+  it("shows on reaching the end of a chapter, though the scroll went down", () => {
+    const s = initialChromeScroll(4900);
+    // Hidden on the way down, then shown 24 px from the end.
+    expect(run([4920, 4960, 4975, 4976, 5000], s).shows).toEqual([false, false, false, true, true]);
+  });
+
+  it("stays shown while the position jiggles at the end, the bounce included", () => {
     const s = initialChromeScroll(980);
-    const { shows } = run([1000, 1040, 1020, 1000], s, 1000);
-    expect(shows).toEqual([false, null, null, null]);
+    const { shows } = run([1000, 1040, 1020, 1000, 988, 1000, 976, 999], s, 1000);
+    expect(shows.every((show) => show === true)).toBe(true);
+  });
+
+  it("hides as usual after scrolling up out of the end zone and down again", () => {
+    const s = initialChromeScroll(5000);
+    // Up 100 shows (as any scroll up does), 12 back down hides, and the end shows once more.
+    expect(run([4900, 4905, 4912, 4990], s).shows).toEqual([true, null, false, true]);
+  });
+
+  it("leaves a chapter shorter than the screen alone", () => {
+    // Nothing scrolls: every position is the top, where the chrome shows anyway.
+    expect(run([0, 12, -8, 0], initialChromeScroll(), 0).shows).toEqual([true, true, true, true]);
+    // The hold still wins at the end of a chapter.
+    const held = holdChrome(initialChromeScroll(0), 1000);
+    expect(run([5000], held, 5000, 1200).shows).toEqual([null]);
   });
 
   it("holds still for a while after a chapter turn", () => {

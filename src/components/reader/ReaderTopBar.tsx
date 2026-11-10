@@ -1,11 +1,12 @@
 import { useNavigate } from "react-router";
-import { ALargeSmall, ArrowLeft, ListTree, PanelRight } from "lucide-react";
+import { ALargeSmall, ArrowLeft, ChevronDown, ListTree, PanelRight } from "lucide-react";
 import type { DocumentDetail } from "@/api/types";
 import { IconButton } from "@/components/ui/Button";
 import { Popover } from "@/components/ui/Popover";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { cx } from "@/lib/cx";
 import { markTransition } from "@/lib/pageTransition";
+import { useIsPhone } from "@/lib/useIsPhone";
 import { ReadingSettings } from "./ReadingSettings";
 
 interface Props {
@@ -21,9 +22,13 @@ interface Props {
   overlay?: boolean;
 }
 
-/** The bar above the page: back, what is open, contents, type settings, tools, and how far along. */
+/**
+ * The bar above the page: back, what is open, contents, type settings, tools, and how far along.
+ * For a book the title and chapter are one button that opens Contents; phones have no other.
+ */
 export function ReaderTopBar({ doc, chapter, percent, onOpenToc, toolsOpen, onToggleTools, hidden, overlay }: Props) {
   const navigate = useNavigate();
+  const phone = useIsPhone();
 
   const goBack = () => {
     // In-app history has an idx > 0; a fresh tab opened on a reading link does not.
@@ -48,7 +53,25 @@ export function ReaderTopBar({ doc, chapter, percent, onOpenToc, toolsOpen, onTo
       <div className="flex h-[var(--size-top-bar)] items-center gap-2 px-2 md:px-4">
         <IconButton icon={ArrowLeft} label="Back" onClick={goBack} />
         <div className="min-w-0 flex-1">
-          {doc ? (
+          {doc && onOpenToc && chapter ? (
+            // A book's title block is one button: the chapter, drawn as a pill, opens Contents.
+            <button
+              type="button"
+              aria-label={`Contents: ${chapter}`}
+              aria-haspopup="dialog"
+              onClick={onOpenToc}
+              className="group flex min-h-11 max-w-full min-w-0 flex-col items-start justify-center gap-0.5 rounded-sm text-left"
+            >
+              <span className="block max-w-full truncate font-serif text-[15px] leading-5 font-semibold">{doc.title}</span>
+              <span
+                data-chapter-pill
+                className="transition-hover flex h-6 max-w-full items-center gap-1 rounded-full bg-surface-2 pr-2 pl-2.5 text-[13px] leading-[18px] text-fg group-hover:bg-surface-3 group-active:bg-surface-3"
+              >
+                <span className="truncate">{chapter}</span>
+                <ChevronDown size={12} strokeWidth={2.25} className="shrink-0" aria-hidden />
+              </span>
+            </button>
+          ) : doc ? (
             <>
               <div className="truncate font-serif text-[15px] leading-5 font-semibold">{doc.title}</div>
               <div className="truncate text-[13px] leading-[18px] text-fg-2">{chapter ?? doc.author ?? ""}</div>
@@ -58,7 +81,8 @@ export function ReaderTopBar({ doc, chapter, percent, onOpenToc, toolsOpen, onTo
           )}
         </div>
         <div className="flex items-center gap-1">
-          {onOpenToc && <IconButton icon={ListTree} label="Contents" onClick={onOpenToc} />}
+          {/* On a phone the chapter pill is the way to Contents, and the bar has no room to spare. */}
+          {onOpenToc && !phone && <IconButton icon={ListTree} label="Contents" onClick={onOpenToc} />}
           <Popover
             title="Reading settings"
             className="w-[300px] p-4"

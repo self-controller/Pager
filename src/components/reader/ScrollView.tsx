@@ -421,7 +421,7 @@ export function ScrollView({
   );
 }
 
-/** A floating ‹ or › circle, as in YouVersion's reader: 44px, page-coloured, a small shadow. */
+/** A floating ‹ or › circle, as in YouVersion's reader: 44px, filled grey, no ring or shadow. */
 function ChapterButton({
   direction,
   section,
