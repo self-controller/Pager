@@ -5,11 +5,13 @@ import { api } from "@/api";
 import { useRemoteDevice } from "@/api/hooks";
 import { ReadingSettings } from "@/components/reader/ReadingSettings";
 import { ContextLevelSetting, PhoneContextLimit } from "@/components/settings/ContextSettings";
+import { PhoneCopySettings } from "@/components/settings/PhoneCopySettings";
 import { PhoneSettings } from "@/components/settings/PhoneSettings";
 import { CenterColumn, PageHeader } from "@/components/shell/Page";
 import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
 import { isNativeApp } from "@/lib/native";
+import { useOffline } from "@/offline";
 import { updateSettings, useSettings } from "@/state/settings";
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
@@ -50,6 +52,8 @@ function HapticsSetting() {
 export function SettingsPage() {
   const [confirmReset, setConfirmReset] = useState(false);
   const device = useRemoteDevice();
+  // The iPhone app's copy of the library (also the development stand-in for it).
+  const hasCopy = useOffline().available;
   return (
     <CenterColumn className="pb-10">
       <PageHeader title="Settings" />
@@ -118,9 +122,12 @@ export function SettingsPage() {
         </Group>
       )}
 
-      {isNativeApp() && (
+      {(isNativeApp() || hasCopy) && (
         <Group title="This iPhone">
-          <HapticsSetting />
+          <div className="flex flex-col gap-5">
+            {hasCopy && <PhoneCopySettings />}
+            {isNativeApp() && <HapticsSetting />}
+          </div>
         </Group>
       )}
     </CenterColumn>

@@ -1,6 +1,6 @@
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createBrowserRouter, Navigate, RouterProvider, useLocation } from "react-router";
-import { api } from "@/api";
+import { api, offline } from "@/api";
 import { queryKeys, useHealth } from "@/api/hooks";
 import { ApiError, ErrorCodes } from "@/api/types";
 import { AppShell } from "@/components/shell/AppShell";
@@ -37,6 +37,9 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// In the iPhone app: follow whether the computer can be reached, send what waited, keep downloads fresh.
+offline?.start(queryClient);
 
 /** Old `/library?…` links keep working: the library is the front page now. */
 function LibraryRedirect() {

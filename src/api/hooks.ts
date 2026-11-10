@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { api } from "./index";
+import { newAnnotationId, provisional } from "../offline/ops";
 import type {
   Annotation,
   AppSettingsPatch,
@@ -231,41 +232,8 @@ export function useTags() {
   return useQuery({ queryKey: annotationKeys.tags, queryFn: () => api.listTags() });
 }
 
-/** What the reader shows while the server confirms a new highlight. */
-function provisional(docId: string, input: CreateAnnotation & { id: string }): Annotation {
-  const at = new Date().toISOString();
-  const range = input.sectionRange;
-  const quote = input.selectedText ?? "";
-  return {
-    id: input.id,
-    docId,
-    kind: input.kind ?? (input.body ? "note" : "highlight"),
-    color: input.color === undefined ? "yellow" : input.color,
-    style: input.style ?? "highlight",
-    body: input.body ?? null,
-    tags: input.tags ?? [],
-    anchor: {
-      status: "anchored",
-      confidence: 1,
-      revisionId: input.revisionId ?? "",
-      range: null,
-      sectionId: range?.sectionId ?? null,
-      segments: range ? [{ sectionId: range.sectionId, start: range.start, end: range.end }] : [],
-      position: { start: range?.start ?? 0, end: range?.end ?? 0 },
-      quote,
-      originalQuote: quote,
-    },
-    createdAt: at,
-    updatedAt: at,
-    deletedAt: null,
-  };
-}
-
 /** Client ids make retries idempotent (API.md): 8–64 of [A-Za-z0-9_-]. */
-export function newAnnotationId(): string {
-  const raw = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
-  return `a-${raw.replace(/[^A-Za-z0-9_-]/g, "")}`.slice(0, 64);
-}
+export { newAnnotationId };
 
 export function useCreateAnnotation(docId: string | undefined) {
   const qc = useQueryClient();

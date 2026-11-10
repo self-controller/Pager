@@ -33,6 +33,7 @@ import {
   type Section,
   type ServerEventType,
   type StartContextResult,
+  type SyncManifest,
   type TagCount,
   type TreeResponse,
 } from "./types";
@@ -226,6 +227,7 @@ export function createHttpApi(base = "/api", fetchImpl: typeof fetch = fetch.bin
     // In the iPhone app the stream is a fetch body, which its scheme handler streams (fetch-event-source.ts).
     subscribe: (onEvent) => followStream(base, onEvent, isNativeApp() ? fetchEventSource(fetchImpl) : undefined),
     getHealth: () => request<Health>(`/health`),
+    getSyncManifest: () => request<SyncManifest>(`/sync/manifest`),
     getAppSettings: async () => {
       const s = await request<SettingsResponse>(`/settings`);
       if (!s.app) throw new ApiError("forbidden", "The server's settings can only be changed on the computer itself.", 403);

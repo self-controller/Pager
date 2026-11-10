@@ -682,6 +682,7 @@ export function createMockApi(options: MockApiOptions = {}): PagerApi {
 
     // The server and paired phones exist only with the backend.
     getHealth: backendOnly,
+    getSyncManifest: backendOnly,
     getAppSettings: backendOnly,
     updateAppSettings: backendOnly,
     openPairing: backendOnly,

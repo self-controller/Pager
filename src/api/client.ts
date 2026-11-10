@@ -31,6 +31,7 @@ import type {
   Section,
   StartContextInput,
   StartContextResult,
+  SyncManifest,
   TagCount,
   TreeResponse,
   UpdateAnnotation,
@@ -90,6 +91,8 @@ export interface PagerApi {
   // ---- The server, and phones paired with it. Backend only: the mock answers `unsupported`. ----
   /** On a phone, `remote.device` says which paired device this is. */
   getHealth(): Promise<Health>;
+  /** Every document's current revision: what the iPhone app checks its downloaded books against. */
+  getSyncManifest(): Promise<SyncManifest>;
   /** The server's own settings (the computer only). */
   getAppSettings(): Promise<AppSettings>;
   updateAppSettings(patch: AppSettingsPatch): Promise<AppSettings>;

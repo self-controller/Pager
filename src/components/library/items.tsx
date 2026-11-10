@@ -1,6 +1,6 @@
 import type { KeyboardEvent, MouseEvent } from "react";
 import { Link } from "react-router";
-import { Ellipsis, FileText, Folder } from "lucide-react";
+import { CircleArrowDown, Ellipsis, FileText, Folder } from "lucide-react";
 import type { TreeFile, TreeFolder } from "@/api/types";
 import { IconButton } from "@/components/ui/Button";
 import { longPressProps } from "@/components/ui/ContextMenu";
@@ -9,11 +9,13 @@ import { cx } from "@/lib/cx";
 import { formatShortDate } from "@/lib/format";
 import { readHref } from "@/lib/links";
 import { pushLink } from "@/lib/pageTransition";
+import { canOpen, keptState, useOffline } from "@/offline";
 import type { LibraryView } from "@/state/settings";
 import { ProgressBar } from "./ProgressBar";
 import { describeFolder, progressOf, stemOf } from "./tree";
 
-export type ItemCommand = "open" | "menu" | "rename" | "delete";
+/** "away": a tap on a book that isn't on this iPhone while the computer can't be reached. */
+export type ItemCommand = "open" | "menu" | "rename" | "delete" | "away";
 export type Point = { x: number; y: number };
 
 interface ItemProps {
@@ -91,8 +93,16 @@ export function FileItem({ file, view, onCommand }: ItemProps & { file: TreeFile
   const title = doc?.title ?? stemOf(file.name).stem;
   const { percent, label } = progressOf(doc);
   const pending = !doc;
-  const status = file.error ? "Couldn't read" : pending ? "Indexing…" : label;
-  const href = doc ? readHref(doc) : undefined;
+  // In the iPhone app: whether the book is downloaded, being downloaded, or out of reach for now.
+  const copy = useOffline();
+  const kept = doc ? keptState(copy, doc.id) : false;
+  const downloading = doc ? copy.downloads[doc.id] : undefined;
+  const away = Boolean(doc) && !canOpen(copy, doc!.id);
+  const status = file.error ? "Couldn't read" : pending ? "Indexing…" : downloading ? `${downloading.done}/${downloading.total}` : label;
+  const href = doc && !away ? readHref(doc) : undefined;
+  const mark = kept === "kept" && !downloading && (
+    <CircleArrowDown size={13} strokeWidth={2} className="shrink-0 text-fg-3" role="img" aria-label="On this iPhone" />
+  );
   const thumb = doc ? (
     <Cover title={doc.title} author={doc.author} id={doc.id} coverUrl={doc.coverUrl} className={view === "compact" ? "h-7 w-5 shrink-0" : "w-full"} />
   ) : (
@@ -109,17 +119,29 @@ export function FileItem({ file, view, onCommand }: ItemProps & { file: TreeFile
     <Link to={href} {...pushLink} className={cx("stretched-link text-fg", view === "compact" ? "min-w-0 flex-1 truncate text-[14px] leading-5 font-medium" : "line-clamp-2 font-serif text-[15px] leading-5 font-semibold")}>
       {title}
     </Link>
+  ) : away ? (
+    <button
+      type="button"
+      onClick={() => onCommand("away")}
+      className={cx("stretched-link text-left text-fg", view === "compact" ? "min-w-0 flex-1 truncate text-[14px] leading-5 font-medium" : "line-clamp-2 font-serif text-[15px] leading-5 font-semibold")}
+    >
+      {title}
+    </button>
   ) : (
     <span className={cx("text-fg-2", view === "compact" ? "min-w-0 flex-1 truncate text-[14px] leading-5" : "line-clamp-2 font-serif text-[15px] leading-5")} title={file.error}>
       {title}
     </span>
   );
+  // Out of reach: the book is shown, dimmed, so the Library still looks whole.
+  const dim = away && "opacity-50";
 
   if (view === "compact") {
     return (
-      <div role="listitem" className="group relative flex h-10 items-center gap-3 rounded-sm px-2 transition-hover max-md:px-3 hover:bg-surface-hover" {...handlers}>
+      <div role="listitem" className={cx("group relative flex h-10 items-center gap-3 rounded-sm px-2 transition-hover max-md:px-3 hover:bg-surface-hover", dim)} {...handlers}>
+
         {thumb}
         {name}
+        {mark}
         <span className="hidden w-[160px] truncate text-[13px] text-fg-2 md:block">{doc?.author ?? ""}</span>
         <div className="flex w-[132px] shrink-0 items-center gap-2">
           <ProgressBar percent={percent} className="flex-1" />
@@ -133,11 +155,14 @@ export function FileItem({ file, view, onCommand }: ItemProps & { file: TreeFile
     );
   }
   return (
-    <div role="listitem" className="group relative flex flex-col gap-1.5 rounded-md p-3 transition-hover hover:bg-surface-hover" {...handlers}>
+    <div role="listitem" className={cx("group relative flex flex-col gap-1.5 rounded-md p-3 transition-hover hover:bg-surface-hover", dim)} {...handlers}>
       {thumb}
       <div className="mt-1 flex min-h-10 flex-col gap-0.5">
         {name}
-        <span className="truncate text-[12px] leading-4 text-fg-2">{doc?.author ?? (doc?.format ? doc.format.toUpperCase() : file.format.toUpperCase())}</span>
+        <span className="flex items-center gap-1 text-[12px] leading-4 text-fg-2">
+          <span className="min-w-0 truncate">{doc?.author ?? (doc?.format ? doc.format.toUpperCase() : file.format.toUpperCase())}</span>
+          {mark}
+        </span>
       </div>
       <ProgressBar percent={percent} label={status} />
       <IconButton icon={Ellipsis} label={`More for ${title}`} size="sm" variant="quaternary" className={cx(moreButton, "absolute top-2 right-2 bg-elevated/80")} onClick={more} />

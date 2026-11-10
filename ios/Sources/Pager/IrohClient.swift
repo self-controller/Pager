@@ -21,9 +21,22 @@ enum Unreachable: Error, LocalizedError {
     }
 }
 
+/// Whether the computer can be reached, as far as the app knows.
+enum Reach: String {
+    /// Not tried yet (a cold start, or back from the background).
+    case unknown
+    case online
+    /// The last dial failed. Requests are answered from the copy at once; the app keeps trying.
+    case offline
+}
+
 /// The app's iroh endpoint and its connection to the computer. One endpoint per app run, keyed with the
 /// phone's secret key from the Keychain. The connection is dialled on the first request, closed when
 /// the app goes to the background, and dialled again on the next request.
+///
+/// It also keeps whether the computer can be reached (`reach`), which decides when the scheme handler
+/// answers from the phone's copy. IrohLib's async calls can't be cancelled, so nothing here waits on
+/// one for longer than it should: a dial runs on its own and marks the outcome when it ends.
 actor IrohClient {
     /// iroh-relay's QUIC address discovery port, for your own relay.
     static let relayQuicPort: UInt16 = 7842
@@ -44,19 +57,51 @@ actor IrohClient {
         var connection: String
         var rtt: String?
         var lastError: String?
+        var reach: Reach
+        var lastOnline: Date?
     }
+
+    /// A dial under way: which one, its task, and when it started.
+    private struct Dial {
+        let id: UUID
+        let task: Task<Connection, Error>
+        let started: Date
+    }
+
+    /// A dial that hasn't ended after this long is given up on (it may still end, and is used if it does).
+    private static let dialPatience: TimeInterval = 12
 
     private var endpoint: Endpoint?
     /// The relay setup `endpoint` was bound with; a different one binds a new endpoint.
     private var boundWith: String?
     private var connection: Connection?
-    private var dialing: Task<Connection, Error>?
+    private var dialing: Dial?
     private var lastError: String?
+
+    private(set) var reach: Reach = .unknown
+    /// Told when the computer becomes reachable (true) or stops being (false).
+    private var onReach: (@Sendable (Bool) -> Void)?
+    /// The wait before looking again while offline: 15 s, doubling to 2 min.
+    private var backoff: TimeInterval = 15
+    private var probing: Task<Void, Never>?
+    /// False while the app is in the background: nothing dials then.
+    private var active = true
+    /// When the computer last answered anything on the open connection.
+    private var lastHeard = Date.distantPast
+    /// A dial that already kept one request waiting its full patience: the next ones don't wait for it.
+    private var slowDial: UUID?
+
+    func setOnReach(_ handler: @escaping @Sendable (Bool) -> Void) {
+        onReach = handler
+    }
 
     /// Forget the connection and the endpoint (a new pairing link: maybe another computer, or relay).
     func reset() async {
-        disconnect()
+        closeConnection()
         dialing = nil
+        probing?.cancel()
+        reach = .unknown
+        backoff = 15
         if let e = endpoint {
             try? await e.close()
         }
@@ -64,8 +109,36 @@ actor IrohClient {
         boundWith = nil
     }
 
-    /// Close the connection (the app went to the background). The next request dials again.
+    /// The app went to the background: close the connection and stop looking. The next request, or
+    /// `wake`, dials again.
     func disconnect() {
+        active = false
+        probing?.cancel()
+        closeConnection()
+        if reach == .online {
+            // Not known any more, and not worth telling the page: it finds out on the way back.
+            reach = .unknown
+        }
+    }
+
+    /// The app is in front (a launch, or back from the background): look for the computer now, without
+    /// waiting for the page to ask for something. Reaching it is what starts the page's sync.
+    func wake() {
+        active = true
+        backoff = 15
+        if openConnection == nil {
+            probe()
+        }
+    }
+
+    /// The network changed (Wi-Fi joined, signal back): worth another look.
+    func networkChanged() {
+        guard active, reach == .offline else { return }
+        backoff = 15
+        probe()
+    }
+
+    private func closeConnection() {
         try? connection?.close(errorCode: 0, reason: Data("in the background".utf8))
         connection = nil
     }
@@ -87,6 +160,7 @@ actor IrohClient {
             let n = Frame.length(try await recv.readExact(size: 4))
             guard n <= Frame.maxHeadBytes else { throw FrameError.badHead }
             let head = try JSONDecoder().decode(Frame.ResponseHead.self, from: try await recv.readExact(size: UInt32(n)))
+            lastHeard = Date()
             return Opened(status: head.status, headers: head.headers ?? [:], recv: recv)
         } catch {
             throw refusal(conn, error)
@@ -123,7 +197,10 @@ actor IrohClient {
         switch Self.closeCode(reason) {
         case 16: return .notPaired
         case 17: return .revoked
-        default: return .failed(reason)
+        default:
+            // The connection died under the request (the computer went to sleep): look again now.
+            probe()
+            return .failed(reason)
         }
     }
 
@@ -139,31 +216,203 @@ actor IrohClient {
 
     // MARK: The connection
 
+    /// The connection, while it is open.
+    private var openConnection: Connection? {
+        guard let c = connection, c.closeReason() == nil else { return nil }
+        return c
+    }
+
     private func connected() async throws -> Connection {
-        if let c = connection, c.closeReason() == nil {
+        if let c = openConnection {
             return c
         }
         connection = nil
         // Requests that arrive while one dial is under way wait for it, rather than dialling again
-        // (the computer keeps at most four connections per phone).
-        if let d = dialing {
-            return try await d.value
+        // (the computer keeps at most four connections per phone). None waits past the dial's patience:
+        // a dial can't be cancelled, and a request must get its answer.
+        let task = startDial()
+        guard let dial = dialing else {
+            return try await task.value
         }
-        let task = Task { () throws -> Connection in try await self.dial() }
-        dialing = task
-        defer { dialing = nil }
-        do {
-            let c = try await task.value
-            connection = c
-            lastError = nil
-            Task { await self.refreshFromHealth() }
-            return c
-        } catch let u as Unreachable {
+        let left = max(0.5, Self.dialPatience - Date().timeIntervalSince(dial.started))
+        guard let outcome = await withDeadline(left, { try await task.value }) else {
+            giveUp(dial.id)
+            throw Unreachable.failed("Pager can't reach your computer: it didn't answer.")
+        }
+        return try outcome.get()
+    }
+
+    /// The dial under way, or a new one. It marks its own outcome, so it needn't be awaited.
+    @discardableResult
+    private func startDial() -> Task<Connection, Error> {
+        if let d = dialing {
+            return d.task
+        }
+        let id = UUID()
+        let task = Task { () throws -> Connection in
+            do {
+                let c = try await self.dial()
+                self.dialed(id, c)
+                return c
+            } catch {
+                throw self.dialFailed(id, error)
+            }
+        }
+        dialing = Dial(id: id, task: task, started: Date())
+        return task
+    }
+
+    private func dialed(_ id: UUID, _ c: Connection) {
+        if dialing?.id == id {
+            dialing = nil
+        }
+        if openConnection != nil {
+            // A dial given up on that ended after another had: one connection is enough.
+            try? c.close(errorCode: 0, reason: Data("another connection is open".utf8))
+            return
+        }
+        connection = c
+        lastError = nil
+        lastHeard = Date()
+        setReach(.online)
+        Task { await self.refreshFromHealth() }
+        // Notice a connection that dies (the computer went to sleep) without waiting for a request.
+        Task {
+            let reason = await c.closed()
+            self.connectionClosed(c, reason)
+        }
+    }
+
+    private func dialFailed(_ id: UUID, _ error: Error) -> Unreachable {
+        if dialing?.id == id {
+            dialing = nil
+        }
+        if let u = error as? Unreachable {
             lastError = u.errorDescription
-            throw u
-        } catch {
-            lastError = Self.message(error)
-            throw Unreachable.failed("Pager can't reach your computer: \(Self.message(error))")
+            return u
+        }
+        lastError = Self.message(error)
+        if openConnection == nil {
+            setReach(.offline)
+        }
+        return .failed("Pager can't reach your computer: \(Self.message(error))")
+    }
+
+    /// A connection ended on its own: the computer closed it, or stopped answering.
+    private func connectionClosed(_ c: Connection, _ reason: String) {
+        guard connection === c else { return }
+        connection = nil
+        guard active else { return }
+        lastError = reason
+        // Paired or not, the computer answered; a silence means look again, now.
+        switch Self.closeCode(reason) {
+        case 16, 17, 18, 19: break
+        default: probe()
+        }
+    }
+
+    // MARK: Whether the computer can be reached
+
+    private func setReach(_ now: Reach) {
+        guard now != reach else { return }
+        reach = now
+        switch now {
+        case .online:
+            Store.lastOnline = Date()
+            backoff = 15
+            probing?.cancel()
+            onReach?(true)
+        case .offline:
+            onReach?(false)
+            scheduleProbe()
+        case .unknown:
+            break
+        }
+    }
+
+    /// Whether a connection is open, waiting up to `seconds` for a dial when the computer isn't known
+    /// to be out of reach. False means: answer from the copy.
+    func ready(within seconds: TimeInterval) async -> Bool {
+        if openConnection != nil {
+            return true
+        }
+        if reach == .offline || Store.ticket == nil {
+            return false
+        }
+        giveUpStaleDial()
+        startDial()
+        guard let dial = dialing?.id, dial != slowDial else { return false }
+        let deadline = Date().addingTimeInterval(seconds)
+        while Date() < deadline {
+            try? await Task.sleep(nanoseconds: 50_000_000)
+            if openConnection != nil {
+                return true
+            }
+            if reach == .offline || dialing == nil {
+                return false
+            }
+        }
+        // Still dialling: the requests behind this one take the copy at once. The dial carries on, and
+        // the page is told when it ends.
+        slowDial = dial
+        return false
+    }
+
+    /// Dial now, and look again later if that fails.
+    func probe() {
+        guard active, Store.ticket != nil else { return }
+        if openConnection != nil {
+            setReach(.online)
+            return
+        }
+        giveUpStaleDial()
+        startDial()
+        scheduleProbe()
+    }
+
+    /// A request got no answer within `seconds` on the open connection. If nothing else was heard from
+    /// the computer in that time either, it has gone quiet (asleep, with the connection not yet timed
+    /// out): close the connection, so the next request dials afresh. One slow answer on a live
+    /// connection changes nothing.
+    func suspect(after seconds: TimeInterval) {
+        guard connection != nil, Date().timeIntervalSince(lastHeard) >= seconds else { return }
+        closeConnection()
+        lastError = "The computer stopped answering."
+        probe()
+    }
+
+    private func giveUpStaleDial() {
+        guard let d = dialing, Date().timeIntervalSince(d.started) >= Self.dialPatience else { return }
+        giveUp(d.id)
+    }
+
+    /// Stop counting on a dial that has taken too long. It isn't stopped (it can't be): if it ends in
+    /// a connection after all, `dialed` takes it.
+    private func giveUp(_ id: UUID) {
+        if dialing?.id == id {
+            dialing = nil
+        }
+        guard openConnection == nil else { return }
+        lastError = "The computer didn't answer."
+        setReach(.offline)
+    }
+
+    /// Look again after the backoff, for as long as the computer stays out of reach.
+    private func scheduleProbe() {
+        probing?.cancel()
+        guard active else { return }
+        let wait = backoff
+        backoff = min(backoff * 2, 120)
+        probing = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            await self?.probeIfOffline()
+        }
+    }
+
+    private func probeIfOffline() {
+        if reach != .online {
+            probe()
         }
     }
 
@@ -236,7 +485,9 @@ actor IrohClient {
             paired: Store.token != nil,
             connection: "not connected",
             rtt: nil,
-            lastError: lastError
+            lastError: lastError,
+            reach: reach,
+            lastOnline: Store.lastOnline
         )
         if let key = try? Store.secretKey(), let sk = try? SecretKey.fromBytes(bytes: key) {
             d.phoneId = sk.`public`().description

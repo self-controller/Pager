@@ -136,6 +136,16 @@ pairing phones.
     colour becomes the last-used one. The app also gets the
     page colour, whether the reader is open, and haptics; Settings → This iPhone → Haptics turns
     those off;
+  - the app keeps a copy of the library on the phone (`src/offline/`; ios/README.md, "The copy").
+    A book's menu has **Download** and **Remove download**; a downloaded book carries a small mark,
+    and its status counts sections while it downloads. While the computer can't be reached, the
+    Library shows one muted line, `Offline · synced 2:14 pm`, and nothing shows inside the reader;
+    books that aren't downloaded are dimmed and a tap says so; a reading place or a highlight is
+    answered as saved and waits in the app's queue, and the lists (the book's annotations,
+    Highlights, the Library's progress, the Book tab) show it meanwhile. Settings → This iPhone has
+    the same line, the number of changes waiting, any the computer refused with their words, the
+    size of the downloads and **Remove all downloads**. `PagerApi.getSyncManifest()` is the one
+    call added for it;
   - a server whose `apiVersion` differs from the UI's shows a full-screen "Update Pager" (naming
     which side is older) in place of the app. On the computer, Settings → Phone shows this
   computer's ID and relay from `health.remote` (polling health until both arrive, since iroh starts

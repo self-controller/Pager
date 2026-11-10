@@ -207,6 +207,8 @@ interface PagerCalls {
   tab: (tab: string) => void;
   /** The tab bar's footprint: points from its top to the bottom of the screen. */
   tabBar: (points: number) => void;
+  /** Whether the computer can be reached changed. */
+  online: (up: boolean) => void;
 }
 
 type PagerGlobal = { __pager?: Partial<PagerCalls> };
@@ -228,6 +230,14 @@ function onNative<K extends keyof PagerCalls>(name: K, handler: PagerCalls[K]): 
  */
 export function onNativeMenu(handler: PagerCalls["menu"]): () => void {
   return onNative("menu", handler);
+}
+
+/**
+ * Runs `handler` when the app finds the computer reachable or not: it calls
+ * `window.__pager.online(true)`. Returns the function that stops it.
+ */
+export function onNativeOnline(handler: PagerCalls["online"]): () => void {
+  return onNative("online", handler);
 }
 
 // --- The app's tab bar ---

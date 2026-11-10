@@ -1,5 +1,6 @@
 import { matchPath } from "react-router";
 import { useDocuments } from "@/api/hooks";
+import { canOpen, useOffline } from "@/offline";
 import { BOOK_PATH, type NavEntry } from "./nav";
 
 /**
@@ -10,10 +11,14 @@ import { BOOK_PATH, type NavEntry } from "./nav";
  * It stays fresh on its own: the reader saves its place as soon as a book opens and again on the way
  * out, and every save (or a `progress.updated` from another device) invalidates the documents
  * queries, which refetches this one, since the tab bar or side nav always has it mounted.
+ *
+ * In the iPhone app, while the computer can't be reached, it is the last book read that is on the
+ * phone (downloaded).
  */
 export function useBookTab(): string {
   const history = useDocuments({ history: true });
-  const last = history.data?.[0];
+  const copy = useOffline();
+  const last = history.data?.find((d) => canOpen(copy, d.id));
   return last ? `${BOOK_PATH}/${encodeURIComponent(last.id)}` : "/";
 }
 

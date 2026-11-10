@@ -38,33 +38,24 @@ interface Props {
 }
 
 type Gesture =
-  | { kind: "pan"; start: Point; last: Point; active: boolean; scroller: Element | null }
-  | { kind: "pinch"; t0: Transform; mid0: Point; dist0: number };
+  { kind: "pan"; start: Point; last: Point; active: boolean } | { kind: "pinch"; t0: Transform; mid0: Point; dist0: number };
 
 function reducedMotion(): boolean {
   return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 /**
- * What scrolls around the map: the nearest ancestor with its own vertical scroll (the full-screen
- * dialog's body), else the page. A scroll box with nothing to scroll yet stops the search, so a drag
- * in the dialog never scrolls the page behind it.
- */
-function scrollerOf(el: Element): Element | null {
-  for (let p = el.parentElement; p && p !== document.body && p !== document.documentElement; p = p.parentElement) {
-    const y = getComputedStyle(p).overflowY;
-    if (y === "auto" || y === "scroll") return p.scrollHeight > p.clientHeight ? p : null;
-  }
-  return document.scrollingElement;
-}
-
-/**
  * A viewport that pinches, pans and ctrl+wheel-zooms its content (the card map). It opens fitted to the
  * whole content. During a gesture the transform goes straight to the layer's style, so React doesn't
  * render on each move; it's committed when the gesture ends. A press that moved never clicks: the
- * click after a drag is swallowed, so a drag never picks a card or clears the pick. The viewport takes
- * every touch (`touch-none`), so a one-finger drag the map can't follow (at its edge, or at the fit)
- * scrolls the page or the dialog instead: the details below the map stay in reach.
+ * click after a drag is swallowed, so a drag never picks a card or clears the pick.
+ *
+ * Exactly one thing moves on a touch, and the page is never scrolled from here. At the fit a one-finger
+ * drag is the page's (or the dialog's) own scroll, with its glide, so the details below the map stay
+ * in reach; the map doesn't move. Zoomed in, the map takes the touch: its default is cancelled, so the
+ * iPhone neither scrolls the page under the map (WKWebView scrolls through `touch-action: none`) nor
+ * clicks, a drag moves only the map and stops at its edge, and a tap is clicked here. A pinch is
+ * always the map's.
  */
 export function ZoomPan({ content, viewport, label, onBackgroundClick, overlay, fitCorner = "top-right", children }: Props) {
   const viewRef = useRef<HTMLDivElement>(null);
@@ -85,6 +76,8 @@ export function ZoomPan({ content, viewport, label, onBackgroundClick, overlay, 
     const e = env.current;
     return clampTransform(x, e.content, e.viewport, e.limits);
   };
+  // At the fit nothing can pan: the content is centred on both axes.
+  const atHome = () => sameTransform(live.current, env.current.home);
   const apply = (x: Transform, animate = false) => {
     live.current = x;
     const layer = layerRef.current;
@@ -125,13 +118,20 @@ export function ZoomPan({ content, viewport, label, onBackgroundClick, overlay, 
   const startPinch = () => {
     const [a, b] = [...pointers.current.values()];
     if (!a || !b) return;
+    swallow.current = true;
+    // The map has moved on the screen since the first finger came down: the browser is scrolling
+    // this touch, so the fingers don't pinch (their points would slide with the page).
+    const r = viewRef.current?.getBoundingClientRect();
+    if (r && (Math.abs(r.left - origin.current.x) > 1 || Math.abs(r.top - origin.current.y) > 1)) {
+      gesture.current = null;
+      return;
+    }
     gesture.current = {
       kind: "pinch",
       t0: live.current,
       mid0: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
       dist0: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
     };
-    swallow.current = true;
     for (const id of pointers.current.keys()) capture(id);
     if (layerRef.current) layerRef.current.style.willChange = "transform";
   };
@@ -152,7 +152,7 @@ export function ZoomPan({ content, viewport, label, onBackgroundClick, overlay, 
     const p = local(e);
     pointers.current.set(e.pointerId, p);
     if (pointers.current.size === 1) {
-      gesture.current = { kind: "pan", start: p, last: { ...p }, active: false, scroller: null };
+      gesture.current = { kind: "pan", start: p, last: { ...p }, active: false };
     } else if (pointers.current.size === 2) {
       startPinch();
     }
@@ -165,32 +165,24 @@ export function ZoomPan({ content, viewport, label, onBackgroundClick, overlay, 
     const g = gesture.current;
     if (!g) return;
     if (g.kind === "pan") {
+      const home = atHome();
       if (!g.active) {
         if (Math.hypot(p.x - g.start.x, p.y - g.start.y) <= PAN_SLOP) return;
         g.active = true;
         swallow.current = true;
-        g.scroller = viewRef.current ? scrollerOf(viewRef.current) : null;
-        // Captured only now: captured from the press, a tap's click would go to the viewport, not the card.
-        capture(e.pointerId);
-        if (layerRef.current) layerRef.current.style.willChange = "transform";
-      }
-      // Step by step, so a move back pans the map again at once rather than first undoing an overshoot.
-      const cur = env.current;
-      const step = panBy(live.current, { x: p.x - g.last.x, y: p.y - g.last.y }, cur.content, cur.viewport, cur.limits);
-      g.last = { ...p };
-      apply(step.t);
-      // What the map couldn't take scrolls what's around it, which carries the map along under the finger.
-      if (step.restY !== 0 && g.scroller) {
-        const before = g.scroller.scrollTop;
-        g.scroller.scrollBy({ top: -step.restY, behavior: "instant" });
-        const moved = g.scroller.scrollTop - before;
-        // The map went up the screen that much: the fingers' points follow it, ready for a pinch.
-        if (moved !== 0) {
-          origin.current = { x: origin.current.x, y: origin.current.y - moved };
-          for (const q of pointers.current.values()) q.y += moved;
-          g.last.y += moved;
+        if (!home) {
+          // Captured only now: captured from the press, a tap's click would go to the viewport, not the card.
+          capture(e.pointerId);
+          if (layerRef.current) layerRef.current.style.willChange = "transform";
         }
       }
+      const from = g.last;
+      g.last = { ...p };
+      // At the fit the map can't move: on a touch screen this drag is the page's own scroll.
+      if (home) return;
+      // Step by step, so a move back pans the map again at once rather than first undoing an overshoot.
+      const cur = env.current;
+      apply(panBy(live.current, { x: p.x - from.x, y: p.y - from.y }, cur.content, cur.viewport, cur.limits));
       return;
     }
     const [a, b] = [...pointers.current.values()];
@@ -212,20 +204,15 @@ export function ZoomPan({ content, viewport, label, onBackgroundClick, overlay, 
     // One finger of a pinch lifted: the other pans on from where the map is.
     if (g?.kind === "pinch" && left === 1) {
       const [p] = [...pointers.current.values()];
-      gesture.current = {
-        kind: "pan",
-        start: p!,
-        last: { ...p! },
-        active: true,
-        scroller: viewRef.current && scrollerOf(viewRef.current),
-      };
+      gesture.current = { kind: "pan", start: p!, last: { ...p! }, active: true };
     } else if (left >= 2) {
       startPinch();
     }
   };
 
   // Native listeners: the click after a gesture (in the capture phase, before the card's), the
-  // trackpad's pinch (ctrl+wheel, which must be able to preventDefault), Safari's gesture events.
+  // trackpad's pinch (ctrl+wheel, which must be able to preventDefault), Safari's gesture events, and
+  // the touches the map takes (which must be able to preventDefault too).
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
@@ -269,6 +256,45 @@ export function ZoomPan({ content, viewport, label, onBackgroundClick, overlay, 
       g0 = null;
       commit(clamp(live.current));
     };
+    // A touch the map takes (zoomed in at its first finger, or a second finger: a pinch) has its default
+    // cancelled, from its touchstart: the iPhone then neither scrolls the page under the map nor
+    // clicks, so a tap is clicked here. At the fit one finger is left to the browser, which scrolls.
+    let owned = false;
+    // Whether the first finger's touchstart was cancelled (so no click of the browser's follows), and
+    // the most fingers on the map at once: a tap is one finger that never became a drag.
+    let took = false;
+    let most = 0;
+    const onMap = (e: TouchEvent) =>
+      Array.from(e.touches).filter((t) => t.target instanceof Node && view.contains(t.target)).length;
+    const onTouchStart = (e: TouchEvent) => {
+      const n = onMap(e);
+      // The only finger on the map: a new touch, whatever an earlier one left behind.
+      if (n <= 1) {
+        owned = false;
+        took = false;
+        most = 0;
+      }
+      const first = most === 0;
+      most = Math.max(most, n);
+      if (n >= 2 || !atHome()) owned = true;
+      if (!owned || !e.cancelable) return;
+      e.preventDefault();
+      if (first) took = true;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (owned && e.cancelable) e.preventDefault();
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      const left = onMap(e);
+      if (owned && e.cancelable) e.preventDefault();
+      if (left > 0) return;
+      // The pointer events came first: `swallow` says whether this touch panned or pinched.
+      const tap = e.type === "touchend" && owned && took && most === 1 && !swallow.current;
+      owned = false;
+      took = false;
+      most = 0;
+      if (tap && e.target instanceof HTMLElement && view.contains(e.target)) e.target.click();
+    };
     // Focus on a card can scroll an overflow-hidden box: the transform is the only offset.
     const onScroll = () => {
       view.scrollTop = 0;
@@ -279,6 +305,10 @@ export function ZoomPan({ content, viewport, label, onBackgroundClick, overlay, 
     view.addEventListener("gesturestart", onGestureStart);
     view.addEventListener("gesturechange", onGestureChange);
     view.addEventListener("gestureend", onGestureEnd);
+    view.addEventListener("touchstart", onTouchStart, { passive: false });
+    view.addEventListener("touchmove", onTouchMove, { passive: false });
+    view.addEventListener("touchend", onTouchEnd, { passive: false });
+    view.addEventListener("touchcancel", onTouchEnd);
     view.addEventListener("scroll", onScroll);
     return () => {
       window.clearTimeout(settle);
@@ -287,6 +317,10 @@ export function ZoomPan({ content, viewport, label, onBackgroundClick, overlay, 
       view.removeEventListener("gesturestart", onGestureStart);
       view.removeEventListener("gesturechange", onGestureChange);
       view.removeEventListener("gestureend", onGestureEnd);
+      view.removeEventListener("touchstart", onTouchStart);
+      view.removeEventListener("touchmove", onTouchMove);
+      view.removeEventListener("touchend", onTouchEnd);
+      view.removeEventListener("touchcancel", onTouchEnd);
       view.removeEventListener("scroll", onScroll);
     };
   }, []);
@@ -308,7 +342,8 @@ export function ZoomPan({ content, viewport, label, onBackgroundClick, overlay, 
         ref={viewRef}
         role="group"
         aria-label={label}
-        className="absolute inset-0 touch-none overflow-hidden select-none"
+        // At the fit a vertical drag scrolls the page (in Chrome too); zoomed in, every touch is the map's.
+        className={cx("absolute inset-0 overflow-hidden select-none", atFit ? "touch-pan-y" : "touch-none")}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

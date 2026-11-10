@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { FileQuestion, Link2 } from "lucide-react";
+import { CloudOff, FileQuestion, Link2 } from "lucide-react";
 import { api } from "@/api";
 import { queryKeys, useDocument, useSaveProgress, useSection } from "@/api/hooks";
 import { ApiError, ErrorCodes, type ProgressUpdate, type Section } from "@/api/types";
@@ -35,6 +35,7 @@ import { ServiceError } from "@/components/ui/ServiceError";
 import { cx } from "@/lib/cx";
 import { isNativeApp } from "@/lib/native";
 import { useMediaQuery } from "@/lib/useMediaQuery";
+import { canOpen, useOffline } from "@/offline";
 import { updateSettings, useSettings } from "@/state/settings";
 import { onToolPanelRequest, openToolPanel, useTools } from "@/tools/registry";
 import { useSelection } from "@/tools/useSelection";
@@ -350,6 +351,9 @@ export function ReaderPage() {
   const failure = docQuery.error ?? sectionQuery.error;
   // The text fades in once it is at the saved place, so the page sliding in never shows it jump.
   const opening = useOpeningFade(placed || Boolean(failure));
+  // In the iPhone app, with the computer out of reach: only downloaded books open.
+  const copy = useOffline();
+  const away = Boolean(failure) && Boolean(docId) && !canOpen(copy, docId!);
   const toolPanel = <ToolPanel context={context} onClose={() => setToolsOpen(false)} />;
   const openToc = useMemo(() => (isBook ? () => setTocOpen(true) : undefined), [isBook]);
 
@@ -448,6 +452,18 @@ export function ReaderPage() {
               }
             >
               It may have been removed, or the file moved.
+            </EmptyState>
+          ) : away ? (
+            <EmptyState
+              icon={CloudOff}
+              title="This book isn't on your iPhone"
+              action={
+                <Link to="/" className={buttonClasses("secondary", "md")}>
+                  Go to the library
+                </Link>
+              }
+            >
+              Pager can't reach your computer right now. When it can, open the book's menu in the Library and choose Download to keep it on this iPhone.
             </EmptyState>
           ) : failure ? (
             <ServiceError

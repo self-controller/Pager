@@ -7,6 +7,9 @@ struct DiagnosticsView: View {
     let client: IrohClient
     /// The tab bar, once paired: its layout, for the device check.
     var tabs: TabsController?
+    /// The phone's copy of the library and the changes waiting to be sent, once paired.
+    var copy: PhoneCopy?
+    var outbox: Outbox?
     @Environment(\.dismiss) private var dismiss
     @State private var info: IrohClient.Diagnostics?
     /// The layout with the bar shown (false) and hidden (true), and whether it is hidden now.
@@ -14,6 +17,8 @@ struct DiagnosticsView: View {
     @State private var barHidden = false
     @State private var download: String?
     @State private var busy = false
+    /// The copy's stored answers, their size, and the changes waiting.
+    @State private var kept: (entries: Int, bytes: Int, waiting: Int)?
 
     var body: some View {
         NavigationStack {
@@ -29,6 +34,19 @@ struct DiagnosticsView: View {
                     row("Connection", info?.connection)
                     row("Round trip", info?.rtt)
                     row("Last error", info?.lastError)
+                }
+                if copy != nil {
+                    Section {
+                        row("Computer", info.map { Self.reach($0.reach) })
+                        row("Last reached", info.map { $0.lastOnline.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "never" })
+                        row("Stored answers", kept.map { "\($0.entries)" })
+                        row("Size", kept.map { ByteCountFormatter.string(fromByteCount: Int64($0.bytes), countStyle: .file) })
+                        row("Changes waiting", kept.map { "\($0.waiting)" })
+                    } header: {
+                        Text("This phone's copy")
+                    } footer: {
+                        Text("Books you chose Download for, and the library's lists and covers, are read from here when your computer can't be reached. Changes waiting are places and highlights made meanwhile; they go to the computer when it is reached.")
+                    }
                 }
                 if tabs != nil {
                     Section {
@@ -79,10 +97,12 @@ struct DiagnosticsView: View {
             .refreshable {
                 info = await client.diagnostics()
                 await refreshLayout()
+                await refreshCopy()
             }
             .task {
                 await refreshLayout()
                 info = await client.diagnostics()
+                await refreshCopy()
             }
         }
     }
@@ -94,6 +114,20 @@ struct DiagnosticsView: View {
         row("Window safe bottom (\(state))", snapshot?.windowSafeBottom.map(points))
         row("Page env(bottom) (\(state))", snapshot?.pageSafeBottom)
         row("Page --size-bottom-nav (\(state))", snapshot?.pageBottomNav)
+    }
+
+    private static func reach(_ reach: Reach) -> String {
+        switch reach {
+        case .online: return "reachable"
+        case .offline: return "out of reach"
+        case .unknown: return "not tried yet"
+        }
+    }
+
+    private func refreshCopy() async {
+        guard let copy, let outbox else { return }
+        let totals = await copy.totals()
+        kept = (totals.entries, totals.bytes, await outbox.count)
     }
 
     private func points(_ value: CGFloat) -> String {

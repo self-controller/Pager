@@ -50,6 +50,8 @@ export type {
   PairPollResult,
   PairRequestResult,
 } from "../../shared/src/api";
+/** What the iPhone app's copy of the library is checked against (API.md, "Sync manifest"). */
+export type { ManifestDocument, SyncManifest } from "../../shared/src/api";
 export { API_VERSION } from "../../shared/src/api";
 /** Context briefings (API.md, "Context"): the backend's shapes, used as they are. */
 export type {
