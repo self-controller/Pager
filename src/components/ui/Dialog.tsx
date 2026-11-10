@@ -61,8 +61,10 @@ function WindowDialog({ open, onClose, title, children, placement = "center", cl
   return (
     <dialog
       ref={ref}
-      role="dialog"
-      data-reader-overlay=""
+      // Only while open: a closed dialog stays in the page, and the reader takes any overlay it finds
+      // for an open one (gestures.ts).
+      role={open ? "dialog" : undefined}
+      data-reader-overlay={open ? "" : undefined}
       aria-label={title}
       // React passes a nested dialog's close and cancel up to this one's handlers (a full-screen view
       // inside the tool sheet would close the sheet too): answer only this dialog's own.

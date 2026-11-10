@@ -17,8 +17,13 @@ export const SWIPE_MIN = 40;
 /** …and within this long, unless it travelled across 30% of the page. */
 export const SWIPE_MAX_MS = 600;
 
-/** Floating reader UI: popovers, menus, drawers. Each carries `data-reader-overlay`. */
-export const OVERLAY_SELECTOR = "[data-reader-overlay], [role='dialog']";
+/**
+ * Floating reader UI that is on screen: popovers, menus, drawers. Each carries `data-reader-overlay`.
+ * A <dialog> counts only while open: sheets and dialogs stay in the page closed, and one of those
+ * matching here would make every press a dismissal. Written without a nested :not(), which the
+ * tests' DOM can't parse.
+ */
+export const OVERLAY_SELECTOR = "[data-reader-overlay]:not(dialog), [role='dialog']:not(dialog), dialog[open]";
 /** Targets that act on a click themselves; the page zones leave them alone. */
 export const INTERACTIVE_SELECTOR = "a, button, input, textarea, select, label, [contenteditable='true'], [data-reader-overlay]";
 

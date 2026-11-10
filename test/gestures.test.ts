@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { judgePress, pointerKind, scrollZone, swipeTurn, tapAction, turnMotion, zoneAt, type Press } from "@/components/reader/gestures";
+import {
+  judgePress,
+  OVERLAY_SELECTOR,
+  pointerKind,
+  scrollZone,
+  swipeTurn,
+  tapAction,
+  turnMotion,
+  zoneAt,
+  type Press,
+} from "@/components/reader/gestures";
 import { pageAtScroll } from "@/components/reader/pagination";
 
 const tap = (over: Partial<Press> = {}): Press => ({
@@ -49,6 +59,35 @@ describe("judging a press", () => {
     expect(pointerKind("pen")).toBe("pen");
     expect(pointerKind("mouse")).toBe("mouse");
     expect(pointerKind("")).toBe("mouse");
+  });
+});
+
+describe("what counts as an open overlay", () => {
+  const overlays = (html: string): number => {
+    const host = document.createElement("div");
+    host.innerHTML = html;
+    document.body.append(host);
+    try {
+      return document.querySelectorAll(OVERLAY_SELECTOR).length;
+    } finally {
+      host.remove();
+    }
+  };
+
+  it("finds marked panels and open dialogs", () => {
+    expect(overlays("<p>text</p>")).toBe(0);
+    expect(overlays("<div data-reader-overlay></div>")).toBe(1);
+    expect(overlays('<div role="dialog"></div>')).toBe(1);
+    expect(overlays("<ol data-reader-overlay></ol><div role='dialog' data-reader-overlay></div>")).toBe(2);
+    expect(overlays('<dialog open role="dialog" data-reader-overlay=""></dialog>')).toBe(1);
+    expect(overlays("<dialog open></dialog>")).toBe(1);
+  });
+
+  it("skips a closed dialog, whatever it carries", () => {
+    expect(overlays("<dialog></dialog>")).toBe(0);
+    expect(overlays('<dialog role="dialog" data-reader-overlay=""></dialog>')).toBe(0);
+    // What is inside a closed dialog isn't on screen, but nothing renders there (Sheet, Dialog).
+    expect(overlays('<dialog role="dialog"></dialog><div data-reader-overlay></div>')).toBe(1);
   });
 });
 

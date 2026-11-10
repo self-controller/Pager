@@ -223,8 +223,10 @@ export function Sheet({ open, onClose, title, children, size = "content", bare, 
       data-sheet=""
       data-size={size}
       data-closing={phase === "closing" ? "" : undefined}
-      role="dialog"
-      data-reader-overlay=""
+      // Only while shown: a closed sheet stays in the page, and the reader takes any overlay it finds
+      // for an open one (gestures.ts), which would swallow every tap.
+      role={shown ? "dialog" : undefined}
+      data-reader-overlay={shown ? "" : undefined}
       aria-label={title}
       data-testid="sheet"
       className={cx("sheet", className)}

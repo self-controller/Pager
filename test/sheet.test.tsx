@@ -1,6 +1,9 @@
 import { act, useState, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { canStartDrag } from "@/components/reader/chapterTurn";
+import { OVERLAY_SELECTOR, pointerKind } from "@/components/reader/gestures";
+import { usePressArbiter } from "@/components/reader/usePressArbiter";
 import { ContextMenu } from "@/components/ui/ContextMenu";
 import { Dialog } from "@/components/ui/Dialog";
 import { Popover } from "@/components/ui/Popover";
@@ -111,6 +114,39 @@ describe("Sheet", () => {
     expect(marked()).toBe(false);
   });
 
+  it("is an overlay to the reader only while it shows", async () => {
+    const ui = (open: boolean) => (
+      <Sheet open={open} onClose={() => {}} title="Things">
+        <p>inside</p>
+      </Sheet>
+    );
+    await render(ui(false));
+    expect(first().hasAttribute("role")).toBe(false);
+    expect(first().hasAttribute("data-reader-overlay")).toBe(false);
+    expect(first().getAttribute("aria-label")).toBe("Things");
+    expect(document.querySelector(OVERLAY_SELECTOR)).toBeNull();
+    await render(ui(true));
+    expect(document.querySelector(OVERLAY_SELECTOR)).toBe(first());
+    await render(ui(false));
+    expect(first().hasAttribute("role")).toBe(false);
+    expect(document.querySelector(OVERLAY_SELECTOR)).toBeNull();
+  });
+
+  it("is still an overlay while it slides away", async () => {
+    media["(prefers-reduced-motion: reduce)"] = false;
+    vi.useFakeTimers();
+    await render(
+      <Sheet open onClose={() => {}} title="Things">
+        <p>inside</p>
+      </Sheet>,
+    );
+    await act(async () => closeButton(first()).click());
+    expect(first().hasAttribute("data-closing")).toBe(true);
+    expect(document.querySelector(OVERLAY_SELECTOR)).toBe(first());
+    await act(async () => vi.advanceTimersByTime(400));
+    expect(document.querySelector(OVERLAY_SELECTOR)).toBeNull();
+  });
+
   it("keeps the mark until the last of two sheets closes", async () => {
     const ui = (a: boolean, b: boolean) => (
       <>
@@ -178,6 +214,87 @@ describe("Dialog", () => {
     expect(dialog.hasAttribute("data-reader-overlay")).toBe(true);
     expect(dialog.getAttribute("role")).toBe("dialog");
     expect(marked()).toBe(false);
+  });
+
+  it("is an overlay to the reader only while open, on a desktop too", async () => {
+    media["(max-width: 767px)"] = false;
+    const ui = (open: boolean) => (
+      <Dialog open={open} onClose={() => {}} title="New file">
+        <input />
+      </Dialog>
+    );
+    await render(ui(false));
+    const dialog = document.querySelector("dialog")!;
+    expect(dialog.hasAttribute("role")).toBe(false);
+    expect(dialog.hasAttribute("data-reader-overlay")).toBe(false);
+    expect(document.querySelector(OVERLAY_SELECTOR)).toBeNull();
+    await render(ui(true));
+    expect(document.querySelector(OVERLAY_SELECTOR)).toBe(dialog);
+    await render(ui(false));
+    expect(document.querySelector(OVERLAY_SELECTOR)).toBeNull();
+  });
+});
+
+describe("a press on the page beside a sheet", () => {
+  // The reader's page as both layouts wire it: the arbiter's handlers, and what a chapter drag asks.
+  function Page({ open, onTap, onDrag }: { open: boolean; onTap: () => void; onDrag: (ok: boolean) => void }) {
+    const presses = usePressArbiter({ userScrolledAt: () => 0, onTap });
+    return (
+      <>
+        <div
+          data-testid="page"
+          {...presses}
+          onPointerDown={(e) => {
+            presses.onPointerDown(e);
+            onDrag(
+              canStartDrag({
+                kind: pointerKind(e.pointerType),
+                primary: e.isPrimary,
+                x: e.clientX,
+                inOverlay: false,
+                hadSelection: false,
+                hadOverlay: Boolean(document.querySelector(OVERLAY_SELECTOR)),
+                zoom: 1,
+                turning: false,
+              }),
+            );
+          }}
+        >
+          text
+        </div>
+        <Sheet open={open} onClose={() => {}} title="Contents">
+          <p>inside</p>
+        </Sheet>
+      </>
+    );
+  }
+
+  async function press() {
+    const page = host.querySelector<HTMLElement>("[data-testid=page]")!;
+    const at = { bubbles: true, cancelable: true, clientX: 200, clientY: 400 };
+    await act(async () => {
+      page.dispatchEvent(new PointerEvent("pointerdown", { ...at, pointerId: 1, pointerType: "touch", isPrimary: true }));
+      page.dispatchEvent(new PointerEvent("pointerup", { ...at, pointerId: 1, pointerType: "touch", isPrimary: true }));
+      page.dispatchEvent(new MouseEvent("click", { ...at, button: 0 }));
+    });
+  }
+
+  it("is a free tap, and may drag, while the sheet is closed", async () => {
+    const onTap = vi.fn();
+    const onDrag = vi.fn();
+    await render(<Page open={false} onTap={onTap} onDrag={onDrag} />);
+    await press();
+    expect(onTap).toHaveBeenCalledTimes(1);
+    expect(onDrag).toHaveBeenLastCalledWith(true);
+  });
+
+  it("only dismisses while the sheet is open", async () => {
+    const onTap = vi.fn();
+    const onDrag = vi.fn();
+    await render(<Page open onTap={onTap} onDrag={onDrag} />);
+    await press();
+    expect(onTap).not.toHaveBeenCalled();
+    expect(onDrag).toHaveBeenLastCalledWith(false);
   });
 });
 
