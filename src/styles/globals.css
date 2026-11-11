@@ -185,31 +185,196 @@
 /* Reader chrome: on touch screens a tap in the middle of the page hides the reader's top bar and the
    phone tab bar (useReaderChrome sets data-reader-chrome on <html>). An open sheet or tray hides the
    tab bar the same way (Sheet.tsx sets data-sheet-open), as it covers the bottom edge. Transform and opacity
-   only, so their space stays and the page never reflows; hidden, they can't be focused or clicked. */
-.reader-top-bar,
+   only, so their space stays and the page never reflows; hidden, they can't be focused or clicked.
+   A transition takes the times of the state it goes to: the base rules hold how things come back,
+   the hidden rules how they leave. */
+
+/* The tab bar drops out quickly, far enough that its shadow goes too, and comes back at the end of
+   the bars' return. */
 [data-tab-bar] {
   transition:
-    transform 250ms cubic-bezier(0.19, 1, 0.22, 1),
-    opacity 250ms cubic-bezier(0.19, 1, 0.22, 1),
+    transform var(--chrome-late) ease-out var(--chrome-late-wait),
+    opacity var(--chrome-late) ease-out var(--chrome-late-wait),
     visibility 0s;
 }
-:root[data-reader-chrome="hidden"] .reader-top-bar {
-  transform: translateY(-100%);
-}
 :root:is([data-reader-chrome="hidden"], [data-sheet-open]) [data-tab-bar] {
-  transform: translateY(100%);
-}
-:root[data-reader-chrome="hidden"] .reader-top-bar,
-:root:is([data-reader-chrome="hidden"], [data-sheet-open]) [data-tab-bar] {
+  transform: translateY(calc(100% + 24px));
   opacity: 0;
   visibility: hidden;
-  transition-delay: 0s, 0s, 250ms;
+  transition:
+    transform var(--chrome-out) var(--ease-exit),
+    opacity var(--chrome-out) var(--ease-exit),
+    visibility 0s var(--chrome-out);
 }
 
+/* The top bar doesn't leave: it stays where it is and sheds its chrome. Its ground fades, the
+   buttons and the title go first, and the chapter's name glides up to the compact line under the
+   status bar, where the same name fades in on the same path. It reads as one label moving up.
+   The glide is half the bar's height less 3px for the pill (it sits low in the bar), 23px less for a
+   title with a line under it (it sits high) and 14px less for a title alone (it sits in the
+   middle); the compact line starts its text where the pill's text starts. */
+.reader-top-bar {
+  --label-shift: calc(var(--size-top-bar) / 2 - 3px);
+  --label-x: 66px; /* the row's 8px, Back's 40, the gap's 8, the pill's 10 */
+}
+.reader-top-bar[data-label^="title"] {
+  --label-shift: calc(var(--size-top-bar) / 2 - 23px);
+  --label-x: 56px;
+}
+.reader-top-bar[data-label="title-only"] {
+  --label-shift: calc(var(--size-top-bar) / 2 - 14px);
+}
+@media (min-width: 768px) {
+  .reader-top-bar {
+    --label-x: 74px;
+  }
+  .reader-top-bar[data-label^="title"] {
+    --label-x: 64px;
+  }
+}
+/* Hidden, text under the bar (Scroll) can be tapped and selected; only the compact line takes taps. */
+:root[data-reader-chrome="hidden"] .reader-top-bar {
+  pointer-events: none;
+}
+
+.top-bar-ground {
+  transition:
+    opacity var(--header-in) var(--ease-chrome),
+    visibility 0s;
+}
+:root[data-reader-chrome="hidden"] .top-bar-ground {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--header-out) var(--ease-chrome),
+    visibility 0s var(--header-out);
+}
+
+/* Back, the buttons on the right and the book's title: gone at once, back late in the return. */
+.top-bar-icons,
+.top-bar-title {
+  transition:
+    opacity 120ms var(--ease-chrome) 130ms,
+    visibility 0s;
+}
+:root[data-reader-chrome="hidden"] :is(.top-bar-icons, .top-bar-title) {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 60ms var(--ease-chrome),
+    visibility 0s 60ms;
+}
+:root[data-reader-chrome="hidden"] .top-bar-title {
+  transition:
+    opacity 120ms var(--ease-chrome),
+    visibility 0s 120ms;
+}
+
+/* The chapter pill (or a document's title line) glides up to the compact line and back. */
+.top-bar-glide {
+  transition: transform var(--header-in) var(--ease-chrome);
+}
+:root[data-reader-chrome="hidden"] .top-bar-glide {
+  transform: translateY(calc(-1 * var(--label-shift)));
+  transition-duration: var(--header-out);
+}
+
+/* The pill's fill is a layer of its own, so it fades by opacity. */
+[data-chapter-pill] {
+  position: relative;
+  isolation: isolate;
+}
+[data-chapter-pill]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--bg-secondary);
+  transition: opacity 200ms var(--ease-chrome) 50ms;
+}
+@media (hover: hover) {
+  .top-bar-pill-button:hover [data-chapter-pill]::before {
+    background: var(--bg-tertiary);
+  }
+}
+.top-bar-pill-button:active [data-chapter-pill]::before {
+  background: var(--bg-tertiary);
+}
+.top-bar-chevron {
+  transition: opacity 200ms var(--ease-chrome) 50ms;
+}
+:root[data-reader-chrome="hidden"] [data-chapter-pill]::before {
+  opacity: 0;
+  transition: opacity 200ms var(--ease-chrome);
+}
+:root[data-reader-chrome="hidden"] .top-bar-chevron {
+  opacity: 0;
+  transition: opacity 100ms var(--ease-chrome);
+}
+
+/* The name in the bar and the name in the compact line cross: one fades out as the other fades in.
+   Leaving, they wait until the glide is under way; coming back, they cross at once. */
+.top-bar-label {
+  transition: opacity 120ms var(--ease-chrome);
+}
+:root[data-reader-chrome="hidden"] .top-bar-label {
+  opacity: 0;
+  transition: opacity 160ms var(--ease-chrome) 80ms;
+}
+
+/* The compact line, under the status bar (in Scroll, on the progress line's strip). While the bars
+   show its content waits at the pill's place, unseen; hidden, it is where the line is. */
+.top-bar-compact {
+  padding-left: var(--label-x);
+  pointer-events: none;
+}
+:root[data-reader-chrome="hidden"] .top-bar-compact {
+  pointer-events: auto;
+}
+.top-bar-compact-content {
+  transform: translateY(var(--label-shift));
+  opacity: 0;
+  transition:
+    transform var(--header-in) var(--ease-chrome),
+    opacity 120ms var(--ease-chrome);
+}
+:root[data-reader-chrome="hidden"] .top-bar-compact-content {
+  transform: none;
+  opacity: 1;
+  transition:
+    transform var(--header-out) var(--ease-chrome),
+    opacity 160ms var(--ease-chrome) 80ms;
+}
+
+/* Less motion: nothing moves (places cut) and what fades does so over 150ms, with no waits. The
+   visibility change takes the fade's time, so it is hidden only once the fade is done. */
 @media (prefers-reduced-motion: reduce) {
-  .reader-top-bar,
-  [data-tab-bar] {
+  [data-tab-bar],
+  :root:is([data-reader-chrome="hidden"], [data-sheet-open]) [data-tab-bar],
+  .top-bar-glide,
+  :root[data-reader-chrome="hidden"] .top-bar-glide {
     transition: none;
+  }
+  .top-bar-ground,
+  :root[data-reader-chrome="hidden"] .top-bar-ground,
+  .top-bar-icons,
+  .top-bar-title,
+  :root[data-reader-chrome="hidden"] :is(.top-bar-icons, .top-bar-title),
+  :root[data-reader-chrome="hidden"] .top-bar-title {
+    transition:
+      opacity 150ms ease,
+      visibility 150ms;
+  }
+  [data-chapter-pill]::before,
+  .top-bar-chevron,
+  :root[data-reader-chrome="hidden"] [data-chapter-pill]::before,
+  :root[data-reader-chrome="hidden"] .top-bar-chevron,
+  .top-bar-label,
+  :root[data-reader-chrome="hidden"] .top-bar-label,
+  .top-bar-compact-content,
+  :root[data-reader-chrome="hidden"] .top-bar-compact-content {
+    transition: opacity 150ms ease;
   }
 }
 
@@ -334,22 +499,34 @@
 :root[data-native-tabs] .sheet[data-size="tall"] {
   border-radius: var(--sheet-tall-radius) var(--sheet-tall-radius) 0 0;
 }
-/* In over 300 ms. Out fast after a tap (150 ms, ease-in); after a drag the exit follows through
-   from under the finger on the way in's curve (250 ms). */
+/* In on a spring (--ease-spring, tokens.css): most of the way in the first 200 ms, then a long
+   settle, 440 ms in all and 480 ms for a tall sheet. Out quicker: 230 ms after a tap (300 ms for a
+   tall one, which has further to go); after a drag the exit follows through from under the finger
+   (250 ms). The scrim fades with each; its times are written out, as a ::backdrop may not see the
+   page's variables. */
 .sheet[open] {
-  animation: sheet-in 300ms cubic-bezier(0.19, 1, 0.22, 1);
+  animation: sheet-in var(--sheet-in) var(--ease-spring);
+}
+.sheet[open][data-size="tall"] {
+  animation-duration: var(--sheet-in-tall);
 }
 .sheet[open]::backdrop {
   animation: sheet-scrim-in 300ms ease-out both;
 }
 .sheet[data-closing] {
-  animation: sheet-out 150ms cubic-bezier(0.4, 0, 1, 1) both;
+  animation: sheet-out var(--sheet-out) var(--ease-exit) both;
 }
 .sheet[data-closing]::backdrop {
-  animation: sheet-scrim-out 150ms cubic-bezier(0.4, 0, 1, 1) both;
+  animation: sheet-scrim-out 230ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+.sheet[data-closing="tap"][data-size="tall"] {
+  animation: sheet-out var(--sheet-out-tall) var(--ease-chrome) both;
+}
+.sheet[data-closing="tap"][data-size="tall"]::backdrop {
+  animation: sheet-scrim-out 300ms ease-in-out both;
 }
 .sheet[data-closing="drag"] {
-  animation: sheet-out 250ms cubic-bezier(0.19, 1, 0.22, 1) both;
+  animation: sheet-out var(--sheet-drag-out) cubic-bezier(0.19, 1, 0.22, 1) both;
 }
 .sheet[data-closing="drag"]::backdrop {
   animation: sheet-scrim-out 250ms ease-out both;
@@ -390,19 +567,23 @@
 /* Reduced motion: nothing slides. The sheet and its scrim fade in and out over 200 ms; let go after
    a drag, it fades where the finger left it. */
 @media (prefers-reduced-motion: reduce) {
-  .sheet[open] {
+  /* The tall sheet's own rules above are named too, so that they don't outrank these. */
+  .sheet[open],
+  .sheet[open][data-size="tall"] {
     animation: sheet-fade-in 200ms ease-out;
   }
   .sheet[open]::backdrop {
     animation: sheet-scrim-in 200ms ease-out both;
   }
   .sheet[data-closing],
-  .sheet[data-closing="drag"] {
+  .sheet[data-closing="drag"],
+  .sheet[data-closing="tap"][data-size="tall"] {
     transform: translateY(var(--sheet-y, 0px));
     animation: sheet-fade-out 200ms ease-out both;
   }
   .sheet[data-closing]::backdrop,
-  .sheet[data-closing="drag"]::backdrop {
+  .sheet[data-closing="drag"]::backdrop,
+  .sheet[data-closing="tap"][data-size="tall"]::backdrop {
     animation: sheet-scrim-out 200ms ease-out both;
   }
 }
@@ -417,23 +598,85 @@
 }
 
 /* Popovers arrive: every card that floats over the text (the selection menu, the highlight popover,
-   the note panel, a footnote, the Context card) fades in and grows the last 2.5% from the side
-   nearest its anchor (each sets its own transform-origin). Once, when it appears: the animation is
-   on the element, which stays while it moves or redraws. `scale`, not `transform`, so it leaves the
-   translate that places some of them alone. No way out: they close on a scroll or a press outside,
-   and a fixed card would drift from its words while it faded. */
-.pop-in {
-  animation: pop-in 250ms cubic-bezier(0.19, 1, 0.22, 1);
+   the note panel, a footnote, the Context card, the card map's details) and the popups anchored to
+   a button or the pointer. In two stages: the shell grows from 78% out of the side nearest its
+   anchor (each sets its own transform-origin) while it fades in fast, then its contents come into
+   focus once it has mostly grown. Once, when it appears: the animation is on the element, which
+   stays while it moves or redraws. `scale`, not `transform`, so it leaves the translate that places
+   some of them alone. Both fill backwards only, so no layer or filter stays once they end. The
+   cards over the text have no way out: they close on a scroll or a press outside, and a fixed card
+   would drift from its words while it faded. */
+:is(.pop-in, .footnote-popover, .context-detail) {
+  animation:
+    pop-in var(--pop-shell) var(--ease-pop) backwards,
+    pop-fade 120ms linear backwards;
+}
+/* `:where`, so a child with an animation of its own keeps it. */
+:where(.pop-in, .footnote-popover, .context-detail) > * {
+  animation: pop-in-content var(--pop-content) ease-out var(--pop-content-wait) backwards;
 }
 @keyframes pop-in {
   from {
-    opacity: 0;
-    scale: 0.975;
+    scale: 0.78;
   }
 }
 @keyframes pop-fade {
   from {
     opacity: 0;
+  }
+}
+@keyframes pop-in-content {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+  }
+}
+/* A popup on a button or at the pointer leaves (usePresence.ts): it shrinks back into its anchor
+   and fades. It takes no presses meanwhile; the reader still counts it as open, so a tap that
+   closed it does nothing else. */
+.pop-out {
+  animation: pop-out var(--pop-out) var(--ease-exit) forwards;
+  pointer-events: none;
+}
+@keyframes pop-out {
+  to {
+    opacity: 0;
+    scale: 0.9;
+  }
+}
+@keyframes pop-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.pop-in, .footnote-popover, .context-detail) {
+    animation: pop-fade 150ms ease-out;
+  }
+  :where(.pop-in, .footnote-popover, .context-detail) > * {
+    animation: none;
+  }
+  .pop-out {
+    animation: pop-fade-out 150ms ease-out forwards;
+  }
+}
+
+/* Reading settings on a phone (ReaderTopBar.tsx): the Aa button is not at the screen's edge (Tools
+   follows it), so the panel reaches past its wrapper to end 8px from the edge, and grows from the
+   button's centre. Under 768px the row has 8px of padding, Tools is 40px and the gap 4px: 52px from
+   the edge. From 768px (the iPhone app on its side) the padding is 16px. */
+.settings-pop {
+  width: min(300px, calc(100vw - 16px));
+  right: -44px;
+  transform-origin: calc(100% - 64px) 0;
+  max-height: calc(100dvh - env(safe-area-inset-top) - var(--size-top-bar) - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+@media (min-width: 768px) {
+  .settings-pop {
+    right: -52px;
+    transform-origin: calc(100% - 72px) 0;
   }
 }
 
@@ -457,9 +700,6 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .pop-in {
-    animation: pop-fade 150ms ease-out;
-  }
   .toast {
     animation: pop-fade 150ms ease-out;
   }
@@ -646,9 +886,7 @@ dialog .context-map {
   stroke-width: 4px;
   stroke-linejoin: round;
 }
-.context-detail {
-  animation: pop-in 250ms cubic-bezier(0.19, 1, 0.22, 1);
-}
+/* .context-detail arrives as every card over the text does ("Popovers arrive"). */
 /* A run's new step slides in under the last one. */
 .context-step {
   animation: context-step 220ms ease-out both;
@@ -662,9 +900,6 @@ dialog .context-map {
 @media (prefers-reduced-motion: reduce) {
   .context-step {
     animation: none;
-  }
-  .context-detail {
-    animation: pop-fade 150ms ease-out;
   }
   .context-progress {
     animation: none;

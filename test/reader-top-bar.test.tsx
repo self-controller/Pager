@@ -1,4 +1,4 @@
-import { act } from "react";
+import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -42,19 +42,33 @@ const book: DocumentDetail = {
   ],
 };
 
-async function renderBar({ chapter, onOpenToc }: { chapter?: string; onOpenToc?: () => void }) {
+async function renderBar({
+  chapter,
+  onOpenToc,
+  doc = book,
+  hidden,
+  compact,
+}: {
+  chapter?: string;
+  onOpenToc?: () => void;
+  doc?: DocumentDetail;
+  hidden?: boolean;
+  compact?: ReactNode;
+}) {
   const router = createMemoryRouter(
     [
       {
         path: "*",
         element: (
           <ReaderTopBar
-            doc={book}
+            doc={doc}
             chapter={chapter}
             percent={0.25}
             onOpenToc={onOpenToc}
             toolsOpen={false}
             onToggleTools={() => {}}
+            hidden={hidden}
+            compact={compact}
           />
         ),
       },
@@ -66,6 +80,9 @@ async function renderBar({ chapter, onOpenToc }: { chapter?: string; onOpenToc?:
 
 const icon = () => host.querySelector<HTMLButtonElement>('button[aria-label="Contents"]');
 const pill = () => host.querySelector<HTMLButtonElement>('button[aria-label^="Contents: "]');
+const header = () => host.querySelector<HTMLElement>("header.reader-top-bar")!;
+const row = () => host.querySelector<HTMLElement>(".top-bar-row")!;
+const compactLine = () => host.querySelector<HTMLElement>(".top-bar-compact")!;
 
 beforeEach(() => {
   media = {};
@@ -124,5 +141,43 @@ describe("the reader's top bar", () => {
     await renderBar({ onOpenToc: () => {} });
     expect(pill()).toBeNull();
     expect(host.textContent).toContain("George Eliot");
+  });
+
+  it("hidden, its controls can't be reached but the header itself and its compact line can", async () => {
+    await renderBar({ chapter: "Chapter I", onOpenToc: () => {}, hidden: true });
+    expect(row().inert).toBe(true);
+    expect(header().inert).toBe(false);
+    expect(compactLine().inert).toBe(false);
+    expect(compactLine().getAttribute("aria-hidden")).toBeNull();
+  });
+
+  it("while the bars show, the compact line is hidden from screen readers and can't be reached", async () => {
+    await renderBar({ chapter: "Chapter I", onOpenToc: () => {} });
+    expect(row().inert).toBe(false);
+    expect(compactLine().inert).toBe(true);
+    expect(compactLine().getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("the compact line names the chapter for a book and the title for a one-section document", async () => {
+    await renderBar({ chapter: "Chapter I", onOpenToc: () => {}, hidden: true });
+    expect(header().dataset.label).toBe("pill");
+    expect(compactLine().textContent).toBe("Chapter I");
+
+    const essay: DocumentDetail = { ...book, kind: "article", title: "On Reading", toc: [] };
+    await renderBar({ doc: essay, hidden: true });
+    expect(header().dataset.label).toBe("title");
+    expect(compactLine().textContent).toBe("On Reading");
+  });
+
+  it("puts the compact node in the compact line, after the label", async () => {
+    await renderBar({
+      chapter: "Chapter I",
+      onOpenToc: () => {},
+      hidden: true,
+      compact: <button type="button">Chapter 1 of 2</button>,
+    });
+    const content = compactLine().querySelector(".top-bar-compact-content")!;
+    expect(content.lastElementChild?.textContent).toBe("Chapter 1 of 2");
+    expect(content.firstElementChild?.textContent).toBe("Chapter I");
   });
 });

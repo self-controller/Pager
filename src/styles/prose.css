@@ -255,8 +255,11 @@
    sideways drag slides the track (ScrollView.tsx). The bars float over the text: the panes pad by
    what they cover, and scroll-padding tells the browser (and useChapterScroll) where text shows. ---- */
 
-.chapter-view {
+/* The progress line's height, on the page root: the top bar's compact line (globals.css) is as tall. */
+.reader {
   --progress-line-h: 28px;
+}
+.chapter-view {
   /* The status bar, the top bar and the progress line under it. The line stays when the chrome
      hides, and the inset doesn't change with the chrome, so hiding the bars never moves the text. */
   --reader-inset-top: calc(env(safe-area-inset-top) + var(--size-top-bar) + var(--progress-line-h));
@@ -343,7 +346,7 @@
   z-index: 15;
   height: var(--progress-line-h);
   background: var(--bg-primary);
-  transition: transform 250ms cubic-bezier(0.19, 1, 0.22, 1);
+  transition: transform var(--header-in) var(--ease-chrome);
 }
 /* The page colour goes on above it to the top of the screen, so no text ever shows over the line:
    not while the top bar slides away and fades (the bar moves further than the line does), and not
@@ -372,13 +375,30 @@
 }
 :root[data-reader-chrome="hidden"] .progress-line {
   transform: translateY(calc(-1 * var(--size-top-bar)));
+  transition-duration: var(--header-out);
+}
+/* Up there it is the ground of the top bar's compact line, which has its own readout: this one fades
+   out (its live region with it, so a change isn't read twice) and back late in the return. */
+.progress-line > * {
+  transition:
+    color var(--duration-fast) var(--ease-smooth),
+    opacity 120ms var(--ease-chrome) 130ms,
+    visibility 0s;
+}
+:root[data-reader-chrome="hidden"] .progress-line > * {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    color var(--duration-fast) var(--ease-smooth),
+    opacity 100ms var(--ease-chrome),
+    visibility 0s 100ms;
 }
 
 /* The ‹ › circles float over the text, 24px in from the corners (12px above the phone's tab pill;
    on phones their outer edges sit on the text column's edges); the back pill sits between them.
    No opaque band: the text runs under them to the screen's edge.
-   Hidden with the chrome, the circles slide down out of sight; the back pill stays, above the home
-   indicator. */
+   Hidden with the chrome, the circles fade and the dock drops by the tab bar's height; the back pill
+   stays, above the home indicator. */
 .chapter-dock {
   position: absolute;
   inset-inline: 0;
@@ -386,10 +406,12 @@
   z-index: 10;
   pointer-events: none;
   transform: translateY(calc(-1 * (var(--size-bottom-nav-effective) + env(safe-area-inset-bottom))));
-  transition: transform 250ms cubic-bezier(0.19, 1, 0.22, 1);
+  transition: transform var(--chrome-in) var(--ease-chrome);
 }
 :root[data-reader-chrome="hidden"] .chapter-dock {
   transform: translateY(calc(-1 * env(safe-area-inset-bottom)));
+  transition-duration: var(--dock-out);
+  transition-timing-function: var(--ease-settle);
 }
 .chapter-dock > * {
   pointer-events: auto;
@@ -432,32 +454,37 @@
      is one (globals.css, in the base layer), and a rule here would win over it. */
   background: var(--bg-secondary);
   transition:
-    transform 300ms ease-in-out,
-    opacity 300ms ease-in-out,
+    opacity 80ms ease-out,
     visibility 0s;
 }
 .chapter-button:active {
   background: var(--bg-tertiary);
 }
+/* Out of the way, they fade quickly. Back with the chrome (data-late, ScrollView) they wait so they
+   arrive at the end of its return; back because a popup or selection closed, they come at once. */
 .chapter-button.is-hidden {
-  transform: translateY(200px);
+  opacity: 0;
   visibility: hidden;
-  transition-delay: 0s, 0s, 300ms;
+  transition:
+    opacity 80ms var(--ease-exit),
+    visibility 0s 80ms;
+}
+.chapter-button[data-late]:not(.is-hidden) {
+  transition-delay: 180ms, 0s;
 }
 @media (prefers-reduced-motion: reduce) {
   .chapter-dock,
   .progress-line {
     transition: none;
   }
-  .chapter-button {
+  .chapter-button,
+  .chapter-button.is-hidden,
+  .chapter-button[data-late]:not(.is-hidden),
+  .progress-line > *,
+  :root[data-reader-chrome="hidden"] .progress-line > * {
     transition:
-      opacity 200ms ease-in-out,
-      visibility 0s;
-  }
-  .chapter-button.is-hidden {
-    transform: none;
-    opacity: 0;
-    transition-delay: 0s, 200ms;
+      opacity 150ms ease,
+      visibility 150ms;
   }
 }
 
@@ -558,8 +585,7 @@
 .footnote-popover {
   width: min(calc(100vw - 2.5rem), 460px);
   max-height: 60vh;
-  /* The entrance every card over the text has (globals.css, "Popovers arrive"). */
-  animation: pop-in 250ms cubic-bezier(0.19, 1, 0.22, 1);
+  /* Its entrance is the one every card over the text has (globals.css, "Popovers arrive"). */
 }
 
 /* A book opening (useOpeningFade): the text is held back until it is at the saved place, then fades
@@ -628,9 +654,6 @@
   .back-pill,
   .reader[data-opening] :is(.markup, .title-page) {
     animation: none;
-  }
-  .footnote-popover {
-    animation: pop-fade 150ms ease-out;
   }
   /* A still wash instead, taken off after 3 s by flashLanding. */
   .markup .is-landing,

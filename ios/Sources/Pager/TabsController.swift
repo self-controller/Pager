@@ -180,7 +180,7 @@ final class TabsController: UITabBarController, UITabBarControllerDelegate {
             }
             settle()
         }
-        let changed = hidden != barHidden
+        let changed = hidden != wantsBarHidden
         setBarHidden(hidden, animated: true)
         let first = !pageListening
         pageListening = true
@@ -266,7 +266,7 @@ final class TabsController: UITabBarController, UITabBarControllerDelegate {
     }
 
     /// Starts the one check, half a second after a layout pass with the views in a window, the bar
-    /// showing and nothing presented over the tabs. Only one waits at a time, and it asks for no
+    /// showing at rest and nothing presented over the tabs. Only one waits at a time, and it asks for no
     /// layout itself, so it can't loop.
     private func scheduleHostingCheck() {
         guard hosting == .unchecked, !checkPending, canCheckHosting else { return }
@@ -280,7 +280,7 @@ final class TabsController: UITabBarController, UITabBarControllerDelegate {
     /// The check needs the real layout: in a window, with a size, the bar showing, and no sheet
     /// (Diagnostics) presented over the tabs.
     private var canCheckHosting: Bool {
-        isViewLoaded && view.window != nil && !view.bounds.isEmpty && !barHidden
+        isViewLoaded && view.window != nil && !view.bounds.isEmpty && barAtRest
             && !tabBar.isHidden && !tabBar.bounds.isEmpty && presentedViewController == nil
     }
 
@@ -321,27 +321,166 @@ final class TabsController: UITabBarController, UITabBarControllerDelegate {
 
     // MARK: The bar
 
-    private var barHidden: Bool {
+    /// The bar's own motion, as the page moves its own bars. These mirror `--chrome-out`,
+    /// `--chrome-late` and `--chrome-late-wait` in src/styles/tokens.css: change them together, so
+    /// the app and the browser feel the same. It leaves fast; it returns last, after the page's own
+    /// bottom controls have risen.
+    private static let barOut: TimeInterval = 0.07
+    private static let barLate: TimeInterval = 0.09
+    private static let barLateWait: TimeInterval = 0.17
+    /// How far below its place the bar starts and ends its motion, past the screen's edge.
+    private static let barTravelExtra: CGFloat = 24
+
+    /// Whether the bar moves itself (a transform and a fade on the timings above). When false the
+    /// system's own animation is used, with only the late show: the wait, then the system's show.
+    /// The way back, in case the iOS 26 Liquid Glass bar doesn't take a transform well.
+    private static let ownBarMotion = true
+
+    /// What the page asked for. It changes at once; the system bar follows when its motion ends.
+    private var wantsBarHidden = false
+    /// Bumped on every request, so a motion's end or a late show that is no longer wanted does nothing.
+    private var barGeneration = 0
+    /// Whether one of the bar's own motions is running.
+    private var barMoving = false
+    /// The fallback's late show, waiting.
+    private var lateShowTask: Task<Void, Never>?
+
+    /// Whether the system bar is hidden. Not what the page wants: during a motion the two differ.
+    private var systemBarHidden: Bool {
         if #available(iOS 18, *) {
             return isTabBarHidden
         }
         return tabBar.isHidden
     }
 
+    /// Whether the bar is shown, at rest and untransformed: its frame and touches are the real ones.
+    private var barAtRest: Bool {
+        !wantsBarHidden && !systemBarHidden && !barMoving && tabBar.transform.isIdentity
+    }
+
     private func setBarHidden(_ hidden: Bool, animated: Bool) {
-        guard hidden != barHidden else { return }
-        if #available(iOS 18, *) {
-            setTabBarHidden(hidden, animated: animated)
-        } else {
-            tabBar.isHidden = hidden
+        // The same request again changes nothing, and mustn't cancel the motion it started.
+        if animated, hidden == wantsBarHidden { return }
+        wantsBarHidden = hidden
+        barGeneration += 1
+        lateShowTask?.cancel()
+        lateShowTask = nil
+        guard #available(iOS 18, *) else {
+            if tabBar.isHidden != hidden {
+                tabBar.isHidden = hidden
+            }
+            return
         }
+        if !animated {
+            // Start-up and the pairing page: a cut, with nothing left of a motion.
+            stopBarMotion()
+            if isTabBarHidden != hidden {
+                setTabBarHidden(hidden, animated: false)
+            }
+        } else if UIAccessibility.isReduceMotionEnabled {
+            // No motion of our own and no wait: the system's fade.
+            stopBarMotion()
+            setTabBarHidden(hidden, animated: true)
+        } else if Self.ownBarMotion {
+            moveBar(hidden: hidden)
+        } else {
+            stopBarMotion()
+            systemBarLate(hidden: hidden)
+        }
+    }
+
+    /// The bar's own motion. Hiding slides it down past the edge and fades it, then hides the system
+    /// bar and puts the transform back, so its state is the usual hidden one. Showing puts it below,
+    /// shows the system bar, and slides it up after the wait. Both start from where the bar is, so a
+    /// reversal never jumps.
+    @available(iOS 18, *)
+    private func moveBar(hidden: Bool) {
+        let generation = barGeneration
+        let away = CGAffineTransform(translationX: 0, y: barTravel)
+        let options: UIView.AnimationOptions = [.beginFromCurrentState, .allowUserInteraction]
+        if hidden {
+            barMoving = true
+            UIView.animate(withDuration: Self.barOut, delay: 0, options: options.union(.curveEaseIn)) {
+                self.tabBar.transform = away
+                self.tabBar.alpha = 0
+            } completion: { [weak self] _ in
+                guard let self, self.barGeneration == generation else { return }
+                self.barMoving = false
+                UIView.performWithoutAnimation {
+                    self.setTabBarHidden(true, animated: false)
+                    self.tabBar.transform = .identity
+                    self.tabBar.alpha = 1
+                }
+            }
+            return
+        }
+        // A hide reversed on its way out carries on from where the bar is, with no wait: a pause
+        // half-way would read as the bar sticking.
+        let reversing = barMoving && !isTabBarHidden
+        if isTabBarHidden {
+            UIView.performWithoutAnimation {
+                tabBar.alpha = 0
+                setTabBarHidden(false, animated: false)
+                // The system lays the bar out first: a frame set under a transform is undefined.
+                view.layoutIfNeeded()
+                tabBar.transform = away
+            }
+        }
+        barMoving = true
+        UIView.animate(
+            withDuration: Self.barLate, delay: reversing ? 0 : Self.barLateWait,
+            options: options.union(.curveEaseOut)
+        ) {
+            self.tabBar.transform = .identity
+            self.tabBar.alpha = 1
+        } completion: { [weak self] _ in
+            guard let self, self.barGeneration == generation else { return }
+            self.barMoving = false
+            // The footprint and the hosting check wait for the bar at rest.
+            self.view.setNeedsLayout()
+        }
+    }
+
+    /// The fallback: the system's animation, hiding at once and showing after the wait.
+    @available(iOS 18, *)
+    private func systemBarLate(hidden: Bool) {
+        if hidden {
+            setTabBarHidden(true, animated: true)
+            return
+        }
+        let generation = barGeneration
+        lateShowTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(Self.barLateWait * 1_000_000_000))
+            guard !Task.isCancelled, let self, self.barGeneration == generation else { return }
+            self.lateShowTask = nil
+            self.setTabBarHidden(false, animated: true)
+        }
+    }
+
+    /// Ends a motion of our own where it is and puts the bar back as the system keeps it. A motion's
+    /// end that comes after this is stale (the generation moved on) and does nothing.
+    private func stopBarMotion() {
+        guard barMoving || !tabBar.transform.isIdentity || tabBar.alpha != 1 else { return }
+        barMoving = false
+        tabBar.layer.removeAllAnimations()
+        UIView.performWithoutAnimation {
+            tabBar.transform = .identity
+            tabBar.alpha = 1
+        }
+    }
+
+    /// The bar's height, the home indicator's strip and a margin: enough to leave the screen.
+    private var barTravel: CGFloat {
+        tabBar.bounds.height + (view.window?.safeAreaInsets.bottom ?? view.safeAreaInsets.bottom)
+            + Self.barTravelExtra
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         settle()
         scheduleHostingCheck()
-        guard !barHidden else { return }
+        // Only with the bar shown and at rest: under a transform the bar's frame is undefined.
+        guard barAtRest else { return }
         let top: CGFloat
         if #available(iOS 26, *) {
             top = contentLayoutGuide.layoutFrame.maxY
@@ -367,7 +506,8 @@ final class TabsController: UITabBarController, UITabBarControllerDelegate {
     /// The layout now, kept as the snapshot for the bar's current state.
     @discardableResult
     func refreshSnapshot() async -> LayoutSnapshot {
-        let hidden = barHidden
+        // The system bar's state, not the wanted one: the layout measured is the system's.
+        let hidden = systemBarHidden
         let js = """
         (() => {
           const p = document.createElement("div");
@@ -407,8 +547,9 @@ final class TabsController: UITabBarController, UITabBarControllerDelegate {
         }
     }
 
-    /// Whether the bar is hidden now (Diagnostics).
-    var isBarHidden: Bool { barHidden }
+    /// Whether the page asked for the bar hidden (Diagnostics). During a motion the system bar may
+    /// not be there yet.
+    var isBarHidden: Bool { wantsBarHidden }
 
     // MARK: Colours
 

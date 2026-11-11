@@ -158,6 +158,10 @@ export function ScrollView({
 }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+  // Whether the chapter buttons were last put away by the chrome hiding (they come back late, with
+  // it) or by a popup or selection (they come back at once). Read only when they come back.
+  const late = useRef(false);
+  if (controlsHidden) late.current = !chrome;
   const drag = useRef<Drag | null>(null);
   const wheel = useRef(initialWheel());
   const frame = useRef(0);
@@ -452,9 +456,15 @@ export function ScrollView({
       {progress}
       <div className="chapter-dock">
         <div className="chapter-controls">
-          <ChapterButton direction={-1} section={prev} hidden={controlsHidden} onClick={() => turn(-1)} />
+          <ChapterButton
+            direction={-1}
+            section={prev}
+            hidden={controlsHidden}
+            late={late.current}
+            onClick={() => turn(-1)}
+          />
           <div className="flex min-w-0 flex-1 justify-center">{pill}</div>
-          <ChapterButton direction={1} section={next} hidden={controlsHidden} onClick={() => turn(1)} />
+          <ChapterButton direction={1} section={next} hidden={controlsHidden} late={late.current} onClick={() => turn(1)} />
         </div>
       </div>
     </div>
@@ -478,11 +488,14 @@ function ChapterButton({
   direction,
   section,
   hidden,
+  late,
   onClick,
 }: {
   direction: 1 | -1;
   section: Section | null | undefined;
   hidden: boolean;
+  /** Hidden by the chrome: coming back, it waits for the end of the chrome's return (prose.css). */
+  late: boolean;
   onClick: () => void;
 }) {
   if (section === null) return <span className="size-11 shrink-0" aria-hidden />;
@@ -492,6 +505,7 @@ function ChapterButton({
     <button
       type="button"
       className={cx("chapter-button", hidden && "is-hidden")}
+      data-late={late || undefined}
       aria-label={label}
       title={section?.title ? `${label}: ${section.title}` : label}
       inert={hidden}

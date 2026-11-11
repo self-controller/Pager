@@ -112,15 +112,18 @@ pairing phones.
   server refuses all of these anyway.
 - **No service worker** in this stage: the app needs the computer to be reachable.
 - **Bottom sheets**: on phones (below 768px, and in the app at every width) dialogs, the reader's
-  Contents and Tools, the type settings and the library menus are bottom sheets
-  (`src/components/ui/Sheet.tsx`). While one is open `<html data-sheet-open>` holds the page still and
-  hides the tab bar, the app's included (`tabs.hidden`); the bar returns when the sheet closes. The
-  type settings are a tray (not modal): the mark is `data-sheet-open="tray"`, which hides the bar the
-  same way but leaves the page live, and a tap outside the tray closes it.
-  A highlight is edited in a tray too (colours first, then Note, Copy, Share and Delete; in the
-  Scroll layout the chapter carries the tapped words clear of it), and a note is written in a sheet
-  with Save in its title row (`src/components/reader/AnnotationEditors.tsx`). Footnote popovers and
-  the Context card keep their shapes.
+  Contents and Tools and the library menus are bottom sheets (`src/components/ui/Sheet.tsx`). While
+  one is open `<html data-sheet-open>` holds the page still and hides the tab bar, the app's included
+  (`tabs.hidden`); the bar returns when the sheet closes. A highlight is edited in a tray (not
+  modal): the mark is `data-sheet-open="tray"`, which hides the bar the same way but leaves the page
+  live, and a tap outside the tray closes it (colours first, then Note, Copy, Share and Delete; in
+  the Scroll layout the chapter carries the tapped words clear of it). A note is written in a sheet
+  with Save in its title row (`src/components/reader/AnnotationEditors.tsx`). The type settings are
+  not a sheet: they are a popup under their button on every screen (`src/components/ui/Popover.tsx`),
+  which sets no mark, so the bar stays. Footnote popovers and the Context card keep their shapes.
+- **The tab bar's motion**: the app moves the system bar on the page's own times (gone in 70 ms,
+  back over 90 ms after a 170 ms wait; `TabsController.setBarHidden`, mirrored from `--chrome-*` in
+  `src/styles/tokens.css`). The `tabs` message is unchanged.
 - **Over iroh** the same UI runs inside the phone app, whose scheme handler carries `/api` requests
   as `pager/1` frames (API.md, Phones over iroh) with a bearer token the app keeps; the UI's `/api`
   base stays relative and it never holds the credential. The UI knows it is in the app by its scheme,

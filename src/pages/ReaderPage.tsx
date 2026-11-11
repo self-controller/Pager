@@ -10,7 +10,7 @@ import { BackPill } from "@/components/reader/BackPill";
 import { forgetSpot, rememberSpot, spotFor } from "@/components/reader/chapterSpots";
 import { FootnotePopover, useFootnotes } from "@/components/reader/FootnotePopover";
 import { PagedView } from "@/components/reader/PagedView";
-import { PageFooter, ProgressLine } from "@/components/reader/PageFooter";
+import { CompactReadout, PageFooter, ProgressLine } from "@/components/reader/PageFooter";
 import { usePageDwell, useSectionWords } from "@/components/reader/readingSpeed";
 import { ReaderBody, ReaderBodySkeleton, type InternalTarget } from "@/components/reader/ReaderBody";
 import { ReaderTopBar } from "@/components/reader/ReaderTopBar";
@@ -143,8 +143,11 @@ export function ReaderPage() {
   const typeDeps = [settings.fontOffset, settings.typeface];
   const pager = usePagination(scrollerRef, scrollMode ? "" : contentKey, typeDeps, settings.pageTurn);
   const [chrome, setChrome] = useReaderChrome(docId, scrollMode ? "scroll" : "paged");
-  // In the scroll layout the chrome follows the scroll; not while the reattach banner asks for a selection.
-  const scrollChrome = useScrollChrome(setChrome, scrollMode && !reattach);
+  // Reading settings hangs from the top bar, so the bars hold while it is open.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  // In the scroll layout the chrome follows the scroll; not while the reattach banner asks for a
+  // selection, nor while Reading settings is open.
+  const scrollChrome = useScrollChrome(setChrome, scrollMode && !reattach && !settingsOpen);
   const chapter = useChapterScroll(chapterScrollerRef, scrollMode ? contentKey : "", typeDeps, scrollChrome.onScroll);
   const layout: ReaderLayout = scrollMode ? chapter : pager;
   const pagerRef = useRef(pager);
@@ -451,6 +454,8 @@ export function ReaderPage() {
         onToggleTools={() => setToolsOpen(!toolsOpen)}
         hidden={!chrome}
         overlay={scrollMode}
+        compact={scrollMode ? <CompactReadout {...progress} /> : undefined}
+        onSettingsOpenChange={setSettingsOpen}
       />
 
       {reattach && (

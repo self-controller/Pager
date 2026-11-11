@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import { Check } from "lucide-react";
 import { cx } from "@/lib/cx";
 import { useIsPhone } from "@/lib/useIsPhone";
+import { exitDuration } from "@/lib/usePresence";
 import { Sheet, useSheet } from "./Sheet";
 
 export interface MenuItem {
@@ -73,11 +74,20 @@ function SheetMenuList({ label, items }: { label: string; items: MenuEntry[] }) 
 
 /**
  * A right-click menu: fixed at the pointer, clamped to the viewport, keyboard-navigable, closed by
- * Esc, an outside press, a resize or a page turn.
+ * Esc, an outside press, a resize or a page turn. It grows from the pointer. Esc and an outside
+ * press let it shrink away first; the rest close it at once (a pick yields to what it opens, and a
+ * fixed menu would drift on a scroll).
  */
 function PointerMenu({ label, at, items, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<CSSProperties>({ left: -9999, top: -9999 });
+  const [leaving, setLeaving] = useState(false);
+  // A right click elsewhere while it leaves moves this same menu there: it stays, and arrives again.
+  const [shownAt, setShownAt] = useState(at);
+  if (shownAt !== at) {
+    setShownAt(at);
+    setLeaving(false);
+  }
 
   useLayoutEffect(() => {
     const el = ref.current;
@@ -85,18 +95,27 @@ function PointerMenu({ label, at, items, onClose }: Props) {
     const { width, height } = el.getBoundingClientRect();
     const left = Math.min(Math.max(8, at.x), window.innerWidth - width - 8);
     const top = Math.min(Math.max(8, at.y), window.innerHeight - height - 8);
-    setStyle({ left, top });
+    const inside = (n: number, max: number) => Math.min(Math.max(0, n), max);
+    setStyle({ left, top, transformOrigin: `${inside(at.x - left, width)}px ${inside(at.y - top, height)}px` });
     el.querySelector<HTMLElement>("[role=menuitem]:not([aria-disabled=true])")?.focus();
   }, [at]);
 
+  // Arriving again (above) clears `leaving`, which clears this timer: a stale one never closes it.
   useEffect(() => {
+    if (!leaving) return;
+    const timer = window.setTimeout(onClose, exitDuration());
+    return () => window.clearTimeout(timer);
+  }, [leaving, onClose]);
+
+  useEffect(() => {
+    const leave = () => setLeaving(true);
     const onDown = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) onClose();
+      if (!ref.current?.contains(e.target as Node)) leave();
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
-        onClose();
+        leave();
         return;
       }
       if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
@@ -131,8 +150,10 @@ function PointerMenu({ label, at, items, onClose }: Props) {
 
   return (
     <div
+      // Keyed by the point, so the entrance plays again where it moves to.
+      key={`${at.x},${at.y}`}
       ref={ref}
-      className="fixed z-40 min-w-[220px] rounded-md bg-elevated p-1.5 elevation"
+      className={cx("fixed z-40 min-w-[220px] rounded-md bg-elevated p-1.5 elevation", leaving ? "pop-out" : "pop-in")}
       style={style}
       onContextMenu={(e) => e.preventDefault()}
     >

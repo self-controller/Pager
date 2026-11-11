@@ -244,3 +244,29 @@ export function ProgressLine(props: ProgressProps) {
     </div>
   );
 }
+
+/**
+ * The same readout in the top bar's compact line (Scroll, while the chrome is hidden), after the
+ * chapter's name and a thin rule. Set to nothing it has no rule, and stays tappable.
+ */
+export function CompactReadout(props: ProgressProps) {
+  const r = useProgressReadout({ ...props, scroll: true });
+  return (
+    <>
+      {r.text && <span className="mx-2 h-3 w-px shrink-0 bg-fg-3" aria-hidden />}
+      <button
+        type="button"
+        aria-label={r.name}
+        aria-describedby={r.valueId}
+        onPointerDown={r.prepare}
+        onClick={r.cycle}
+        className="flex h-full min-w-11 shrink-0 items-center font-byline text-[13px] leading-[18px] text-fg-2 tabular-nums transition-hover select-none hover:text-fg"
+      >
+        {r.text}
+      </button>
+      <span id={r.valueId} className="sr-only" aria-live="polite">
+        {r.spoken}
+      </span>
+    </>
+  );
+}

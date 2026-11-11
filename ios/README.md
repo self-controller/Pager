@@ -457,6 +457,48 @@ None of this could be run on Linux: the Swift side has only been compiled. Take 
 11. Download a book again, then **Revoke** the phone on the computer: the app goes to **Pair this
     phone**, and after pairing again Settings says no books are downloaded.
 
+### Check it: the bars' motion
+
+None of this could be run on Linux: the Swift side has only been compiled. The tab bar now moves on
+the page's timings: it leaves in 70 ms, and returns in the last 90 ms of a quarter second, after the
+page's own controls. A screen recording helps if something looks wrong.
+
+1. A book in the Scroll layout: scroll down. The tab bar is gone almost at once (well under a tenth
+   of a second), sliding down and fading, while the page's own bottom controls drop.
+2. Scroll up: the chapter controls rise first, and the tab bar arrives at the end, about a quarter
+   of a second in all.
+3. Reverse direction quickly a few times, down and up: the bar never jumps, and never sticks
+   half-way or stays faded.
+4. Library → open a book's menu; in a book, open Contents: the bar leaves fast while the sheet
+   rises, and returns as the sheet goes.
+5. After many hides and shows, the bar still looks like glass: not flat, not clipped, not shifted
+   from its place. It still takes taps, and the selection bubble still moves.
+6. Diagnostics → Layout: `env(safe-area-inset-bottom)` is the same with the bar shown and hidden,
+   and **Web view** says `fixed`.
+7. Turn on Reduce Motion (Settings → Accessibility → Motion): the bar uses the system's own fade,
+   with no slide and no wait.
+8. If the glass bar misbehaves under the slide (flat, clipped, jumping, or blank after a show), set
+   `ownBarMotion` to `false` in `Sources/Pager/TabsController.swift` and build again. Then the system's
+   own animation is used: the bar hides at the system's pace (slower than 70 ms), and only the late
+   show is kept, a wait of 0.17 s before the system shows it. Say which one you kept.
+
+The page's own motion changed in the same round. It was measured in Chromium and in WebKitGTK, not
+on a phone:
+
+9. Scroll down in a book: the top bar does not slide away. Back, Aa and Tools fade first, the
+   chapter's name moves up and stays under the status bar, and the readout sits beside it
+   ("Chapter I | 42%"). A tap on the readout still cycles it. The line of text just under it can be
+   selected.
+10. Scroll up: the top bar is whole again as the bottom controls return, its buttons clear last.
+11. Open Contents, and a book's menu in the Library: the sheet covers most of the way at once and
+    then settles. Closing is quicker than opening. Close Contents (✕), or drag its grip, while it is
+    still rising: it carries on from where it is, with no jump.
+12. Tap Aa: Reading settings opens as a popup under the button, not a tray at the bottom. Its shape
+    arrives first and its controls come into focus after. Change the text size, then scroll the
+    page: the popup stays, and so do the bars and the tab bar. Tap the page: the popup closes and
+    nothing else happens.
+13. Tap a footnote mark: the note grows out of the mark in the same two stages.
+
 ## When it doesn't work
 
 | What you see | Why | What to do |

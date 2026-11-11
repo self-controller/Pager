@@ -6,7 +6,6 @@ import { OVERLAY_SELECTOR, pointerKind } from "@/components/reader/gestures";
 import { usePressArbiter } from "@/components/reader/usePressArbiter";
 import { ContextMenu, sheetMenuOrder, type MenuEntry } from "@/components/ui/ContextMenu";
 import { Dialog } from "@/components/ui/Dialog";
-import { Popover } from "@/components/ui/Popover";
 import { Sheet } from "@/components/ui/Sheet";
 
 // Sheets as a phone shows them: what they mark, how they close, and which popups become one.
@@ -378,31 +377,106 @@ describe("how fast a sheet leaves", () => {
     });
   }
 
-  it("takes 150 ms after a tap on the close button", async () => {
+  it("takes 230 ms after a tap on the close button", async () => {
     await render(ui(true));
     const sheet = first();
     await act(async () => closeButton(sheet).click());
     expect(sheet.dataset.closing).toBe("tap");
     // The fallback timer is the exit plus 50 ms.
-    await wait(190);
+    await wait(270);
     expect(sheet.open).toBe(true);
     await wait(20);
     expect(sheet.open).toBe(false);
   });
 
-  it("takes 150 ms when its owner closes it, and on Esc", async () => {
+  it("takes 300 ms after a tap when it is tall", async () => {
+    await render(
+      <Sheet open onClose={() => {}} title="Contents" size="tall">
+        <p>inside</p>
+      </Sheet>,
+    );
+    const sheet = first();
+    await act(async () => closeButton(sheet).click());
+    expect(sheet.dataset.closing).toBe("tap");
+    await wait(340);
+    expect(sheet.open).toBe(true);
+    await wait(20);
+    expect(sheet.open).toBe(false);
+  });
+
+  it("takes 230 ms when its owner closes it, and on Esc", async () => {
     await render(ui(true));
     const sheet = first();
     await render(ui(false));
     expect(sheet.dataset.closing).toBe("tap");
-    await wait(210);
+    await wait(290);
     expect(sheet.open).toBe(false);
 
     await render(ui(true));
     await act(async () => sheet.dispatchEvent(new Event("cancel", { cancelable: true })));
     expect(sheet.dataset.closing).toBe("tap");
-    await wait(210);
+    await wait(290);
     expect(sheet.open).toBe(false);
+  });
+
+  describe("closed while still rising", () => {
+    /** Makes `sheet` look 180 px into its rise, as a browser would report it. */
+    function rising(sheet: HTMLElement, running = true) {
+      const cancel = vi.fn();
+      const anim = { animationName: "sheet-in", playState: running ? "running" : "finished", cancel };
+      Object.defineProperty(sheet, "getAnimations", { configurable: true, value: () => [anim] });
+      const real = window.getComputedStyle.bind(window);
+      vi.spyOn(window, "getComputedStyle").mockImplementation((el, pseudo) => {
+        const style = real(el, pseudo);
+        if (el !== sheet) return style;
+        return new Proxy(style, {
+          get: (target, key) => (key === "transform" ? "matrix(1, 0, 0, 1, 0, 180)" : Reflect.get(target, key)),
+        });
+      });
+      return cancel;
+    }
+
+    it("leaves from where it is, not from where it rests", async () => {
+      await render(ui(true));
+      const sheet = first();
+      rising(sheet);
+      await act(async () => closeButton(sheet).click());
+      expect(sheet.dataset.closing).toBe("tap");
+      expect(sheet.style.getPropertyValue("--sheet-y")).toBe("180px");
+      await settle();
+      expect(sheet.style.getPropertyValue("--sheet-y")).toBe("");
+    });
+
+    it("leaves from where it rests once it has risen", async () => {
+      await render(ui(true));
+      const sheet = first();
+      rising(sheet, false);
+      await act(async () => closeButton(sheet).click());
+      expect(sheet.dataset.closing).toBe("tap");
+      expect(sheet.style.getPropertyValue("--sheet-y")).toBe("");
+    });
+
+    it("is caught where it is by a finger on its grip", async () => {
+      const onClose = vi.fn();
+      await render(ui(true, onClose));
+      const sheet = first();
+      const cancel = rising(sheet);
+      const grip = sheet.querySelector("[data-sheet-grip]")!;
+      const touch = (type: string, y?: number) => {
+        const e = new Event(type, { bubbles: true, cancelable: true });
+        Object.defineProperty(e, "touches", { value: y === undefined ? [] : [{ clientY: y }] });
+        return e;
+      };
+      await act(async () => grip.dispatchEvent(touch("touchstart", 100)));
+      expect(cancel).toHaveBeenCalledTimes(1);
+      expect(sheet.style.transform).toBe("translateY(180px)");
+      await act(async () => grip.dispatchEvent(touch("touchmove", 120)));
+      expect(sheet.style.transform).toBe("translateY(200px)");
+      await act(async () => grip.dispatchEvent(touch("touchend")));
+      // No layout here, so the sheet has no height and any drag down closes it.
+      expect(sheet.dataset.closing).toBe("drag");
+      expect(sheet.style.getPropertyValue("--sheet-y")).toBe("200px");
+    });
   });
 
   it("takes 250 ms after a drag, from where the finger let go", async () => {
@@ -417,6 +491,21 @@ describe("how fast a sheet leaves", () => {
     await wait(20);
     expect(sheet.open).toBe(false);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("takes 250 ms after a drag when it is tall too", async () => {
+    await render(
+      <Sheet open onClose={() => {}} title="Contents" size="tall">
+        <p>inside</p>
+      </Sheet>,
+    );
+    const sheet = first();
+    await dragGrip(sheet, 200);
+    expect(sheet.dataset.closing).toBe("drag");
+    await wait(290);
+    expect(sheet.open).toBe(true);
+    await wait(20);
+    expect(sheet.open).toBe(false);
   });
 
   it("ends with its exit animation, before the timer", async () => {
@@ -809,80 +898,5 @@ describe("ContextMenu on a phone", () => {
     const rows = Array.from(document.querySelectorAll("[role=menuitem]")).map((row) => row.textContent);
     expect(rows).toEqual(["delete", "open"]);
     expect(document.body.textContent).not.toContain("Author");
-  });
-});
-
-describe("Popover on a phone", () => {
-  it("opens a sheet from its trigger", async () => {
-    const showModal = vi.spyOn(HTMLDialogElement.prototype, "showModal");
-    await render(
-      <Popover title="Reading settings" trigger={(props) => <button {...props}>Aa</button>}>
-        <p>settings</p>
-      </Popover>,
-    );
-    expect(first().open).toBe(false);
-    await act(async () => host.querySelector("button")!.click());
-    const sheet = first();
-    expect(sheet.open).toBe(true);
-    expect(showModal).toHaveBeenCalledTimes(1);
-    expect(sheet.getAttribute("aria-label")).toBe("Reading settings");
-    expect(sheet.textContent).toContain("settings");
-    await act(async () => closeButton(sheet).click());
-    await settle();
-    expect(sheet.open).toBe(false);
-    expect(host.querySelector("button")!.getAttribute("aria-expanded")).toBe("false");
-  });
-
-  describe("asked for a tray", () => {
-    const ui = (
-      <Popover tray title="Reading settings" trigger={(props) => <button {...props}>Aa</button>}>
-        <p>settings</p>
-      </Popover>
-    );
-    const trigger = () => host.querySelector<HTMLButtonElement>("button")!;
-
-    it("opens a tray", async () => {
-      const showModal = vi.spyOn(HTMLDialogElement.prototype, "showModal");
-      await render(ui);
-      await act(async () => trigger().click());
-      const tray = first();
-      expect(tray.open).toBe(true);
-      expect(showModal).not.toHaveBeenCalled();
-      expect(tray.hasAttribute("data-tray")).toBe(true);
-      expect(trigger().getAttribute("aria-controls")).toBe(tray.id);
-      expect(mark()).toBe("tray");
-    });
-
-    it("closes on a press on its trigger and stays closed", async () => {
-      await render(ui);
-      await act(async () => trigger().click());
-      await pressOn(trigger());
-      await act(async () => trigger().click());
-      await settle();
-      expect(first().open).toBe(false);
-      expect(trigger().getAttribute("aria-expanded")).toBe("false");
-      await wait(600);
-      expect(first().open).toBe(false);
-    });
-
-    it("stays closed after a slow press on its trigger, too", async () => {
-      await render(ui);
-      await act(async () => trigger().click());
-      // Held past the exit: a tray that closed on the press itself would be reopened by this click.
-      await pressOn(trigger(), { holdMs: 450 });
-      expect(first().open).toBe(true);
-      await act(async () => trigger().click());
-      await settle();
-      expect(first().open).toBe(false);
-      expect(trigger().getAttribute("aria-expanded")).toBe("false");
-    });
-
-    it("is a floating panel on a desktop, as before", async () => {
-      media["(max-width: 767px)"] = false;
-      await render(ui);
-      await act(async () => trigger().click());
-      expect(sheets()).toHaveLength(0);
-      expect(host.querySelector("[role=dialog]")?.textContent).toBe("settings");
-    });
   });
 });

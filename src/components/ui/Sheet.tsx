@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cx } from "@/lib/cx";
 import { IconButton } from "./Button";
-import { sheetExitMs, sheetOffset, sheetRelease, type SheetExit } from "./sheetDrag";
+import { sheetExitMs, sheetOffset, sheetRelease, translateYOf, type SheetExit, type SheetSize } from "./sheetDrag";
 
 /** A press outside a tray that lifts within this many px of where it landed closes the tray. */
 const TRAY_TAP_SLOP = 15;
@@ -18,7 +18,7 @@ interface Props {
   action?: ReactNode;
   children: ReactNode;
   /** "content" grows with what it holds (menus, dialogs); "tall" takes 92% of the screen (Contents, Tools). */
-  size?: "content" | "tall";
+  size?: SheetSize;
   /** Hide the title row (the title is still announced); the grip stays. */
   bare?: boolean;
   /**
@@ -76,6 +76,20 @@ export function useSheetOpenMark(shown: boolean, kind: MarkKind = "modal"): void
 
 function reducedMotion(): boolean {
   return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/** The sheet's entrance, while it is still rising; under reduced motion it is a fade, never this. */
+function rising(el: HTMLElement): Animation | undefined {
+  if (typeof el.getAnimations !== "function") return undefined;
+  return el
+    .getAnimations()
+    .find((a) => (a as CSSAnimation).animationName === "sheet-in" && a.playState === "running");
+}
+
+/** How far below its resting place a rising sheet is now, in px; 0 once it has risen. */
+function risingOffset(el: HTMLElement, anim = rising(el)): number {
+  if (!anim) return 0;
+  return Math.max(0, translateYOf(getComputedStyle(el).transform));
 }
 
 /**
@@ -143,12 +157,19 @@ export function Sheet({
     ({ notify, then, by = "tap" }: { notify: boolean; then?: () => void; by?: SheetExit }) => {
       if (phaseRef.current !== "open") return;
       closing.current = { notify, then };
+      // Closed while still rising: the exit starts from where the sheet is, not from where it rests.
+      // A drag has set its own start.
+      const el = ref.current;
+      if (el && by !== "drag") {
+        const y = risingOffset(el);
+        if (y > 0.5) el.style.setProperty("--sheet-y", `${y}px`);
+      }
       setExit(by);
       setPhase("closing");
       // In case the exit never runs (a hidden tab, no animations): don't stay stuck half closed.
-      timer.current = window.setTimeout(finish, sheetExitMs(by, reducedMotion()) + 50);
+      timer.current = window.setTimeout(finish, sheetExitMs(by, reducedMotion(), size) + 50);
     },
-    [finish, setPhase],
+    [finish, setPhase, size],
   );
 
   useEffect(() => {
@@ -236,6 +257,8 @@ export function Sheet({
     let t0 = 0;
     let height = 0;
     let dy = 0;
+    // Where the sheet was when the finger landed: below its resting place if it was still rising.
+    let base = 0;
     let active = false;
     const settle = () => {
       el.style.transition = "";
@@ -249,6 +272,14 @@ export function Sheet({
       t0 = performance.now();
       height = el.offsetHeight;
       dy = 0;
+      // Caught while still rising: stop the rise where it is and let the finger take it from there,
+      // or the entrance would keep overriding the drag and the sheet would jump when it ended.
+      const anim = rising(el);
+      base = risingOffset(el, anim);
+      if (anim) {
+        anim.cancel();
+        el.style.transform = `translateY(${base}px)`;
+      }
     };
     const move = (e: TouchEvent) => {
       if (!active) return;
@@ -256,19 +287,19 @@ export function Sheet({
       const touch = e.touches[0];
       if (!touch) return;
       dy = touch.clientY - y0;
-      el.style.transform = `translateY(${sheetOffset(dy)}px)`;
+      el.style.transform = `translateY(${sheetOffset(base + dy)}px)`;
     };
     const end = () => {
       if (!active) return;
       active = false;
-      if (sheetRelease(dy, performance.now() - t0, height) === "close") {
+      if (sheetRelease(dy, performance.now() - t0, height, base) === "close") {
         // The exit carries on from where the finger let go.
-        el.style.setProperty("--sheet-y", `${sheetOffset(dy)}px`);
+        el.style.setProperty("--sheet-y", `${sheetOffset(base + dy)}px`);
         el.style.transform = "";
         dismiss({ notify: true, by: "drag" });
         return;
       }
-      if (sheetOffset(dy) > 0) {
+      if (sheetOffset(base + dy) > 0) {
         el.style.transition = "transform 250ms cubic-bezier(0.19, 1, 0.22, 1)";
         el.addEventListener("transitionend", settle);
       }
