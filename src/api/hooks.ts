@@ -510,19 +510,38 @@ export const useRevokeDevice = () => useDeviceMutation((id: string) => api.revok
 
 // ---- Context briefings (API.md, "Context") ----
 
+// The status and a stored briefing, as the hooks and the prefetch below both ask for them: one key,
+// one function and one age each, or the prefetch would warm an entry the hook never reads.
+const contextStatusQuery = () => ({
+  queryKey: queryKeys.contextStatus,
+  queryFn: () => api.getContextStatus(),
+  staleTime: 10_000,
+});
+const contextBriefingQuery = (docId: string, level: ContextLevel, focus?: string | null) => ({
+  queryKey: queryKeys.contextBriefing(docId, level, focus),
+  queryFn: () => api.getContextBriefing(docId, level, focus || undefined),
+  staleTime: 60_000,
+});
+
 /** Whether the computer has an API key; on a phone, its paid runs left today. */
 export function useContextStatus(enabled = true) {
-  return useQuery({ queryKey: queryKeys.contextStatus, queryFn: () => api.getContextStatus(), enabled, staleTime: 10_000 });
+  return useQuery({ ...contextStatusQuery(), enabled });
 }
 
 /** The stored briefing for a document, level and focus (none: the whole book), and any run going for it. */
 export function useContextBriefing(docId: string | undefined, level: ContextLevel, focus?: string | null, enabled = true) {
-  return useQuery({
-    queryKey: queryKeys.contextBriefing(docId ?? "", level, focus),
-    queryFn: () => api.getContextBriefing(docId!, level, focus || undefined),
-    enabled: enabled && Boolean(docId),
-    staleTime: 60_000,
-  });
+  return useQuery({ ...contextBriefingQuery(docId ?? "", level, focus), enabled: enabled && Boolean(docId) });
+}
+
+/**
+ * Fetches ahead what a book's Context opens with: the status, then each book's stored briefing at
+ * `level`, one at a time in the order given. The Assistant's list asks for the books it shows, so
+ * opening one paints its briefing in the first frame instead of a skeleton. These only read what is
+ * stored: no run starts and nothing is spent. Fresh answers are skipped and failures stay quiet.
+ */
+export async function prefetchContext(qc: QueryClient, docIds: readonly string[], level: ContextLevel): Promise<void> {
+  await qc.prefetchQuery(contextStatusQuery());
+  for (const docId of docIds) await qc.prefetchQuery(contextBriefingQuery(docId, level));
 }
 
 /**

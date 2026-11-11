@@ -5,6 +5,19 @@
 /* Dark mode follows the data-theme attribute (set before paint in index.html). */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/* Focus rings are for a keyboard: none in the iPhone app (data-native-tabs, set before the first
+   render by startNativeShell) or on a touch screen. WebKit matches :focus-visible on every focused
+   field and on whatever script focuses, so there a tap drew the ring. This redefines Tailwind's own
+   `focus-visible:` variant, so every class that uses it follows, and a field keeps the hairline it
+   has at rest. The base rule and the stretched link below have the same two conditions. */
+@custom-variant focus-visible {
+  @media not ((hover: none) and (pointer: coarse)) {
+    &:focus-visible:not(:where([data-native-tabs] *)) {
+      @slot;
+    }
+  }
+}
+
 /* Radii and type scale: static so the CSS variables always exist for plain CSS too. */
 @theme static {
   --radius-xs: 4px;
@@ -64,12 +77,15 @@
     background: var(--accent-bg);
   }
 
-  /* No outline; a layered box-shadow ring on keyboard focus only. */
+  /* No outline; a layered box-shadow ring on keyboard focus only, and only where there is a
+     keyboard (see the focus-visible variant above). */
   :focus {
     outline: none;
   }
-  :focus-visible {
-    box-shadow: var(--focus-ring);
+  @media not ((hover: none) and (pointer: coarse)) {
+    :where(:root:not([data-native-tabs])) :focus-visible {
+      box-shadow: var(--focus-ring);
+    }
   }
 
   button {
@@ -143,8 +159,10 @@
 .stretched-link:focus-visible {
   box-shadow: none;
 }
-.stretched-link:focus-visible::after {
-  box-shadow: var(--focus-ring);
+@media not ((hover: none) and (pointer: coarse)) {
+  :where(:root:not([data-native-tabs])) .stretched-link:focus-visible::after {
+    box-shadow: var(--focus-ring);
+  }
 }
 
 /* A row or card that opens its menu on a long press (useLongPress). On an iPhone a long press on a
@@ -247,7 +265,8 @@
 /* Sheets: on phones every popup is a bottom sheet (ui/Sheet.tsx), a <dialog> in the top layer, so
    the page behind is inert; data-sheet-open holds it still too. The sheet itself never scrolls (the
    UA's `dialog:modal { overflow: auto }` would make a second scroller under the finger); only its
-   body does, and keeps its scroll to itself. It rides above the on-screen keyboard (--sheet-kb), and
+   body does, and keeps its scroll to itself. It rides above the on-screen keyboard (--sheet-kb), is
+   no taller than what the keyboard leaves in view (--sheet-pan, below), and
    leaves from wherever a drag let go of it (--sheet-y). The way in has no fill, so a drag's inline
    transform isn't held under the finished animation. --sheet-gap is how far it floats from the
    screen's edges (none, except a short sheet in the iPhone app, below); the ways in and out travel
@@ -261,8 +280,11 @@
   margin: 0;
   width: calc(100% - 2 * var(--sheet-gap));
   max-width: none;
-  /* Less the keyboard it rides on, so its title row (a note's Save) never leaves the top of the screen. */
-  max-height: calc(92dvh - var(--sheet-kb, 0px));
+  /* Less the keyboard it rides on, so its title row (a note's Save) never leaves the top of the
+     screen. Less, too, how far iOS has panned the page to bring a field into view (--sheet-pan,
+     the visual viewport's offsetTop): the sheet is fixed to the page, not to what shows of it, so
+     without this its top was above the screen by the pan (the book picker's search field). */
+  max-height: calc(92dvh - var(--sheet-kb, 0px) - var(--sheet-pan, 0px));
   padding: 0;
   border: 0;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;

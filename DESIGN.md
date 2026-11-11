@@ -16,6 +16,11 @@ Black and white, neutral greys (no warm or sepia tints), and one blue. The blue 
 act on or where you are: buttons, links, the focus ring, progress fills, the reading-progress line,
 the selection tint and the open highlight. Everything else is grey.
 
+The focus ring is for a keyboard: it shows on the computer when you move with the Tab key. There is
+none in the iPhone app or on a touch screen, where a tap on a field or a ✕ would draw it (WebKit
+counts a focused field, and anything script focuses, as keyboard focus). `globals.css` redefines
+Tailwind's `focus-visible:` variant for this, so a new field needs nothing more than that variant.
+
 | Token | Light | Dark (soft) | Used for |
 |---|---|---|---|
 | `--bg-primary` | `#ffffff` | `#121212` | the page |

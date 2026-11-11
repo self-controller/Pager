@@ -1,15 +1,20 @@
-import { useLayoutEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, BookOpen, ChevronRight, Landmark, Library, Search } from "lucide-react";
 import { ApiError, ErrorCodes, type DocumentSummary } from "@/api/types";
-import { useContextBriefings, useDocument, useDocuments } from "@/api/hooks";
+import { prefetchContext, useContextBriefings, useDocument, useDocuments } from "@/api/hooks";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ServiceError } from "@/components/ui/ServiceError";
+import { cx } from "@/lib/cx";
+import { useIsPhone } from "@/lib/useIsPhone";
+import { useSettings } from "@/state/settings";
 import { ContextForDocument } from "./ContextPanel";
 import { groupBriefings, LEVEL_LABELS, normalizeFocus, type BookBriefings } from "./model";
 import { setPanelFocus } from "./store";
+import { useListScroll } from "./useListScroll";
 
 /**
  * Context's section of the Assistant page (Phase 4): the books with briefings, and any book's Context
@@ -21,13 +26,19 @@ export function ContextHome() {
   const focus = normalizeFocus(params.get("focus") ?? "")?.text ?? null;
   const show = (doc: string | null, f?: string | null) => setParams(doc ? (f ? { doc, focus: f } : { doc }) : {});
   const [box, width] = useBoxWidth();
+  // The picker is kept here, not in the list: the list is gone the moment a book is picked, and the
+  // picker's sheet went with it in one frame instead of sliding away.
+  const [choosing, setChoosing] = useState(false);
+  // A book's Context opens at its top; the list comes back where it was left.
+  useListScroll(docId);
   return (
     <div ref={box}>
       {docId ? (
         <BookContext key={docId} docId={docId} focus={focus} show={show} wide={width >= WIDE} />
       ) : (
-        <BriefingList show={show} />
+        <BriefingList show={show} onChoose={() => setChoosing(true)} />
       )}
+      <ChooseBook open={choosing} onClose={() => setChoosing(false)} onPick={(id) => show(id)} />
     </div>
   );
 }
@@ -58,12 +69,23 @@ function bookMeta(doc: DocumentSummary | undefined, b: BookBriefings | undefined
   return [doc?.author, levels].filter(Boolean).join(" · ");
 }
 
-function BriefingList({ show }: { show: Show }) {
+/** How many of the listed books have their briefing fetched ahead, from the top (the newest). */
+const AHEAD = 6;
+
+function BriefingList({ show, onChoose }: { show: Show; onChoose: () => void }) {
   const list = useContextBriefings();
   const docs = useDocuments();
-  const [choosing, setChoosing] = useState(false);
+  const qc = useQueryClient();
+  const { contextLevel: level } = useSettings();
   const byId = useMemo(() => new Map((docs.data ?? []).map((d) => [d.id, d])), [docs.data]);
   const books = useMemo(() => groupBriefings(list.data?.briefings ?? []), [list.data]);
+
+  // What opening one of these asks for, fetched while the list is read: the briefing is then in the
+  // first frame, not after a skeleton. Reads of what is stored, so nothing is spent.
+  useEffect(() => {
+    const ids = books.slice(0, AHEAD).map((b) => b.docId);
+    if (ids.length > 0) void prefetchContext(qc, ids, level);
+  }, [qc, books, level]);
 
   if (list.error) {
     if (list.error instanceof ApiError && list.error.code === ErrorCodes.unsupported) {
@@ -77,26 +99,20 @@ function BriefingList({ show }: { show: Show }) {
   }
   if (list.isPending || docs.isPending) return <ListSkeleton />;
 
-  const chooser = (
-    <ChooseBook open={choosing} docs={docs.data ?? []} onClose={() => setChoosing(false)} onPick={(id) => show(id)} />
-  );
   if (books.length === 0) {
     return (
-      <>
-        <EmptyState
-          icon={Landmark}
-          title="No briefings yet"
-          action={
-            <Button variant="primary" icon={Library} onClick={() => setChoosing(true)}>
-              Choose a book
-            </Button>
-          }
-        >
-          A briefing covers a book's historical moment, its author's situation and the conversation it joined. Make one here, or
-          from Context beside the text while you read.
-        </EmptyState>
-        {chooser}
-      </>
+      <EmptyState
+        icon={Landmark}
+        title="No briefings yet"
+        action={
+          <Button variant="primary" icon={Library} onClick={onChoose}>
+            Choose a book
+          </Button>
+        }
+      >
+        A briefing covers a book's historical moment, its author's situation and the conversation it joined. Make one here, or
+        from Context beside the text while you read.
+      </EmptyState>
     );
   }
 
@@ -104,7 +120,7 @@ function BriefingList({ show }: { show: Show }) {
     <div className="flex flex-col">
       <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-2 md:px-3">
         <h3 className="font-sans text-[12px] leading-4 font-semibold tracking-wide text-fg-3 uppercase">Your briefings</h3>
-        <Button size="sm" variant="tertiary" icon={Library} onClick={() => setChoosing(true)}>
+        <Button size="sm" variant="tertiary" icon={Library} onClick={onChoose}>
           Choose a book
         </Button>
       </div>
@@ -150,7 +166,6 @@ function BriefingList({ show }: { show: Show }) {
           );
         })}
       </ul>
-      {chooser}
     </div>
   );
 }
@@ -158,6 +173,9 @@ function BriefingList({ show }: { show: Show }) {
 /** One book's Context: the whole book's briefing, or with `focus` a "Context for this" one. */
 function BookContext({ docId, focus, show, wide }: { docId: string; focus: string | null; show: Show; wide: boolean }) {
   const doc = useDocument(docId);
+  // The library's own entry for the book stands in until its details arrive: the header and the
+  // briefing need only its id, title, author and cover, so the page doesn't open on a skeleton.
+  const listed = useDocuments().data?.find((entry) => entry.id === docId);
   const list = useContextBriefings();
   const navigate = useNavigate();
   const mine = useMemo(() => groupBriefings(list.data?.briefings ?? []).find((b) => b.docId === docId), [list.data, docId]);
@@ -186,8 +204,8 @@ function BookContext({ docId, focus, show, wide }: { docId: string; focus: strin
       </div>
     );
   }
-  if (!doc.data) return <ListSkeleton />;
-  const d = doc.data;
+  const d: DocumentSummary | undefined = doc.data ?? listed;
+  if (!d) return <ListSkeleton />;
   const open = () => {
     // The reader's panel opens on the same view: this focused briefing, or the whole book's.
     setPanelFocus(focus ? { docId: d.id, focus } : null);
@@ -228,18 +246,39 @@ function BookContext({ docId, focus, show, wide }: { docId: string; focus: strin
   );
 }
 
+/** The picker's rows are one height, so its list box holds a whole number of them. */
+const PICKER_ROW = 56;
+/**
+ * How many rows show at once. Three on a phone: with the search field above them the sheet is short
+ * enough to sit whole above the keyboard. A window on the computer has no keyboard to clear.
+ */
+const PICKER_ROWS = { phone: 3, window: 7 };
+
 /** Any book in the library, by title or author. */
-function ChooseBook({
-  open,
-  docs,
-  onClose,
-  onPick,
-}: {
-  open: boolean;
-  docs: DocumentSummary[];
-  onClose: () => void;
-  onPick: (id: string) => void;
-}) {
+function ChooseBook({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (id: string) => void }) {
+  return (
+    <Dialog open={open} onClose={onClose} title="Choose a book">
+      {/* Mounted only while the dialog shows, so the search starts empty each time. */}
+      <BookPicker
+        onPick={(id) => {
+          onClose();
+          onPick(id);
+        }}
+      />
+    </Dialog>
+  );
+}
+
+const NO_BOOKS: DocumentSummary[] = [];
+
+/**
+ * The search field, then the books in a box of their own that scrolls: the field stays where it is.
+ * The box has a fixed height, a few whole rows, so the sheet doesn't change height as the list
+ * shortens with each letter. The library comes most recently read first, so those are the rows shown.
+ */
+function BookPicker({ onPick }: { onPick: (id: string) => void }) {
+  const docs = useDocuments().data ?? NO_BOOKS;
+  const phone = useIsPhone();
   const [q, setQ] = useState("");
   const shown = useMemo(() => {
     const words = q.toLowerCase().split(/\s+/).filter(Boolean);
@@ -250,35 +289,42 @@ function ChooseBook({
     return hits.slice(0, 60);
   }, [docs, q]);
   return (
-    <Dialog open={open} onClose={onClose} title="Choose a book">
-      <div className="flex flex-col">
-        <label className="relative mx-4 mt-4 mb-2 block">
-          <span className="sr-only">Find a book by title or author</span>
-          <Search size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-fg-2" aria-hidden />
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Title or author"
-            autoComplete="off"
-            className="h-10 w-full rounded-sm bg-surface pr-3 pl-9 text-[15px] shadow-[inset_0_0_0_1px_var(--detail)] placeholder:text-fg-3 focus-visible:shadow-[inset_0_0_0_1px_var(--accent),var(--focus-ring)] [&::-webkit-search-cancel-button]:hidden"
-          />
-        </label>
+    // A sheet pads its own bottom edge (the home indicator); a window doesn't.
+    <div className={cx("flex flex-col", !phone && "pb-2")}>
+      <label className="relative mx-4 mt-2 mb-2 block shrink-0">
+        <span className="sr-only">Find a book by title or author</span>
+        <Search size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-fg-2" aria-hidden />
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Title or author"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          enterKeyHint="search"
+          className="h-10 w-full rounded-sm bg-surface pr-3 pl-9 text-[15px] shadow-[inset_0_0_0_1px_var(--detail)] placeholder:text-fg-3 focus-visible:shadow-[inset_0_0_0_1px_var(--accent),var(--focus-ring)] [&::-webkit-search-cancel-button]:hidden"
+        />
+      </label>
+      <div
+        data-picker-list
+        className="shrink-0 overflow-y-auto overscroll-contain"
+        style={{ height: PICKER_ROW * (phone ? PICKER_ROWS.phone : PICKER_ROWS.window) }}
+      >
         {shown.length === 0 ? (
-          <p className="px-5 py-6 font-sans text-[14px] leading-5 text-fg-2">
+          <p className="px-5 py-4 font-sans text-[14px] leading-5 text-fg-2">
             {docs.length === 0 ? "Your library is empty." : "Nothing in your library matches."}
           </p>
         ) : (
-          <ul className="flex flex-col pb-3" aria-label="Books">
+          <ul className="flex flex-col" aria-label="Books">
             {shown.map((d) => (
               <li key={d.id}>
                 <button
                   type="button"
-                  onClick={() => {
-                    onClose();
-                    onPick(d.id);
-                  }}
-                  className="flex w-full flex-col px-5 py-2 text-left transition-hover hover:bg-surface-hover"
+                  onClick={() => onPick(d.id)}
+                  style={{ height: PICKER_ROW }}
+                  className="flex w-full flex-col justify-center px-5 text-left transition-hover hover:bg-surface-hover"
                 >
                   <span className="truncate font-sans text-[14.5px] leading-5 font-medium">{d.title}</span>
                   {d.author && <span className="truncate font-sans text-[12.5px] leading-[18px] text-fg-2">{d.author}</span>}
@@ -288,7 +334,7 @@ function ChooseBook({
           </ul>
         )}
       </div>
-    </Dialog>
+    </div>
   );
 }
 

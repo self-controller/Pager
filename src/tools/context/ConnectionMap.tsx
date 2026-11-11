@@ -167,7 +167,7 @@ function Node({
       transform={`translate(${label.x} ${label.y})`}
       onClick={select}
       onKeyDown={onKey}
-      className="cursor-pointer outline-none [&:focus-visible>.ring]:opacity-100"
+      className="cursor-pointer outline-none focus-visible:[&>.ring]:opacity-100"
       opacity={dim ? (image ? 0.7 : 0.55) : 1}
     >
       <circle r={Math.max(18, r + 4)} fill="transparent" />

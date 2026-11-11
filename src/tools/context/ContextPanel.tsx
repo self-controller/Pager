@@ -7,7 +7,7 @@ import {
   type ContextLevel,
   type ContextRun,
   type ContextStatus,
-  type DocumentDetail,
+  type DocumentSummary,
 } from "@/api/types";
 import { useContextBriefing, useContextMedia, useContextRun, useContextStatus, useStartContext } from "@/api/hooks";
 import { Button, IconButton } from "@/components/ui/Button";
@@ -78,7 +78,8 @@ export function ContextForDocument({
   wide = false,
   page = false,
 }: {
-  doc: DocumentDetail;
+  /** Only its id, title and cover are read, so the library's entry for a book will do. */
+  doc: DocumentSummary;
   focus: string | null;
   onWholeBook?: () => void;
   /** The page already names the book above: a focused briefing's header leaves out "in <book>". */
@@ -424,7 +425,7 @@ function MakeOne({
 }
 
 /** A focused briefing's header: back to the whole book, then what it is about. */
-function FocusHeader({ focus, doc, onWholeBook }: { focus: string; doc: DocumentDetail | null; onWholeBook: () => void }) {
+function FocusHeader({ focus, doc, onWholeBook }: { focus: string; doc: DocumentSummary | null; onWholeBook: () => void }) {
   return (
     <div className="border-b border-detail px-5 pt-2 pb-4">
       <button

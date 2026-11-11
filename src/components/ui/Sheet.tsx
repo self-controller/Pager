@@ -288,13 +288,17 @@ export function Sheet({
     };
   }, [shown, dismiss]);
 
-  // The on-screen keyboard: the sheet rides above it (`--sheet-kb` is its bottom, globals.css).
+  // The on-screen keyboard: the sheet rides above it (`--sheet-kb` is its bottom, globals.css). iOS
+  // may also pan the page to bring the focused field into view, all the more when the field took
+  // focus while the sheet was still on its way up: `--sheet-pan` is that pan, which the sheet's
+  // height gives up so that its top stays on screen.
   useEffect(() => {
     const el = ref.current;
     const vv = window.visualViewport;
     if (!shown || !el || !vv) return;
     const update = () => {
       el.style.setProperty("--sheet-kb", `${Math.max(0, window.innerHeight - vv.height - vv.offsetTop)}px`);
+      el.style.setProperty("--sheet-pan", `${Math.max(0, vv.offsetTop)}px`);
     };
     update();
     vv.addEventListener("resize", update);
@@ -303,6 +307,7 @@ export function Sheet({
       vv.removeEventListener("resize", update);
       vv.removeEventListener("scroll", update);
       el.style.removeProperty("--sheet-kb");
+      el.style.removeProperty("--sheet-pan");
     };
   }, [shown]);
 

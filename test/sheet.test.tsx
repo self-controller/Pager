@@ -276,6 +276,86 @@ describe("Sheet", () => {
   });
 });
 
+describe("a sheet over the on-screen keyboard", () => {
+  /** What the phone reports of the part of the page the keyboard leaves in view. */
+  let view: { height: number; offsetTop: number };
+  let listeners: Map<string, () => void>;
+  /** The window's own two properties, put back after each test. */
+  let own: Record<"visualViewport" | "innerHeight", PropertyDescriptor | undefined>;
+
+  const ui = (open: boolean) => (
+    <Sheet open={open} onClose={() => {}} title="Choose a book">
+      <input aria-label="Title or author" />
+    </Sheet>
+  );
+  const kb = () => first().style.getPropertyValue("--sheet-kb");
+  const pan = () => first().style.getPropertyValue("--sheet-pan");
+  async function report(next: { height: number; offsetTop: number }, event: "resize" | "scroll") {
+    Object.assign(view, next);
+    await act(async () => listeners.get(event)?.());
+  }
+
+  beforeEach(() => {
+    view = { height: 844, offsetTop: 0 };
+    listeners = new Map();
+    own = {
+      visualViewport: Object.getOwnPropertyDescriptor(window, "visualViewport"),
+      innerHeight: Object.getOwnPropertyDescriptor(window, "innerHeight"),
+    };
+    const viewport = {
+      get height() {
+        return view.height;
+      },
+      get offsetTop() {
+        return view.offsetTop;
+      },
+      addEventListener: (type: string, run: () => void) => void listeners.set(type, run),
+      removeEventListener: (type: string) => void listeners.delete(type),
+    };
+    Object.defineProperty(window, "visualViewport", { configurable: true, value: viewport });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 844 });
+  });
+  afterEach(() => {
+    for (const name of ["visualViewport", "innerHeight"] as const) {
+      delete (window as unknown as Record<string, unknown>)[name];
+      if (own[name]) Object.defineProperty(window, name, own[name]);
+    }
+  });
+
+  it("rides above the keyboard", async () => {
+    await render(ui(true));
+    expect(kb()).toBe("0px");
+    expect(pan()).toBe("0px");
+    await report({ height: 508, offsetTop: 0 }, "resize");
+    expect(kb()).toBe("336px");
+    expect(pan()).toBe("0px");
+  });
+
+  it("gives up the height by which iOS panned the page, so its top stays on screen", async () => {
+    await render(ui(true));
+    // The field took focus while the sheet was still rising, and iOS panned the page up to reach
+    // it. The sheet is fixed to the page: its bottom is still the keyboard's top (844 - 136 = 708,
+    // the bottom of what shows), and the pan is what its height must give up (globals.css).
+    await report({ height: 508, offsetTop: 200 }, "scroll");
+    expect(kb()).toBe("136px");
+    expect(pan()).toBe("200px");
+    await report({ height: 844, offsetTop: 0 }, "resize");
+    expect(kb()).toBe("0px");
+    expect(pan()).toBe("0px");
+  });
+
+  it("forgets both once it has closed", async () => {
+    await render(ui(true));
+    await report({ height: 508, offsetTop: 200 }, "scroll");
+    const sheet = first();
+    await render(ui(false));
+    await settle();
+    expect(sheet.style.getPropertyValue("--sheet-kb")).toBe("");
+    expect(sheet.style.getPropertyValue("--sheet-pan")).toBe("");
+    expect(listeners.size).toBe(0);
+  });
+});
+
 describe("how fast a sheet leaves", () => {
   const ui = (open: boolean, onClose = () => {}) => (
     <Sheet open={open} onClose={onClose} title="Things">

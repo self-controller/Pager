@@ -378,6 +378,27 @@ None of this has run on a phone: the Swift side has only been compiled.
 5. Two fingers, three taps → Diagnostics → Layout: **Web view** says `fixed`. If it says
    `moved per tab (fallback)`, say so: the flash fix isn't in effect.
 
+### Check it: the Assistant tab's briefings, the book picker and no blue box
+
+None of this has run on a phone. It was measured in WebKitGTK and Chromium at 390 × 844; the
+keyboard and the flash can only be seen on the phone.
+
+1. Assistant → open a briefing → **Map** (the page scrolls down by itself), scroll a little more,
+   scroll back up → **← All briefings**: no flash, and the list is where you left it. The same from
+   Timeline and from a long briefing scrolled down. If it still flashes, say what the page did
+   (a blink of the whole screen, or the list jumping).
+2. With several briefings, scroll the list down and tap a book: its Context opens at the top.
+3. Tap a listed book: its title and briefing show at once, with no grey loading blocks first.
+4. **Choose a book**: three books under a search field, and the keyboard rises. The whole sheet
+   stays on screen above the keyboard: its title, ✕ and the search field. Scroll the books: the
+   search field stays. Type: the sheet keeps its height as the list shortens.
+5. Pick a book: the sheet slides away while the book's Context shows behind it (it used to vanish
+   in one frame).
+6. No blue box anywhere: tap the picker's search field and its ✕, the Library's and Highlights'
+   search fields, a note's text area, a full-screen map's ✕, and the fields in Settings.
+7. A note's sheet (a highlight → **Note**) with the keyboard up: **Save** and the title are still on
+   screen, as before.
+
 ### Check it: reading with the laptop closed
 
 None of this could be run on Linux: the Swift side has only been compiled. Take a screenshot of
