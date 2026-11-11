@@ -89,7 +89,8 @@ extension PagerWebView {
         let view = PagerWebView(configuration: config)
         view.navigationDelegate = coordinator
         view.uiDelegate = coordinator
-        // A swipe in from the edge goes back, except while the reader is open (PagerWebView).
+        // A swipe in from the left edge goes back, in a book too, where it leaves the book; the
+        // swipe from the right edge (forward) is off while the reader is open (PagerWebView).
         view.allowsBackForwardNavigationGestures = true
         // A long press on a link doesn't preview the page it leads to.
         view.allowsLinkPreview = false

@@ -88,9 +88,23 @@ final class PagerWebView: WKWebView {
         fatalError("PagerWebView is made in code")
     }
 
+    /// WebKit's swipe from the far edge: forward in the page's history. It is one of the two
+    /// screen-edge recognizers that `allowsBackForwardNavigationGestures` puts on this view, and there
+    /// is no setting for one without the other, so it is found by its edge (the right one, or the
+    /// left in a right-to-left layout, as WebKit chooses it). If some iOS keeps them elsewhere, none
+    /// is found and the forward swipe stays on.
+    private func setForwardSwipe(enabled: Bool) {
+        let leftToRight = UIView.userInterfaceLayoutDirection(for: semanticContentAttribute) == .leftToRight
+        let forward: UIRectEdge = leftToRight ? .right : .left
+        for case let swipe as UIScreenEdgePanGestureRecognizer in gestureRecognizers ?? [] where swipe.edges == forward {
+            swipe.isEnabled = enabled
+        }
+    }
+
     /// A page load (the first, a pairing link, a reload): nothing of the last page's state holds.
     func pageLoaded() {
         allowsBackForwardNavigationGestures = true
+        setForwardSwipe(enabled: true)
         scrollView.bounces = true
         menuItems = []
         menuColors = []
@@ -140,10 +154,14 @@ final class PagerWebView: WKWebView {
             }
             onTheme?(color, scheme)
         case "reader":
-            // While a book is open, swipes from the edge belong to the page, and the fixed page doesn't bounce.
+            // While a book is open the fixed page doesn't bounce. The swipe in from the left edge
+            // still goes back, and out of the book: a visit to a book is one step in the page's
+            // history however many chapters were turned (src/components/reader/trail.ts). The swipe
+            // from the right edge goes forward in that history; in a book it would take the swipes
+            // that turn to the next page from the edge, so it is off there.
             let open = body["open"] as? Bool ?? false
-            allowsBackForwardNavigationGestures = !open
             scrollView.bounces = !open
+            setForwardSwipe(enabled: !open)
         case "selection":
             menuItems = (body["items"] as? [String] ?? []).compactMap { MenuItem(rawValue: $0) }
             // Only the names this app knows, each once, in the page's order.

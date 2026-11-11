@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { ALargeSmall, ArrowLeft, ChevronDown, ListTree, PanelRight } from "lucide-react";
 import type { DocumentDetail } from "@/api/types";
 import { IconButton } from "@/components/ui/Button";
@@ -8,6 +8,7 @@ import { cx } from "@/lib/cx";
 import { markTransition } from "@/lib/pageTransition";
 import { useIsPhone } from "@/lib/useIsPhone";
 import { ReadingSettings } from "./ReadingSettings";
+import { stepBack } from "./trail";
 
 interface Props {
   doc?: DocumentDetail;
@@ -28,10 +29,18 @@ interface Props {
  */
 export function ReaderTopBar({ doc, chapter, percent, onOpenToc, toolsOpen, onToggleTools, hidden, overlay }: Props) {
   const navigate = useNavigate();
+  const { state } = useLocation();
   const phone = useIsPhone();
 
   const goBack = () => {
-    // In-app history has an idx > 0; a fresh tab opened on a reading link does not.
+    // Inside the book first: the chapter or place before this one, with a cut. The book's moves
+    // don't add history steps (trail.ts), so the way back through them is the trail's.
+    const step = stepBack(state);
+    if (step) {
+      navigate(step.to, { replace: true, state: step.state });
+      return;
+    }
+    // Out of the book. In-app history has an idx > 0; a fresh tab opened on a reading link does not.
     const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
     // Back slides the book away (globals.css). The router runs a transition for navigate(-1) only
     // when the way in had one (a book opened from a list); otherwise the mark comes off and it cuts.

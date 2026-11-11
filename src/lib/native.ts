@@ -32,7 +32,11 @@ export type ShellMessage =
    * the theme is light or dark, so the app's tab bar matches the page even against the phone's setting.
    */
   | { t: "theme"; background: string; scheme: "light" | "dark" }
-  /** While the reader is open the app turns its edge swipe back and its bounce off, so edge swipes reach the page. */
+  /**
+   * While the reader is open the app turns its bounce off, and its swipe from the right edge
+   * (forward), which would take the swipes that turn to the next page. The swipe from the left edge
+   * stays: it leaves the book (src/components/reader/trail.ts).
+   */
   | { t: "reader"; open: boolean }
   /**
    * The items the app adds to its menu for the current selection: none unless it is in the reader's
@@ -179,7 +183,7 @@ export function startNativeShell(): void {
 
 // --- The reader and the app's selection menu ---
 
-/** Tells the app whether the reader is open (it turns its edge swipe back and its bounce off while it is). */
+/** Tells the app whether the reader is open (it turns its bounce and its forward swipe off while it is). */
 export function setNativeReaderOpen(open: boolean): void {
   post({ t: "reader", open });
 }

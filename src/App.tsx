@@ -13,6 +13,7 @@ import { NotFoundPage } from "@/pages/NotFoundPage";
 import { PairPage } from "@/pages/PairPage";
 import { ReaderPage } from "@/pages/ReaderPage";
 import { SettingsPage } from "@/pages/SettingsPage";
+import { cutUnmarkedBack } from "@/lib/pageTransition";
 import { useApplySettings } from "@/state/settings";
 
 const FINAL: string[] = [ErrorCodes.notFound, ErrorCodes.unsupported, ErrorCodes.unauthorized];
@@ -56,6 +57,10 @@ function LibraryRedirect() {
   const { search } = useLocation();
   return <Navigate to={`/${search}`} replace />;
 }
+
+// Before the router listens for Back: one the app didn't start (the iPhone's edge swipe, a browser's
+// Back button) shows its page at once, with no transition of the router's after the system's own.
+cutUnmarkedBack();
 
 const router = createBrowserRouter([
   // Pairing a phone stands alone: no navigation, nothing that needs a credential.

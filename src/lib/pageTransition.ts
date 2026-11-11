@@ -110,6 +110,41 @@ export const pushLink = {
   },
 };
 
+/**
+ * A Back the app didn't start cuts: the iPhone's edge swipe, a browser's Back or Forward button.
+ * Call it before the router is made, so this hears `popstate` first; it returns the function that
+ * stops it.
+ *
+ * The router gives a Back a view transition whenever some earlier navigation from the page it lands
+ * on had one, and it goes by the path alone. So after one tab switch away from the Assistant, every
+ * Back that lands on /assistant crossfaded, a briefing back to its list included. That is wanted
+ * for the reader's Back arrow, which marks its slide first (`markTransition`). It is wrong for a
+ * Back from outside the page. The phone's swipe has already slid the old page away over a picture of
+ * the one before it; the router then kept the old page on screen for a few frames while it set its
+ * transition up, and faded it into the new one: the old page flashed back after the swipe.
+ *
+ * So while an unmarked Back is being handled the page offers no View Transitions API. The router
+ * then applies the location in a plain React transition, which React renders inside the popstate
+ * event, and the page is the new one in the frame the swipe ends on. The API is back in the next
+ * task; the router has read it by then, since it handles a Back with no loaders in the event.
+ */
+export function cutUnmarkedBack(target: Window = window): () => void {
+  const onPop = () => {
+    if (mark.active) return;
+    const doc = target.document as unknown as { startViewTransition?: unknown };
+    // Nothing to hide, or hidden already by a Back a moment ago.
+    if (typeof doc.startViewTransition !== "function" || Object.hasOwn(doc, "startViewTransition")) return;
+    // An own property over the prototype's method: deleting it brings the method back.
+    Object.defineProperty(doc, "startViewTransition", { configurable: true, value: undefined });
+    target.setTimeout(() => {
+      delete doc.startViewTransition;
+    }, 0);
+  };
+  // In the capture phase, so it is also first among the window's own listeners.
+  target.addEventListener("popstate", onPop, { capture: true });
+  return () => target.removeEventListener("popstate", onPop, { capture: true });
+}
+
 /** Keeps the mark in step with the router. Mounted once, in the app's shell. */
 export function usePageTransitionMark(): void {
   const { isTransitioning } = useContext(ViewTransitionContext);

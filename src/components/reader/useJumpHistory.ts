@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-import type { NavigateFunction } from "react-router";
 import type { Section } from "@/api/types";
 import { layoutStamp, placeAtPoint, type ReaderLayout } from "./layout";
 import { sectionHref } from "./TocDrawer";
@@ -145,14 +144,15 @@ export function useJumpHistory({
   layout,
   bodyRef,
   placed,
-  navigate,
+  move,
 }: {
   docId: string | undefined;
   section: Section | undefined;
   layout: ReaderLayout;
   bodyRef: RefObject<HTMLElement | null>;
   placed: boolean;
-  navigate: NavigateFunction;
+  /** Goes to another chapter of the open book, opened with `state` (the reader's `move`, trail.ts). */
+  move: (to: string, state: Record<string, unknown>) => void;
 }): { pill: Pill | null; record: (toward?: string) => void; go: () => void } {
   const [jump, setJump] = useState<Jump | null>(null);
   const latest = useRef({ jump, section, layout, placed, docId });
@@ -212,14 +212,14 @@ export function useJumpHistory({
     setJump(used(j, here));
     const { to } = j;
     if (to.sectionId !== s.id) {
-      navigate(sectionHref(id, to.sectionId), { state: { jump: true, page: to.page, point: to.point ?? undefined } });
+      move(sectionHref(id, to.sectionId), { jump: true, page: to.page, point: to.point ?? undefined });
       return;
     }
     const body = bodyRef.current;
     if (body && to.point && placeAtPoint(body, to.point, p))
       flashLanding(body.querySelector(`[data-b="${CSS.escape(to.point.blockId)}"]`));
     else p.goTo(to.page);
-  }, [capture, navigate, bodyRef]);
+  }, [capture, move, bodyRef]);
 
   const pill = pillFor(
     jump,

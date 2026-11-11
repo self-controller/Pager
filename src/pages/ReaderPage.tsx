@@ -18,6 +18,7 @@ import { SelectionMenu } from "@/components/reader/SelectionMenu";
 import { TitlePage } from "@/components/reader/TitlePage";
 import { sectionHref, TocDrawer } from "@/components/reader/TocDrawer";
 import { ToolPanel } from "@/components/reader/ToolPanel";
+import { moveInside } from "@/components/reader/trail";
 import { useJumpHistory } from "@/components/reader/useJumpHistory";
 import type { ReaderLayout } from "@/components/reader/layout";
 import { KEY_LINE_PX, pageStep } from "@/components/reader/pagination";
@@ -63,8 +64,18 @@ type NavState = {
 export function ReaderPage() {
   const { docId, sectionId: routeSectionId } = useParams();
   const navigate = useNavigate();
-  const { hash, state } = useLocation();
+  const location = useLocation();
+  const { hash, state } = location;
   const navState = state as NavState;
+  // A move to another place in the book: it takes the place of the visit's one history step, so one
+  // Back from outside the page (the iPhone's edge swipe) leaves the book; the place left goes on the
+  // trail the reader's own Back arrow follows (trail.ts).
+  const hereRef = useRef(location);
+  hereRef.current = location;
+  const move = useCallback(
+    (to: string, moveState: Record<string, unknown>) => navigate(to, moveInside(hereRef.current, to, moveState)),
+    [navigate],
+  );
   const qc = useQueryClient();
   const settings = useSettings();
   const wide = useMediaQuery(WIDE);
@@ -145,7 +156,7 @@ export function ReaderPage() {
     initialPage: navState?.page,
     initialPoint: navState?.point,
   });
-  const jumps = useJumpHistory({ docId, section, layout, bodyRef, placed, navigate });
+  const jumps = useJumpHistory({ docId, section, layout, bodyRef, placed, move });
   const footnotes = useFootnotes({ docId, doc, section, bodyRef });
 
   // The footer's time estimates: the section's words, and a reading speed learned from page turns
@@ -172,7 +183,7 @@ export function ReaderPage() {
       if (!docId) return;
       if (targetSection && targetSection !== section?.id) {
         record(targetSection);
-        navigate(`${sectionHref(docId, targetSection)}#${encodeURIComponent(id)}`, { state: { jump: true } });
+        move(`${sectionHref(docId, targetSection)}#${encodeURIComponent(id)}`, { jump: true });
         return;
       }
       const target = bodyRef.current ? findTarget(bodyRef.current, id) : null;
@@ -180,7 +191,7 @@ export function ReaderPage() {
       if (!layoutRef.current.inView(target)) record();
       showTarget(target, layoutRef.current);
     },
-    [docId, section?.id, navigate, record],
+    [docId, section?.id, move, record],
   );
 
   // Links inside the text: a note reference opens its note in place; anything else jumps.
@@ -205,10 +216,10 @@ export function ReaderPage() {
       }
       const p = pagerRef.current;
       if (direction === 1) {
-        if (!p.next() && section.nextId) navigate(sectionHref(docId, section.nextId), { state: { page: 0 } });
-      } else if (!p.prev() && section.prevId) navigate(sectionHref(docId, section.prevId), { state: { page: "last" } });
+        if (!p.next() && section.nextId) move(sectionHref(docId, section.nextId), { page: 0 });
+      } else if (!p.prev() && section.prevId) move(sectionHref(docId, section.prevId), { page: "last" });
     },
-    [docId, section, navigate, scrollMode],
+    [docId, section, move, scrollMode],
   );
 
   /**
@@ -222,9 +233,9 @@ export function ReaderPage() {
       if (!docId || !target) return;
       setChrome(true);
       holdChrome();
-      navigate(sectionHref(docId, target), { state: { page: direction === 1 ? 0 : "last" } });
+      move(sectionHref(docId, target), { page: direction === 1 ? 0 : "last" });
     },
-    [docId, section?.nextId, section?.prevId, setChrome, holdChrome, navigate],
+    [docId, section?.nextId, section?.prevId, setChrome, holdChrome, move],
   );
 
   const selection = useSelection(bodyRef, section?.id);
@@ -546,7 +557,16 @@ export function ReaderPage() {
         </Dialog>
       )}
 
-      {doc && <TocDrawer doc={doc} currentId={section?.id} open={tocOpen} onClose={() => setTocOpen(false)} onJump={record} />}
+      {doc && (
+        <TocDrawer
+          doc={doc}
+          currentId={section?.id}
+          open={tocOpen}
+          onClose={() => setTocOpen(false)}
+          onJump={record}
+          linkOptions={(to, linkState) => moveInside(location, to, linkState)}
+        />
+      )}
       {/* The iPhone app shows its own menu instead (useNativeMenu): never two at once. */}
       {!notes.draft && !isNativeApp() && (
         <SelectionMenu

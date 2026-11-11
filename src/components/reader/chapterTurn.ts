@@ -13,7 +13,7 @@ export const CHAPTER_GAP = 24;
 export const DRAG_ENGAGE_PX = 10;
 /** …and it is a drag only when this many times more sideways than up or down. */
 export const DRAG_AXIS_RATIO = 2;
-/** Presses this close to the left edge belong to the browser's back swipe. */
+/** Presses this close to the left edge belong to the back swipe: the iPhone app's, or a browser's. It leaves the book. */
 export const EDGE_GUARD_PX = 24;
 /** A drag past this share of the width turns when released. */
 export const COMMIT_FRACTION = 0.3;

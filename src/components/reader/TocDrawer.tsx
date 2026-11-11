@@ -14,6 +14,7 @@ export function TocDrawer({
   open,
   onClose,
   onJump,
+  linkOptions,
 }: {
   doc: DocumentDetail;
   currentId?: string;
@@ -21,6 +22,11 @@ export function TocDrawer({
   onClose: () => void;
   /** Called just before going to another chapter, so the reader can remember where it was. */
   onJump?: (sectionId: string) => void;
+  /**
+   * How a chapter's link navigates, given its address and the state it opens with: the reader's
+   * move inside the book (trail.ts). Left out, a plain link.
+   */
+  linkOptions?: (to: string, state: Record<string, unknown>) => { replace: boolean; state: unknown };
 }) {
   const list = useRef<HTMLOListElement>(null);
 
@@ -41,11 +47,14 @@ export function TocDrawer({
       <ol ref={list} className="flex flex-col p-2" data-reader-overlay>
         {doc.toc.map((entry) => {
           const current = entry.id === currentId;
+          const to = sectionHref(doc.id, entry.id);
+          const options = linkOptions?.(to, { jump: true });
           return (
             <li key={entry.id}>
               <Link
-                to={sectionHref(doc.id, entry.id)}
-                state={{ jump: true }}
+                to={to}
+                replace={options?.replace}
+                state={options ? options.state : { jump: true }}
                 onClick={() => {
                   if (!current) onJump?.(entry.id);
                   onClose();

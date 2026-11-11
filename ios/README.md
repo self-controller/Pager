@@ -39,7 +39,7 @@ from its own page only (the main frame on `pager-app:`) and ignores anything els
 | `{t: "haptic.prepare", kind}` | Readies the generator for `kind`: `selection`, `light`, `soft`, `success` or `error` |
 | `{t: "haptic.fire", kind}` | Plays it. The page spaces haptics 75 ms apart and skips them when Settings → Haptics is off |
 | `{t: "theme", background: "#rrggbb", scheme}` | Paints the web view and its edges that colour, and keeps it for the next cold start. `scheme` (`light` or `dark`, the page's theme) sets the tab bar's style, so the bar matches the page even against the phone's setting |
-| `{t: "reader", open}` | While the reader is open: the edge swipe back is off, so the page gets edge swipes, and the app does not bounce |
+| `{t: "reader", open}` | While the reader is open the app does not bounce, and the swipe from the right edge (forward) is off, so the page gets the swipes that turn to the next page. The swipe from the left edge stays on and leaves the book: a visit to a book is one history step (`src/components/reader/trail.ts`) |
 | `{t: "selection", items, colors}` | Which of `highlight`, `note` and `reattach` the text menu adds; `[]` outside the reader's text. `colors` are the highlight colours in menu order, the last-used first (`yellow`, `green`, `blue`, `pink`, `purple`; any other name is dropped): with them Highlight is a submenu of colours, without them one action in the last-used colour |
 | `{t: "tabs", tab, hidden}` | Selects `tab` (`library`, `book`, `highlights`, `assistant` or `settings`; `null` keeps the selection), then shows or hides the bar, animated. The page sends it when either changes; any open book is `book`; `hidden` follows the reader's chrome and any open sheet (on phones the Contents and Tools panels, the type settings, the library menus and every dialog are bottom sheets, `src/components/ui/Sheet.tsx`, which mark `<html data-sheet-open>`; the type settings are a non-modal tray, marked `data-sheet-open="tray"`, and hide the bar too), and the pairing page sends `{tab: null, hidden: true}` |
 
@@ -50,7 +50,7 @@ Reattach Here call `window.__pager.menu("note")` and `("reattach")`. The reader 
 (`src/components/reader/useNativeMenu.ts`): a highlight is made in the colour named, which becomes the
 last-used colour, and the page sends the new order. Only the app's own item and colour names go into
 the script. In the app the reader doesn't show its own floating selection bar. A new page load turns
-the swipe back on and clears the items and colours.
+the forward swipe and the bounce back on and clears the items and colours.
 
 The app calls the page on `window.__pager`, with names from its own code only:
 
@@ -299,7 +299,8 @@ and of anything that looks wrong:
 - a toast sits above the bar; the pairing page has no bar;
 - landscape: no web side nav, the bar at the bottom, nothing important under it;
 - VoiceOver reads five tabs and which one is selected; Reduce Transparency makes the bar frosted;
-- the edge swipe back still works in the library and is still off in a book.
+- the edge swipe back still works in the library; in a book it leaves the book (see the swipe
+  checks below).
 
 ### Check it: the glass bar and the sheets
 
@@ -398,6 +399,31 @@ keyboard and the flash can only be seen on the phone.
    search fields, a note's text area, a full-screen map's ✕, and the fields in Settings.
 7. A note's sheet (a highlight → **Note**) with the keyboard up: **Save** and the title are still on
    screen, as before.
+
+### Check it: swiping back, and out of a book
+
+None of this has run on a phone: the page's side was measured in Chromium, and the Swift side has
+only been compiled. Switch tabs once before you start: the flash only came after a tab switch.
+
+1. Assistant → open a briefing → swipe in from the left edge: the list slides in under the
+   briefing, and when you let go the list stays. The briefing must not show again for a moment
+   (that was the flash). The same from a folder back to the Library.
+2. Library → open a book (Scroll layout). Drag from the middle of the page to the next chapter,
+   twice. Now swipe in from the very left edge: the book follows your finger with the Library under
+   it, and let go leaves you in the Library, not in the chapter before. Start the swipe again and
+   drag back to the left: it cancels and the book is where it was.
+3. The same book, two chapters on: tap the **Back** arrow three times. The chapter before, the one
+   before that (each a cut), then the Library with the slide.
+4. Pages layout: a swipe from the middle turns the page, both ways. A swipe in from the very left
+   edge leaves the book.
+5. In a book, open Contents and pick a far chapter, then swipe in from the left edge: the Library,
+   not the chapter you came from. (The Back arrow and the back pill go to that chapter.)
+6. Book tab → Highlights tab → swipe in from the left edge (the book again). Now swipe in from the
+   right edge: the next page or chapter turns, and Highlights must not slide in. (The forward swipe
+   is off in a book. If Highlights does slide in, say so: the app didn't find WebKit's recognizer.)
+7. After a swipe out of a book, the tab bar is back, and the Library shows the book's new place.
+   iOS draws the Library from a picture taken when the book was opened, so its order or progress
+   bar can change as the swipe ends: say if that reads as a flash.
 
 ### Check it: reading with the laptop closed
 

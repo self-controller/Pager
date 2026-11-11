@@ -152,10 +152,20 @@ top: it slides out to `translateX(100%)` as the list comes back from `-15%`, 250
 `data-vt="push"` or `"pop"` on `<html>` (`src/lib/pageTransition.ts`) names it while it runs. Back
 slides when the way in had a transition, and cuts otherwise; so does everything where the web view
 has no View Transitions API. The tab bar's Book tab is a tab switch and crossfades. From 768px in a
-browser the side nav is on screen, so there both cut, as before. The browser's own Back is
-not marked and gets the tabs' crossfade. Under reduced motion nothing slides or fades. As a book opens, its text
-is held back until it is at the saved place and then fades in over 100 ms (at once under reduced
-motion, on an error, or after 500 ms); a chapter turn or a jump never fades.
+browser the side nav is on screen, so there both cut, as before. A Back the app didn't start (the
+iPhone's swipe in from the left edge, a browser's Back button) is not marked and cuts: the phone has
+already slid the old page away over a picture of the new one, and a transition after that showed the
+old page again (`cutUnmarkedBack`). Under reduced motion nothing slides or fades. As a book opens,
+its text is held back until it is at the saved place and then fades in over 100 ms (at once under
+reduced motion, on an error, or after 500 ms); a chapter turn or a jump never fades.
+
+**Back, in a book.** A visit to a book is one step in the browser's history, however many chapters
+are turned or links followed: those moves replace the step (`src/components/reader/trail.ts`). So a
+swipe in from the left edge always leaves the book, for the page it was opened from, in both
+layouts; a swipe from anywhere else turns the page or the chapter as before. The Back arrow goes
+back through the book first, a place at a time (the places are kept on a trail in the step's own
+state), each a cut, and then leaves the book with the slide. In the iPhone app the swipe from the
+right edge (forward) is off while a book is open, so it can't take the swipe to the next page.
 
 **Popovers.** Every card that floats over the text (the selection menu, the highlight popover, the
 new-note panel, a footnote, the Context card, the card map's details) arrives the same way: 250 ms on

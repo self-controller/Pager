@@ -35,7 +35,7 @@ function asColor(name: string | undefined): HighlightColor | undefined {
 
 /**
  * The reader's half of the iPhone app's own selection menu, which stands in for SelectionMenu there.
- * While the reader is mounted it tells the app so (the app's edge swipe back goes off), keeps it told
+ * While the reader is mounted it tells the app so (the app's bounce and forward swipe go off), keeps it told
  * whether the selection is in the reading text (then the app adds Highlight, as a submenu of the
  * colours, and Note, or Reattach Here while moving a highlight), and runs those items on the
  * selection. A no-op in a browser.
