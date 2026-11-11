@@ -300,10 +300,8 @@
 .chapter-pane[data-role="next"] {
   transform: translateX(calc(100% + 24px));
 }
+/* The previous chapter is scrolled to its end, or to the reader's last place in it (ScrollView). */
 .chapter-pane[data-role="prev"] {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
   transform: translateX(calc(-100% - 24px));
 }
 .chapter-column {

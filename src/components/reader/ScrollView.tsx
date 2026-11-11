@@ -32,7 +32,9 @@ import {
 import { dispatchReaderScroll } from "./events";
 import { OVERLAY_SELECTOR, pointerKind, scrollZone, tapAction } from "./gestures";
 import { ReaderBodySkeleton } from "./ReaderBody";
-import type { ChapterScroll } from "./useChapterScroll";
+import type { Spot } from "./chapterSpots";
+import { rectForPoint } from "./dom";
+import { READ_LINE_PX, type ChapterScroll } from "./useChapterScroll";
 import { selectionOpen, usePressArbiter } from "./usePressArbiter";
 
 export type PaneRole = "prev" | "live" | "next";
@@ -53,6 +55,11 @@ interface Props {
   next: Section | null | undefined;
   /** A section's text, for the live pane or a neighbour peeking in. Keep it stable. */
   renderSection: (section: Section, role: PaneRole) => ReactNode;
+  /**
+   * Where the reader last was in a chapter (null: its start; undefined: not read yet). A neighbour
+   * peeks in at that place, as the turn will open it.
+   */
+  spotFor?: (sectionId: string) => Spot | null | undefined;
   /** A turn landed: open the chapter that way (the slide has already shown it). */
   onTurn: (direction: 1 | -1) => void;
   /** Set by the view: turns with the same slide as a drag (buttons and keys). */
@@ -101,7 +108,12 @@ const ChapterPane = memo(function ChapterPane({
 }) {
   const live = role === "live";
   return (
-    <div ref={paneRef} className="chapter-pane" data-role={role} inert={!live} aria-hidden={live ? undefined : true}>
+    <div
+      ref={paneRef}
+      className="chapter-pane"
+      data-role={role}
+      data-section={section?.id}
+      inert={!live} aria-hidden={live ? undefined : true}>
       <div className="chapter-column">
         <div className="chapter-text" data-chapter-text>
           {section ? (
@@ -135,6 +147,7 @@ export function ScrollView({
   prev,
   next,
   renderSection,
+  spotFor,
   onTurn,
   turnRef,
   chrome,
@@ -270,6 +283,33 @@ export function ScrollView({
   }, [currentId, reset, scrollerRef]);
 
   useEffect(() => () => window.clearTimeout(timeout.current), []);
+
+  // The neighbours peek in where a turn would open them: at the reader's last place in them, else
+  // the next at its top and the previous at its end. The chapter just turned away from stays where
+  // the reader left it (its pane is the very one they were reading in).
+  const spotRef = useRef(spotFor);
+  spotRef.current = spotFor;
+  const wasLive = useRef(new Set<string>());
+  const liveId = useRef<string | undefined>(undefined);
+  const prevId = prev?.id;
+  const nextId = next?.id;
+  useLayoutEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    if (liveId.current && liveId.current !== currentId) wasLive.current.add(liveId.current);
+    liveId.current = currentId;
+    for (const id of [...wasLive.current]) if (id === currentId || (id !== prevId && id !== nextId)) wasLive.current.delete(id);
+    const panes = [...track.querySelectorAll<HTMLElement>('.chapter-pane[data-role="prev"], .chapter-pane[data-role="next"]')];
+    const place = (pane: HTMLElement) => {
+      const id = pane.dataset.section;
+      if (!id || wasLive.current.has(id)) return;
+      pane.scrollTop = peekTop(pane, pane.dataset.role === "prev" ? -1 : 1, spotRef.current?.(id));
+    };
+    panes.forEach(place);
+    const ro = new ResizeObserver(() => panes.forEach(place));
+    for (const pane of panes) if (pane.firstElementChild) ro.observe(pane.firstElementChild);
+    return () => ro.disconnect();
+  }, [currentId, prevId, nextId, prev?.html, next?.html, layout.viewHeight]);
 
   // A selection starting under a pending drag (a long press) ends the drag.
   useEffect(() => {
@@ -419,6 +459,18 @@ export function ScrollView({
       </div>
     </div>
   );
+}
+
+/** Where a neighbour pane is scrolled to, peeking in: as useChapterScroll's `reveal` would open it. */
+function peekTop(pane: HTMLElement, side: 1 | -1, spot: Spot | null | undefined): number {
+  const max = Math.max(0, pane.scrollHeight - pane.clientHeight);
+  if (spot === undefined) return side === 1 ? 0 : max;
+  if (spot === null) return 0;
+  const rect = rectForPoint(pane, spot);
+  if (!rect) return side === 1 ? 0 : max;
+  const padTop = parseFloat(getComputedStyle(pane).scrollPaddingTop) || 0;
+  const top = pane.scrollTop + rect.top - (pane.getBoundingClientRect().top + padTop + READ_LINE_PX);
+  return top < 2 * READ_LINE_PX ? 0 : Math.min(max, top);
 }
 
 /** A floating ‹ or › circle, as in YouVersion's reader: 44px, filled grey, no ring or shadow. */

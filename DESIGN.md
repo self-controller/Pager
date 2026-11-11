@@ -183,13 +183,14 @@ scrolls top to bottom, and a chapter changes with a sideways page turn. The mode
 Bible reader (research_notes/iOS reading app UI patterns/youversion.md): its own open-source iOS
 reader has floating ‹ › circles, chrome that follows the scroll, no auto-advance, and chapters that
 open at the top; Pager adds a drag that follows the finger, as UIPageViewController's scroll style
-does, and opens the previous chapter at its end.
+does, opens the previous chapter at its end, and a chapter read before where the reader left it.
 
 **Track.** `.chapter-stage` (`overflow: clip`, `touch-action: pan-y`) holds a track of up to three
 panes: the previous chapter, the open one, the next. Only the middle pane scrolls
 (`overflow-y: auto`, `overscroll-behavior: contain`); the next waits 24 px off the right edge at its
-top, the previous off the left pinned to its end (`display: flex; justify-content: flex-end`, so no
-script keeps it there). Panes are keyed by section, so when a turn lands the pane that slid in simply
+top, the previous off the left at its end; a chapter read before waits where the reader left it, so the
+slide shows the very lines the turn opens on (ScrollView sets the neighbours' `scrollTop`; the chapter
+just turned away from keeps its own). Panes are keyed by section, so when a turn lands the pane that slid in simply
 becomes the open one: nothing is re-parsed or laid out again, and the swap can't flash. The
 neighbours are fetched with the open chapter, and theirs are prefetched; highlights are painted in
 all three. The bars float over the text: panes pad by the top bar, footer, tab bar and safe area, and
@@ -204,7 +205,11 @@ track follows the finger one to one, at 0.35× toward a side with no chapter. Re
 width, or flicked at 0.4 px/ms over 40 px, it slides the rest of the way in 220–320 ms (scaled to the
 distance left), `cubic-bezier(.2,.8,.2,1)`; otherwise back in 250 ms, as does a quick flick back. The
 ‹ › circles, ← and →, and a sideways trackpad swipe (80 px, once per swipe) run the same slide in
-280 ms. A turn fires one selection haptic. The next chapter opens at its top, the previous at its end.
+280 ms. A turn fires one selection haptic. A chapter read before opens where the reader last was in
+it; otherwise the next opens at its top, the previous at its end. The spots are kept per book on this
+device (`chapterSpots.ts`, localStorage `pager.chapterSpots`, the latest 300 chapters of 100 books),
+written with each progress save; the Pages layout's turns use them too. Contents, links and the back
+pill still open where they point.
 Under reduced motion nothing slides: the chapter opens and fades in over 150 ms. There is no
 auto-advance past a chapter's end.
 

@@ -7,6 +7,7 @@ import { queryKeys, useDocument, useSaveProgress, useSection } from "@/api/hooks
 import { ApiError, ErrorCodes, type ProgressUpdate, type Section } from "@/api/types";
 import { AnnotationEditors } from "@/components/reader/AnnotationEditors";
 import { BackPill } from "@/components/reader/BackPill";
+import { forgetSpot, rememberSpot, spotFor } from "@/components/reader/chapterSpots";
 import { FootnotePopover, useFootnotes } from "@/components/reader/FootnotePopover";
 import { PagedView } from "@/components/reader/PagedView";
 import { PageFooter, ProgressLine } from "@/components/reader/PageFooter";
@@ -49,6 +50,15 @@ function isTyping(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
 }
 
+/**
+ * How a chapter turn opens its chapter: where the reader last was in it on this device; a chapter
+ * not read yet at its start going forward and at its end going back.
+ */
+function turnState(docId: string, sectionId: string, direction: 1 | -1): Record<string, unknown> {
+  const resume = spotFor(docId, sectionId);
+  return { page: direction === 1 ? 0 : "last", ...(resume !== undefined ? { resume } : {}) };
+}
+
 type Reattach = { id: string; docId: string; quote: string };
 const noop = () => {};
 type NavState = {
@@ -56,6 +66,8 @@ type NavState = {
   page?: number | "last";
   /** The back pill's place in another chapter: opened there, on the page holding these words. */
   point?: { blockId: string; offset: number };
+  /** A chapter turn: where the reader last was in that chapter on this device (null: its start). */
+  resume?: { blockId: string; offset: number } | null;
   reattach?: Reattach;
   /** Opened from a tool's page (the Assistant page's "Open the book"): open the tool panel on it. */
   openTool?: string;
@@ -143,7 +155,17 @@ export function ReaderPage() {
   layoutRef.current = layout;
 
   const saveProgress = useSaveProgress(docId);
-  const save = useCallback((u: ProgressUpdate) => saveProgress.mutate(u), [saveProgress.mutate]);
+  // Each save also notes the chapter's spot on this device, for a chapter turn to come back to.
+  const save = useCallback(
+    (u: ProgressUpdate) => {
+      // No words at the reading place: the chapter's start when at its top, else not known.
+      if (docId && u.point) rememberSpot(docId, u.sectionId, u.point);
+      else if (docId && u.offset <= 0.001) rememberSpot(docId, u.sectionId, null);
+      else if (docId) forgetSpot(docId, u.sectionId);
+      saveProgress.mutate(u);
+    },
+    [docId, saveProgress.mutate],
+  );
   const { percent, placed } = useReadingProgress({
     section,
     sectionCount: doc?.toc.length ?? 1,
@@ -155,6 +177,7 @@ export function ReaderPage() {
     arrivedByJump: Boolean(navState?.jump),
     initialPage: navState?.page,
     initialPoint: navState?.point,
+    resumePoint: navState?.resume,
   });
   const jumps = useJumpHistory({ docId, section, layout, bodyRef, placed, move });
   const footnotes = useFootnotes({ docId, doc, section, bodyRef });
@@ -216,8 +239,8 @@ export function ReaderPage() {
       }
       const p = pagerRef.current;
       if (direction === 1) {
-        if (!p.next() && section.nextId) move(sectionHref(docId, section.nextId), { page: 0 });
-      } else if (!p.prev() && section.prevId) move(sectionHref(docId, section.prevId), { page: "last" });
+        if (!p.next() && section.nextId) move(sectionHref(docId, section.nextId), turnState(docId, section.nextId, 1));
+      } else if (!p.prev() && section.prevId) move(sectionHref(docId, section.prevId), turnState(docId, section.prevId, -1));
     },
     [docId, section, move, scrollMode],
   );
@@ -233,7 +256,7 @@ export function ReaderPage() {
       if (!docId || !target) return;
       setChrome(true);
       holdChrome();
-      move(sectionHref(docId, target), { page: direction === 1 ? 0 : "last" });
+      move(sectionHref(docId, target), turnState(docId, target, direction));
     },
     [docId, section?.nextId, section?.prevId, setChrome, holdChrome, move],
   );
@@ -391,6 +414,8 @@ export function ReaderPage() {
     [doc, openToc, onInternalLink, onTextClick],
   );
 
+  const peekSpot = useCallback((id: string) => (docId ? spotFor(docId, id) : undefined), [docId]);
+
   const pill = jumps.pill && <BackPill pill={jumps.pill} onClick={jumps.go} />;
   // What the reader is told about where they are: under the page in Pages, a line at the top in Scroll.
   const progress = {
@@ -492,6 +517,7 @@ export function ReaderPage() {
               prev={section ? prevSection : null}
               next={section ? nextSection : null}
               renderSection={renderSection}
+              spotFor={peekSpot}
               onTurn={landTurn}
               turnRef={turnRef}
               chrome={chrome}

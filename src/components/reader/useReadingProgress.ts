@@ -53,8 +53,9 @@ export function pageForPoint(root: Element, point: { blockId: string; offset: nu
 /**
  * Keeps the reader's place, in either layout, three ways:
  *  - when a section opens: jump to `targetId` (a link into the section), else to `initialPoint` (the
- *    back pill's place, flashed), else to the page asked for (arriving from the next or previous
- *    chapter: its start, or its end), else resume at the saved block point (survives font changes
+ *    back pill's place, flashed), else to `resumePoint` (a chapter turn: where the reader last was
+ *    in that chapter on this device), else to the page asked for (a turn into a chapter not read
+ *    yet: its start, or its end), else resume at the saved block point (survives font changes
  *    and edits to the file), else at the saved offset;
  *  - while reading: each time the view comes to rest, save its offset plus the block point at the
  *    reading place (debounced; flushed on section change, tab hide and unmount);
@@ -72,6 +73,7 @@ export function useReadingProgress({
   arrivedByJump,
   initialPage,
   initialPoint,
+  resumePoint,
 }: {
   section: Section | undefined;
   sectionCount: number;
@@ -87,6 +89,8 @@ export function useReadingProgress({
   initialPage?: number | "last";
   /** A block point to open at (the back pill going to another chapter); `initialPage` if it's gone. */
   initialPoint?: { blockId: string; offset: number };
+  /** A chapter turn: where the reader last was in the chapter (null: its start), unflashed; `initialPage` if it's gone. */
+  resumePoint?: { blockId: string; offset: number } | null;
 }): { offset: number; percent: number; placed: boolean } {
   const latest = useRef({
     initial,
@@ -94,11 +98,22 @@ export function useReadingProgress({
     arrivedByJump,
     initialPage,
     initialPoint,
+    resumePoint,
     save,
     revisionId: section?.revisionId,
     layout,
   });
-  latest.current = { initial, targetId, arrivedByJump, initialPage, initialPoint, save, revisionId: section?.revisionId, layout };
+  latest.current = {
+    initial,
+    targetId,
+    arrivedByJump,
+    initialPage,
+    initialPoint,
+    resumePoint,
+    save,
+    revisionId: section?.revisionId,
+    layout,
+  };
   const ready = useRef(false);
   const pending = useRef<ProgressUpdate | null>(null);
   const timer = useRef<number | undefined>(undefined);
@@ -161,13 +176,18 @@ export function useReadingProgress({
     }
 
     ready.current = false;
-    const { initial: saved, targetId: target, arrivedByJump: jump, initialPage: asked, initialPoint: point } = latest.current;
+    const { initial: saved, targetId: target, arrivedByJump: jump, initialPage: asked, initialPoint: point, resumePoint: resume } =
+      latest.current;
     const targetEl = body && target ? findTarget(body, target) : null;
     const resumes = saved?.sectionId === sectionId;
     if (body && targetEl) {
       showTarget(targetEl, p);
     } else if (body && point && placeAtPoint(body, point, p)) {
       flashLanding(body.querySelector(`[data-b="${CSS.escape(point.blockId)}"]`));
+    } else if (resume === null) {
+      p.goTo(0);
+    } else if (body && resume && placeAtPoint(body, resume, p)) {
+      // Back where the reader last was in this chapter.
     } else if (asked !== undefined) {
       if (asked === "last") p.toEnd();
       else p.goTo(asked);
