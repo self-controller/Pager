@@ -7,14 +7,21 @@ export interface ApiEnv {
   VITE_API_URL?: string;
   /** Set to "1" to force the mock even when VITE_API_URL is set. */
   VITE_USE_MOCK?: string;
-  /** Set to "1" in a production build served by the backend (same origin, no proxy). */
+  /** Set to "1" to use the backend without VITE_API_URL (a dev server behind a proxy of its own). */
   VITE_USE_HTTP?: string;
+  /** Vite's flag for a production build. */
+  PROD?: boolean;
 }
 
-/** Mock when no backend is configured; otherwise the HTTP client on the relative /api path. */
+/**
+ * The HTTP client on the relative /api path when a backend is configured, and always in a
+ * production build: every build is served by the backend or bundled into the iPhone app, and a
+ * mock build in `dist/` would show the pretend library at localhost:3006 (`VITE_USE_MOCK=1` still
+ * makes one on purpose). The mock in a dev server with no backend.
+ */
 export function selectApi(env: ApiEnv, mockOptions?: Parameters<typeof createMockApi>[0]): PagerApi {
   if (env.VITE_USE_MOCK === "1") return createMockApi(mockOptions);
-  if (env.VITE_API_URL || env.VITE_USE_HTTP === "1") return createHttpApi("/api");
+  if (env.VITE_API_URL || env.VITE_USE_HTTP === "1" || env.PROD) return createHttpApi("/api");
   return createMockApi(mockOptions);
 }
 

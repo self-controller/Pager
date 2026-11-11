@@ -9,7 +9,7 @@ events, stream, block model) are documented in [API.md](API.md); everything ther
 
 - **Base path:** the UI only calls the relative path `/api`. In dev, Vite (port 5176) proxies `/api` to
   `VITE_API_URL` (the backend suggests `http://localhost:3006`), so CORS is never involved. In production
-  the backend serves the built `dist/` and `/api` from one origin (build with `VITE_USE_HTTP=1`). A phone
+  the backend serves the built `dist/` and `/api` from one origin (`npm run build`; a production build always uses `/api`). A phone
   uses the same build from the remote listener's origin (API.md: Phones).
 - **JSON** request and response bodies; timestamps are ISO-8601 UTC strings.
 - **Errors:** `{ "error": { "code": string, "message": string } }`. `message` may be shown to the reader

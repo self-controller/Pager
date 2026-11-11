@@ -79,7 +79,7 @@ Other scripts: `npm test`, `npm run typecheck`, `npm run build`, `npm run format
 | Mode | When | Data |
 |---|---|---|
 | Preview (mock) | `VITE_API_URL` unset (`npm run dev`) | Four public-domain seed texts (`src/api/seed/`, see its `LICENSE.md`) in a pretend folder, plus anything dropped or created. State is in `localStorage` (`pager.mock.v1`) and can be reset in Settings. |
-| Backend | `VITE_API_URL=http://localhost:3006` (`npm run dev:api`) | The `reads/` folder, read by the server. A production build served by the backend uses `VITE_USE_HTTP=1`. |
+| Backend | `VITE_API_URL=http://localhost:3006` (`npm run dev:api`) | The `reads/` folder, read by the server. A production build (`npm run build`, served by the backend) always uses the backend; `VITE_USE_MOCK=1` makes a mock one. |
 
 Pager settings (theme, text size, typeface, library view and sort, tool panel) are in `localStorage`
 under `pager.settings`.

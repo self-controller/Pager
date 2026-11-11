@@ -10,6 +10,11 @@ describe("selectApi", () => {
     expect(selectApi({ VITE_USE_HTTP: "1" }).mode).toBe("http");
     expect(selectApi({ VITE_API_URL: "http://localhost:3006", VITE_USE_MOCK: "1" }, { storage: null }).mode).toBe("mock");
   });
+
+  it("uses the backend in a production build unless the mock is asked for", () => {
+    expect(selectApi({ PROD: true }).mode).toBe("http");
+    expect(selectApi({ PROD: true, VITE_USE_MOCK: "1" }, { storage: null }).mode).toBe("mock");
+  });
 });
 
 describe("documentQueryString", () => {

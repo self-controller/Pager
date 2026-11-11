@@ -41,7 +41,7 @@ pager --status | --stop | --no-open | --port 4000
   started this way stops itself after six hours with no open tabs; the time is set in
   `PATCH /api/settings/app { idleShutdownMinutes }`.
 - It opens the Vite dev UI if that is running. Otherwise it opens the server's own origin, which
-  serves `../dist` once the UI is built with `VITE_USE_HTTP=1 npm run build`.
+  serves `../dist` once the UI is built with `npm run build`.
 
 **Environment variables:**
 
